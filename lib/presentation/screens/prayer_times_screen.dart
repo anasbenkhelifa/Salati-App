@@ -6,6 +6,8 @@ import '../../core/localization/western_digits.dart';
 import '../../core/localization/app_locale_provider.dart';
 import '../../domain/providers/prayer_times_api_provider.dart';
 import '../../data/services/prayer_times_api_service.dart';
+import '../../data/services/alert_mode_service.dart';
+import '../widgets/prayer_alert_mode_button.dart';
 
 /// Prayer times screen with AlAdhan API + GPS integration
 class PrayerTimesScreen extends StatefulWidget {
@@ -17,9 +19,14 @@ class PrayerTimesScreen extends StatefulWidget {
 
 class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   final PrayerTimesApiProvider _provider = PrayerTimesApiProvider();
+  final AlertModeService _alertModeService = AlertModeService();
   Timer? _countdownTimer;
   Duration _countdown = Duration.zero;
   bool _showDebug = true; // Show debug panel initially
+
+  // Per-prayer alert modes
+  Map<String, AlertMode> _alertModes = {};
+  static const _prayerKeys = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
   @override
   void initState() {
@@ -29,8 +36,22 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
 
   Future<void> _initializePrayerTimes() async {
     await _provider.initialize();
+    await _loadAlertModes();
     _startCountdownTimer();
     if (mounted) setState(() {});
+  }
+
+  Future<void> _loadAlertModes() async {
+    _alertModes = await _alertModeService.loadAlertModes();
+  }
+
+  void _toggleAlertMode(int index) {
+    final key = _prayerKeys[index];
+    final currentMode = _alertModes[key] ?? AlertMode.sound;
+    final newMode = currentMode.next;
+    _alertModes[key] = newMode;
+    _alertModeService.saveAlertMode(key, newMode);
+    setState(() {});
   }
 
   void _startCountdownTimer() {
@@ -364,15 +385,28 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
               Icon(Icons.location_on, color: AppTheme.activeGlow, size: 24),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  locationName,
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      locationName,
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (_provider.lastUpdatedDisplay.isNotEmpty)
+                      Text(
+                        'Updated: ${_provider.lastUpdatedDisplay}',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 11,
+                        ),
+                      ),
+                  ],
                 ),
               ),
               // Debug toggle
@@ -561,15 +595,12 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     final timeStr = westernDigits(_getTimeByIndex(timings, index));
     final name = getPrayerName(context, index);
 
-    // Format countdown
+    // Format countdown using shared formatter (matches notification logic)
+    // Normal countdown to next prayer: MINUS sign "- MM:SS" or "- HH:MM:SS"
     String countdownStr = '';
     if (isNext && _countdown.inSeconds > 0) {
-      final hours = _countdown.inHours;
-      final minutes = _countdown.inMinutes % 60;
-      final seconds = _countdown.inSeconds % 60;
-      countdownStr = westernDigits(
-        '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
-      );
+      // Use shared formatter that handles "hide hours when 0" + western digits
+      countdownStr = formatCountdownWithSign(_countdown, sign: '-');
     }
 
     return Container(
@@ -597,19 +628,10 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       ),
       child: Row(
         children: [
-          // Speaker icon
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              Icons.volume_up,
-              color: Colors.white.withOpacity(0.7),
-              size: 20,
-            ),
+          // Alert mode toggle button
+          PrayerAlertModeButton(
+            mode: _alertModes[_prayerKeys[index]] ?? AlertMode.sound,
+            onTap: () => _toggleAlertMode(index),
           ),
           const SizedBox(width: 16),
           // Prayer name

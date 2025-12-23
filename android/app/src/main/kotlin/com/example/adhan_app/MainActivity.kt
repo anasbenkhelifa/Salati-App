@@ -10,6 +10,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     companion object {
         const val CHANNEL = "com.example.adhan_app/foreground_service"
+        const val ADHAN_CHANNEL = "com.example.adhan_app/adhan"
         const val PREFS_NAME = "adhan_live_prefs"
         const val KEY_ENABLED = "live_notification_enabled"
     }
@@ -17,6 +18,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         
+        // Foreground service channel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "startService" -> {
@@ -47,6 +49,40 @@ class MainActivity : FlutterActivity() {
                     val enabled = call.argument<Boolean>("enabled") ?: false
                     setEnabled(enabled)
                     result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+        
+        // Adhan playback channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ADHAN_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "playAdhan" -> {
+                    val prayerName = call.argument<String>("prayerName") ?: ""
+                    val prayerTime = call.argument<String>("prayerTime") ?: ""
+                    val isArabic = call.argument<Boolean>("isArabic") ?: false
+                    
+                    val intent = Intent(this, AdhanForegroundService::class.java).apply {
+                        action = AdhanForegroundService.ACTION_START_ADHAN
+                        putExtra(AdhanForegroundService.EXTRA_PRAYER_NAME, prayerName)
+                        putExtra(AdhanForegroundService.EXTRA_PRAYER_TIME, prayerTime)
+                        putExtra(AdhanForegroundService.EXTRA_IS_ARABIC, isArabic)
+                    }
+                    
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(intent)
+                    } else {
+                        startService(intent)
+                    }
+                    result.success(true)
+                }
+                "stopAdhan" -> {
+                    AdhanForegroundService.getInstance()?.stopAdhanPlayback()
+                    result.success(true)
+                }
+                "isAdhanPlaying" -> {
+                    val service = AdhanForegroundService.getInstance()
+                    result.success(service != null && service.isAdhanPlaying)
                 }
                 else -> result.notImplemented()
             }

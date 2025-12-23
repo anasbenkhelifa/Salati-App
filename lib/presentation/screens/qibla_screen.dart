@@ -81,10 +81,10 @@ class _QiblaScreenState extends State<QiblaScreen>
     switch (_provider.state) {
       case QiblaDataState.loading:
         return _buildLoadingState(isArabic);
-      case QiblaDataState.permissionDenied:
-        return _buildPermissionDeniedState(context, isArabic);
-      case QiblaDataState.locationDisabled:
-        return _buildLocationDisabledState(context, isArabic);
+      case QiblaDataState.noLocationCached:
+        return _buildNoLocationState(context, isArabic);
+      case QiblaDataState.noQiblaCached:
+        return _buildNoQiblaState(context, isArabic);
       case QiblaDataState.error:
         return _buildErrorState(context, isArabic);
       case QiblaDataState.noCompass:
@@ -101,7 +101,7 @@ class _QiblaScreenState extends State<QiblaScreen>
           const CircularProgressIndicator(color: AppTheme.activeGlow),
           const SizedBox(height: 16),
           Text(
-            isArabic ? 'جاري تحديد الموقع...' : 'Getting location...',
+            isArabic ? 'جاري التحميل...' : 'Loading...',
             style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
           ),
         ],
@@ -109,7 +109,8 @@ class _QiblaScreenState extends State<QiblaScreen>
     );
   }
 
-  Widget _buildPermissionDeniedState(BuildContext context, bool isArabic) {
+  /// No location cached - user needs to set up via Prayer Times
+  Widget _buildNoLocationState(BuildContext context, bool isArabic) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -123,7 +124,7 @@ class _QiblaScreenState extends State<QiblaScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              isArabic ? 'مطلوب إذن الموقع' : 'Location Permission Required',
+              isArabic ? 'لم يتم تحديد الموقع' : 'Location Not Set',
               style: const TextStyle(
                 color: AppTheme.textPrimary,
                 fontSize: 18,
@@ -133,29 +134,13 @@ class _QiblaScreenState extends State<QiblaScreen>
             const SizedBox(height: 8),
             Text(
               isArabic
-                  ? 'نحتاج موقعك لتحديد اتجاه القبلة بدقة'
-                  : 'We need your location to determine accurate Qibla direction.',
+                  ? 'اذهب إلى أوقات الصلاة واضغط "تحديث الموقع"'
+                  : 'Go to Prayer Times and tap "Update Location"',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppTheme.textSecondary.withOpacity(0.7),
                 fontSize: 14,
               ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => _provider.requestPermission(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.activeGlow,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: Text(isArabic ? 'منح الإذن' : 'Grant Permission'),
             ),
           ],
         ),
@@ -163,17 +148,22 @@ class _QiblaScreenState extends State<QiblaScreen>
     );
   }
 
-  Widget _buildLocationDisabledState(BuildContext context, bool isArabic) {
+  /// Location cached but no qibla cached (offline)
+  Widget _buildNoQiblaState(BuildContext context, bool isArabic) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.gps_off, size: 64, color: Colors.white.withOpacity(0.5)),
+            Icon(
+              Icons.wifi_off,
+              size: 64,
+              color: Colors.white.withOpacity(0.5),
+            ),
             const SizedBox(height: 16),
             Text(
-              isArabic ? 'خدمات الموقع معطلة' : 'Location Services Disabled',
+              isArabic ? 'لا يوجد اتصال' : 'No Connection',
               style: const TextStyle(
                 color: AppTheme.textPrimary,
                 fontSize: 18,
@@ -183,29 +173,13 @@ class _QiblaScreenState extends State<QiblaScreen>
             const SizedBox(height: 8),
             Text(
               isArabic
-                  ? 'يرجى تفعيل GPS للحصول على اتجاه القبلة'
-                  : 'Please enable GPS to get Qibla direction.',
+                  ? 'اتصل بالإنترنت واضغط "تحديث الموقع" في أوقات الصلاة'
+                  : 'Connect to internet and tap "Update Location" in Prayer Times',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppTheme.textSecondary.withOpacity(0.7),
                 fontSize: 14,
               ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => _provider.openLocationSettings(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.activeGlow,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: Text(isArabic ? 'تفعيل GPS' : 'Enable GPS'),
             ),
           ],
         ),
@@ -239,28 +213,12 @@ class _QiblaScreenState extends State<QiblaScreen>
             const SizedBox(height: 8),
             Text(
               _provider.errorMessage ??
-                  (isArabic ? 'تحقق من الاتصال' : 'Check your connection'),
+                  (isArabic ? 'حاول لاحقاً' : 'Try again later'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppTheme.textSecondary.withOpacity(0.7),
                 fontSize: 14,
               ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => _provider.refresh(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.activeGlow,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: Text(isArabic ? 'إعادة المحاولة' : 'Retry'),
             ),
           ],
         ),

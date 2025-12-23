@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../data/services/prayer_times_api_service.dart';
 import '../../data/services/prayer_times_cache_service.dart';
 import '../../data/services/bilingual_location_service.dart';
+import '../../data/services/qibla_api_service.dart';
 
 /// State for the prayer times data
 enum PrayerDataState {
@@ -21,6 +22,7 @@ class PrayerTimesApiProvider extends ChangeNotifier {
   final PrayerTimesApiService _apiService = PrayerTimesApiService();
   final PrayerTimesCacheService _cacheService = PrayerTimesCacheService();
   final BilingualLocationService _locationService = BilingualLocationService();
+  final QiblaApiService _qiblaApiService = QiblaApiService();
 
   PrayerDataState _state = PrayerDataState.loading;
   AlAdhanResponse? _response;
@@ -458,6 +460,23 @@ class PrayerTimesApiProvider extends ChangeNotifier {
 
       _state = PrayerDataState.success;
       notifyListeners();
+
+      // Also fetch and cache Qibla direction
+      try {
+        final qiblaResponse = await _qiblaApiService.fetchQiblaDirection(
+          latitude: position.latitude,
+          longitude: position.longitude,
+        );
+        await _cacheService.saveQiblaDirection(qiblaResponse.direction);
+        debugPrint(
+          '[PrayerTimesApiProvider] Qibla also updated: ${qiblaResponse.direction}',
+        );
+      } catch (qiblaError) {
+        debugPrint(
+          '[PrayerTimesApiProvider] Qibla update failed (non-blocking): $qiblaError',
+        );
+      }
+
       debugPrint('[PrayerTimesApiProvider] Location refresh complete');
       return true;
     } catch (e) {

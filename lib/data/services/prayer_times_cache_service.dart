@@ -73,6 +73,10 @@ class PrayerTimesCacheService {
   static const _keyMadhabId = 'cached_madhab_id';
   static const _keyUpdatedAt = 'cached_updated_at';
 
+  // Qibla cache keys
+  static const _keyQiblaDirection = 'cached_qibla_direction';
+  static const _keyQiblaUpdatedAt = 'cached_qibla_updated_at';
+
   // Legacy keys (for backwards compatibility)
   static const _keySettingsMethod = 'settings_method';
   static const _keySettingsMadhab = 'settings_madhab';
@@ -330,6 +334,35 @@ class PrayerTimesCacheService {
     final state = await loadAppState();
     if (state?.prayerTimesDate == date) {
       return state?.prayerTimes;
+    }
+    return null;
+  }
+
+  // ========== QIBLA CACHE ==========
+
+  /// Save cached qibla direction
+  Future<void> saveQiblaDirection(double direction) async {
+    final prefs = await _preferences;
+    await prefs.setDouble(_keyQiblaDirection, direction);
+    await prefs.setInt(
+      _keyQiblaUpdatedAt,
+      DateTime.now().millisecondsSinceEpoch,
+    );
+    debugPrint('[PrayerTimesCacheService] Qibla direction saved: $direction');
+  }
+
+  /// Load cached qibla direction
+  Future<double?> loadQiblaDirection() async {
+    final prefs = await _preferences;
+    return prefs.getDouble(_keyQiblaDirection);
+  }
+
+  /// Get qibla last updated timestamp
+  Future<DateTime?> getQiblaUpdatedAt() async {
+    final prefs = await _preferences;
+    final timestamp = prefs.getInt(_keyQiblaUpdatedAt);
+    if (timestamp != null) {
+      return DateTime.fromMillisecondsSinceEpoch(timestamp);
     }
     return null;
   }

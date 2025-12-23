@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-/// Service to communicate with native Android foreground service
+/// Bridge to communicate with Android ForegroundService via MethodChannel
 class ForegroundServiceBridge {
-  static const MethodChannel _channel = MethodChannel(
+  static const _channel = MethodChannel(
     'com.example.adhan_app/foreground_service',
   );
 
@@ -17,10 +17,10 @@ class ForegroundServiceBridge {
         'title': title,
         'body': body,
       });
-      debugPrint('[ForegroundServiceBridge] Service started: $result');
+      debugPrint('[ForegroundServiceBridge] startService: $result');
       return result == true;
     } catch (e) {
-      debugPrint('[ForegroundServiceBridge] Error starting service: $e');
+      debugPrint('[ForegroundServiceBridge] startService error: $e');
       return false;
     }
   }
@@ -29,10 +29,10 @@ class ForegroundServiceBridge {
   static Future<bool> stopService() async {
     try {
       final result = await _channel.invokeMethod('stopService');
-      debugPrint('[ForegroundServiceBridge] Service stopped: $result');
+      debugPrint('[ForegroundServiceBridge] stopService: $result');
       return result == true;
     } catch (e) {
-      debugPrint('[ForegroundServiceBridge] Error stopping service: $e');
+      debugPrint('[ForegroundServiceBridge] stopService error: $e');
       return false;
     }
   }
@@ -49,40 +49,43 @@ class ForegroundServiceBridge {
       });
       return result == true;
     } catch (e) {
-      debugPrint('[ForegroundServiceBridge] Error updating notification: $e');
+      debugPrint('[ForegroundServiceBridge] updateNotification error: $e');
       return false;
     }
   }
 
   /// Check if the service is currently running
-  static Future<bool> isServiceRunning() async {
+  static Future<bool> isRunning() async {
     try {
-      final result = await _channel.invokeMethod('isServiceRunning');
+      final result = await _channel.invokeMethod('isRunning');
       return result == true;
     } catch (e) {
-      debugPrint('[ForegroundServiceBridge] Error checking service: $e');
+      debugPrint('[ForegroundServiceBridge] isRunning error: $e');
       return false;
     }
   }
 
-  /// Check if live notification is enabled in preferences
+  /// Check if live notification is enabled in settings
   static Future<bool> isEnabled() async {
     try {
       final result = await _channel.invokeMethod('isEnabled');
       return result == true;
     } catch (e) {
-      return false;
+      debugPrint('[ForegroundServiceBridge] isEnabled error: $e');
+      return true; // Default to enabled
     }
   }
 
-  /// Set enabled state in preferences
+  /// Set the enabled flag in SharedPreferences
   static Future<bool> setEnabled(bool enabled) async {
     try {
       final result = await _channel.invokeMethod('setEnabled', {
         'enabled': enabled,
       });
+      debugPrint('[ForegroundServiceBridge] setEnabled($enabled): $result');
       return result == true;
     } catch (e) {
+      debugPrint('[ForegroundServiceBridge] setEnabled error: $e');
       return false;
     }
   }

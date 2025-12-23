@@ -10,8 +10,12 @@
     <!-- Foreground service permissions -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    
+    <!-- Vibration permission for prayer alerts -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     
     <application
         android:label="adhan_app"
@@ -40,11 +44,11 @@
             </intent-filter>
         </activity>
         
-        <!-- Foreground Service for live notification -->
+        <!-- Foreground Service for live notification + Adhan playback -->
         <service
             android:name=".AdhanForegroundService"
             android:exported="false"
-            android:foregroundServiceType="specialUse">
+            android:foregroundServiceType="specialUse|mediaPlayback">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="religiousPrayerTimes" />
@@ -53,6 +57,11 @@
         <!-- BroadcastReceiver to restart notification if dismissed -->
         <receiver
             android:name=".NotificationDismissReceiver"
+            android:exported="false" />
+        
+        <!-- BroadcastReceiver for Adhan notification action buttons -->
+        <receiver
+            android:name=".AdhanActionReceiver"
             android:exported="false" />
         
         <!-- Boot receiver to restart service after reboot -->

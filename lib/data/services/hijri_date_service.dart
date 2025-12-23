@@ -23,15 +23,14 @@ class HijriDate {
     required this.weekdayAr,
     required this.weekdayEn,
   });
-  // Unicode direction control characters
-  // PDF (Pop Directional Formatting) = \u202C
-  // LRE (Left-to-Right Embedding) = \u202A
-  static const String _lre = '\u202A';
-  static const String _pdf = '\u202C';
 
-  /// Format for display (Arabic) - forces correct RTL visual order
-  /// Output: "٢٣ رجب ١٤٤٦ هـ" with day first visually
-  String formatArabic() => '$_lre$day $_pdf$monthNameAr$_lre $year هـ$_pdf';
+  /// Format for display (Arabic) - simple format with RLM marks
+  /// Output: "3 رجب 1447" (day month year, readable order)
+  String formatArabic() {
+    // Use RLM (Right-to-Left Mark) to ensure proper Arabic display
+    // The string is: day monthName year (all with western digits)
+    return '\u200F$day $monthNameAr $year\u200F';
+  }
 
   /// Format for display (English) - LTR, no special handling needed
   String formatEnglish() => '$day $monthNameEn $year AH';
@@ -152,12 +151,43 @@ class HijriDateService {
     return null;
   }
 
-  /// Save to cache
+  /// Save to cache - writes display strings that native Android can read
   Future<void> _saveToCache(String dateKey, HijriDate date) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final jsonStr = jsonEncode(date.toJson());
       await prefs.setString('$_cachePrefix$dateKey', jsonStr);
+
+      // Build the display strings
+      final displayAr = date.formatArabic();
+      final displayEn = date.formatEnglish();
+
+      // Save display strings for native Android notification
+      // shared_preferences automatically prefixes with "flutter." in the actual file
+      await prefs.setString('cached_hijri_display_ar', displayAr);
+      await prefs.setString('cached_hijri_display_en', displayEn);
+
+      // Save timestamp to know when cache was updated
+      await prefs.setInt(
+        'cached_hijri_updated_at',
+        DateTime.now().millisecondsSinceEpoch,
+      );
+
+      // Verify writes by reading back
+      final checkAr = prefs.getString('cached_hijri_display_ar');
+      final checkEn = prefs.getString('cached_hijri_display_en');
+
+      debugPrint('[HijriDateService] ========= HIJRI CACHE SAVED =========');
+      debugPrint(
+        '[HijriDateService] Date: ${date.day} ${date.monthNameEn} ${date.year}',
+      );
+      debugPrint('[HijriDateService] Display AR saved: "$displayAr"');
+      debugPrint('[HijriDateService] Display EN saved: "$displayEn"');
+      debugPrint('[HijriDateService] Verify AR read-back: "$checkAr"');
+      debugPrint('[HijriDateService] Verify EN read-back: "$checkEn"');
+      debugPrint('[HijriDateService] AR match: ${displayAr == checkAr}');
+      debugPrint('[HijriDateService] EN match: ${displayEn == checkEn}');
+      debugPrint('[HijriDateService] =====================================');
     } catch (e) {
       debugPrint('[HijriDateService] Cache save error: $e');
     }

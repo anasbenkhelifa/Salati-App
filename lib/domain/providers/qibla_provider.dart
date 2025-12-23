@@ -2,23 +2,24 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_compass/flutter_compass.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/services/prayer_times_cache_service.dart';
 import '../../data/services/qibla_api_service.dart';
 
 /// State for the Qibla data
 enum QiblaDataState {
   loading,
   success,
-  permissionDenied,
-  locationDisabled,
+  noLocationCached, // User needs to set up location via Prayer Times
+  noQiblaCached, // Location exists but no qibla cached (and offline)
   noCompass,
   error,
 }
 
-/// Provider to manage Qibla compass data
+/// Provider to manage Qibla compass data - OFFLINE-FIRST
+/// Does NOT request GPS. Uses cached location from Prayer Times.
 class QiblaProvider extends ChangeNotifier {
   final QiblaApiService _apiService = QiblaApiService();
+  final PrayerTimesCacheService _cacheService = PrayerTimesCacheService();
 
   QiblaDataState _state = QiblaDataState.loading;
   double? _qiblaBearing; // Fixed bearing from API (0-360)
@@ -31,6 +32,7 @@ class QiblaProvider extends ChangeNotifier {
   String _requestUrl = '';
   bool _hasCompass = false;
   bool _isAligned = false;
+  bool _isUpdating = false; // Non-blocking update indicator
 
   StreamSubscription<CompassEvent>? _compassSubscription;
   DateTime _lastUpdateTime = DateTime.now();
@@ -56,135 +58,90 @@ class QiblaProvider extends ChangeNotifier {
   String get requestUrl => _requestUrl;
   bool get hasCompass => _hasCompass;
   bool get isAligned => _isAligned;
+  bool get isUpdating => _isUpdating;
 
   /// Get the heading as integer degrees (0-360) for center display
-  /// This is the REAL compass heading, NOT offset by Qibla
   int get headingDegrees => _smoothedHeading.round() % 360;
 
   /// Get the rotation for the compass dial (in radians)
-  /// Dial rotates opposite to heading so north indicator stays at top when facing north
   double get dialRotationRadians => -_smoothedHeading * (math.pi / 180);
 
   /// Normalize angle to [0, 360)
   double _normalizeAngle360(double angle) {
-    while (angle < 0) {
-      angle += 360;
-    }
-    while (angle >= 360) {
-      angle -= 360;
-    }
+    while (angle < 0) angle += 360;
+    while (angle >= 360) angle -= 360;
     return angle;
   }
 
   /// Calculate shortest angular difference (handles wrap-around)
-  /// Returns value in range [-180, +180]
   double _shortestAngleDiff(double from, double to) {
     double diff = to - from;
-    while (diff > 180) {
-      diff -= 360;
-    }
-    while (diff < -180) {
-      diff += 360;
-    }
+    while (diff > 180) diff -= 360;
+    while (diff < -180) diff += 360;
     return diff;
   }
 
-  /// Initialize Qibla provider
+  /// Initialize Qibla provider - CACHE-FIRST, no GPS
   Future<void> initialize() async {
     _state = QiblaDataState.loading;
     notifyListeners();
 
     _hasCompass = FlutterCompass.events != null;
-    await _acquireLocationAndFetch();
 
-    if (_hasCompass) {
+    // Load from cache first - NO GPS
+    await _loadFromCache();
+
+    if (_hasCompass && _qiblaBearing != null) {
       _startCompassListening();
     }
   }
 
-  /// Acquire GPS location and fetch Qibla bearing
-  Future<void> _acquireLocationAndFetch() async {
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      final cached = await _loadCachedPosition();
-      if (cached != null) {
-        _latitude = cached.lat;
-        _longitude = cached.lon;
-        await _fetchQiblaBearing();
-      } else {
-        _state = QiblaDataState.locationDisabled;
-        _errorMessage = 'Location services are disabled';
-        notifyListeners();
-      }
-      return;
-    }
+  /// Load qibla from cache - uses cached location from Prayer Times
+  Future<void> _loadFromCache() async {
+    debugPrint('[QiblaProvider] Loading from cache...');
 
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        final cached = await _loadCachedPosition();
-        if (cached != null) {
-          _latitude = cached.lat;
-          _longitude = cached.lon;
-          await _fetchQiblaBearing();
-        } else {
-          _state = QiblaDataState.permissionDenied;
-          _errorMessage = 'Location permission denied';
-          notifyListeners();
-        }
-        return;
-      }
-    }
+    // Check if location is cached (set by Prayer Times)
+    final appState = await _cacheService.loadAppState();
 
-    if (permission == LocationPermission.deniedForever) {
-      final cached = await _loadCachedPosition();
-      if (cached != null) {
-        _latitude = cached.lat;
-        _longitude = cached.lon;
-        await _fetchQiblaBearing();
-      } else {
-        _state = QiblaDataState.permissionDenied;
-        _errorMessage = 'Location permission permanently denied';
-        notifyListeners();
-      }
-      return;
-    }
-
-    try {
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
-        ),
-      );
-
-      _latitude = position.latitude;
-      _longitude = position.longitude;
-      await _saveCachedPosition(_latitude!, _longitude!);
-      await _fetchQiblaBearing();
-    } catch (e) {
-      final cached = await _loadCachedPosition();
-      if (cached != null) {
-        _latitude = cached.lat;
-        _longitude = cached.lon;
-        await _fetchQiblaBearing();
-      } else {
-        _state = QiblaDataState.error;
-        _errorMessage = 'Could not get location: $e';
-        notifyListeners();
-      }
-    }
-  }
-
-  /// Fetch Qibla bearing from API
-  Future<void> _fetchQiblaBearing() async {
-    if (_latitude == null || _longitude == null) {
-      _state = QiblaDataState.error;
-      _errorMessage = 'No location available';
+    if (appState == null) {
+      // No location cached - user needs to setup via Prayer Times
+      _state = QiblaDataState.noLocationCached;
+      _errorMessage = 'Open Prayer Times and update location first';
+      debugPrint('[QiblaProvider] No cached location - needs setup');
       notifyListeners();
       return;
     }
+
+    _latitude = appState.latitude;
+    _longitude = appState.longitude;
+
+    // Check if qibla direction is cached
+    final cachedQibla = await _cacheService.loadQiblaDirection();
+
+    if (cachedQibla != null) {
+      // Use cached qibla instantly
+      _qiblaBearing = cachedQibla;
+      _isFromCache = true;
+      _state = _hasCompass ? QiblaDataState.success : QiblaDataState.noCompass;
+      debugPrint('[QiblaProvider] Using cached qibla: $cachedQibla');
+      notifyListeners();
+      return;
+    }
+
+    // No cached qibla - try to fetch (non-blocking)
+    await _fetchQiblaInBackground();
+  }
+
+  /// Fetch qibla direction from API (non-blocking)
+  Future<void> _fetchQiblaInBackground() async {
+    if (_latitude == null || _longitude == null) {
+      _state = QiblaDataState.noLocationCached;
+      notifyListeners();
+      return;
+    }
+
+    _isUpdating = true;
+    notifyListeners();
 
     try {
       final response = await _apiService.fetchQiblaDirection(
@@ -192,17 +149,46 @@ class QiblaProvider extends ChangeNotifier {
         longitude: _longitude!,
       );
 
-      _qiblaBearing = response.direction; // Fixed bearing from API (0-360)
-      _isFromCache = response.isFromCache;
+      _qiblaBearing = response.direction;
+      _isFromCache = false;
       _requestUrl = response.requestUrl;
+
+      // Save to cache
+      await _cacheService.saveQiblaDirection(response.direction);
+
       _state = _hasCompass ? QiblaDataState.success : QiblaDataState.noCompass;
       _errorMessage = null;
+
+      if (_hasCompass) {
+        _startCompassListening();
+      }
+
+      debugPrint(
+        '[QiblaProvider] Fetched and cached qibla: ${response.direction}',
+      );
     } catch (e) {
-      _state = QiblaDataState.error;
-      _errorMessage = 'Could not get Qibla direction: $e';
+      debugPrint('[QiblaProvider] Failed to fetch qibla: $e');
+      // Offline - show appropriate state
+      if (_qiblaBearing == null) {
+        _state = QiblaDataState.noQiblaCached;
+        _errorMessage = 'Update location in Prayer Times when online';
+      }
+      // If we already have a cached qibla, keep it and don't change state
     }
 
+    _isUpdating = false;
     notifyListeners();
+  }
+
+  /// Refresh qibla when location is updated (called by Prayer Times provider)
+  Future<void> refreshFromNewLocation(double latitude, double longitude) async {
+    debugPrint(
+      '[QiblaProvider] Refreshing from new location: $latitude, $longitude',
+    );
+    _latitude = latitude;
+    _longitude = longitude;
+    _isFromCache = false;
+    await _fetchQiblaInBackground();
   }
 
   /// Start listening to compass events
@@ -226,8 +212,7 @@ class QiblaProvider extends ChangeNotifier {
         _smoothedHeading + _smoothingAlpha * diff,
       );
 
-      // Alignment check: is current heading aligned with Qibla bearing?
-      // diff = how far heading is from qiblaBearing
+      // Alignment check
       final alignmentError = _shortestAngleDiff(
         _smoothedHeading,
         _qiblaBearing!,
@@ -250,39 +235,19 @@ class QiblaProvider extends ChangeNotifier {
     });
   }
 
-  Future<({double lat, double lon})?> _loadCachedPosition() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lat = prefs.getDouble('qibla_last_lat');
-    final lon = prefs.getDouble('qibla_last_lon');
-    if (lat != null && lon != null) {
-      return (lat: lat, lon: lon);
+  /// Soft refresh from cache (on resume) - no GPS, no network
+  Future<void> softRefresh() async {
+    debugPrint('[QiblaProvider] Soft refresh from cache');
+    final cachedQibla = await _cacheService.loadQiblaDirection();
+    if (cachedQibla != null && cachedQibla != _qiblaBearing) {
+      _qiblaBearing = cachedQibla;
+      _isFromCache = true;
+      if (_state != QiblaDataState.success && _hasCompass) {
+        _state = QiblaDataState.success;
+        _startCompassListening();
+      }
+      notifyListeners();
     }
-    return null;
-  }
-
-  Future<void> _saveCachedPosition(double lat, double lon) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('qibla_last_lat', lat);
-    await prefs.setDouble('qibla_last_lon', lon);
-  }
-
-  Future<void> refresh() async {
-    _state = QiblaDataState.loading;
-    notifyListeners();
-    await _acquireLocationAndFetch();
-  }
-
-  Future<void> requestPermission() async {
-    await Geolocator.requestPermission();
-    await refresh();
-  }
-
-  Future<void> openAppSettings() async {
-    await Geolocator.openAppSettings();
-  }
-
-  Future<void> openLocationSettings() async {
-    await Geolocator.openLocationSettings();
   }
 
   @override

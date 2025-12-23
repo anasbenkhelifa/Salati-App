@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/localization/strings.dart';
 import '../../core/localization/app_locale_provider.dart';
-import '../../notification_manager.dart';
-import '../../data/services/notification_service.dart';
+import '../../data/services/adhan_playback_service.dart';
+import '../../data/services/alert_mode_service.dart';
 
 /// Settings screen with glass setting cards and language switcher
 class SettingsScreen extends StatefulWidget {
@@ -15,72 +16,92 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _fullScreenNotification = true;
-  bool _notificationPermission = false;
-  String _notificationStatus = 'Checking...';
+
+  // Adhan debug state
+  final AdhanPlaybackService _adhanService = AdhanPlaybackService();
+  bool _isAdhanTesting = false;
 
   @override
   void initState() {
     super.initState();
-    _checkNotificationPermission();
+    _adhanService.initialize();
   }
 
-  Future<void> _checkNotificationPermission() async {
-    final service = NotificationService();
-    final granted = await service.areNotificationsEnabled();
+  Future<void> _testAdhan() async {
+    if (_isAdhanTesting) return;
+
+    setState(() => _isAdhanTesting = true);
+    HapticFeedback.mediumImpact();
+
+    // Reset the trigger guard so we can test multiple times
+    _adhanService.resetTriggerGuard();
+
+    // Use 'fajr' as the test prayer (will respect its alert mode)
+    final testPrayerKey = 'fajr';
+    final testTime = DateTime.now();
+    final isArabic = AppLocaleProvider.of(context).isArabic;
+
+    // Get the current mode for display
+    final alertModeService = AlertModeService();
+    final mode = await alertModeService.getAlertMode(testPrayerKey);
+
+    // Trigger the Adhan with localized names
+    final prayerName = isArabic ? 'الفجر' : 'Fajr';
+    final prayerTimeStr =
+        '${testTime.hour.toString().padLeft(2, '0')}:${testTime.minute.toString().padLeft(2, '0')}';
+
+    await _adhanService.triggerForPrayer(
+      testPrayerKey,
+      testTime,
+      prayerName: prayerName,
+      prayerTimeFormatted: prayerTimeStr,
+      isArabic: isArabic,
+    );
+
+    // Determine the result message
+    String message;
+    Color bgColor;
+
+    switch (mode) {
+      case AlertMode.sound:
+        message =
+            isArabic
+                ? 'تم تشغيل اختبار الأذان (صوت + اهتزاز)'
+                : 'Adhan debug triggered (Sound + Vibration)';
+        bgColor = Colors.green;
+        break;
+      case AlertMode.vibrate:
+        message =
+            isArabic
+                ? 'تم تشغيل اختبار الأذان (اهتزاز فقط)'
+                : 'Adhan debug triggered (Vibration only)';
+        bgColor = Colors.orange;
+        break;
+      case AlertMode.silent:
+        message =
+            isArabic
+                ? 'الوضع الصامت: لم يتم تشغيل شيء'
+                : 'Silent mode: nothing played';
+        bgColor = Colors.grey;
+        break;
+    }
+
     if (mounted) {
-      setState(() {
-        _notificationPermission = granted;
-        _notificationStatus = granted ? 'Enabled ✓' : 'Disabled ✗';
-      });
-    }
-  }
-
-  Future<void> _testNotification() async {
-    final manager = NotificationManager.of(context);
-    if (manager == null) {
-      debugPrint('[Settings] NotificationManager not found');
-      return;
-    }
-
-    final success = await manager.testNotification();
-    if (success) {
-      // Start live notification after test
-      await manager.startLiveNotification();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Test notification sent! Check your notification tray.',
-          ),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Failed to send notification. Please grant permission.',
-          ),
-          backgroundColor: Colors.orange,
+        SnackBar(
+          content: Text(message),
+          backgroundColor: bgColor,
+          duration: const Duration(seconds: 3),
         ),
       );
     }
-    await _checkNotificationPermission();
-  }
 
-  Future<void> _requestPermission() async {
-    final manager = NotificationManager.of(context);
-    if (manager == null) return;
+    // Auto-reset after 5 seconds so repeated testing works
+    await Future.delayed(const Duration(seconds: 5));
+    _adhanService.resetTriggerGuard();
 
-    final granted = await manager.requestPermission();
-    await _checkNotificationPermission();
-
-    if (!granted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enable notifications in system settings.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+    if (mounted) {
+      setState(() => _isAdhanTesting = false);
     }
   }
 
@@ -111,8 +132,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Expanded(
               child: ListView(
                 children: [
-                  // Notification Debug Section
-                  _buildNotificationDebugSection(),
+                  // Adhan Debug Section
+                  _buildAdhanDebugSection(),
                   const SizedBox(height: 20),
                   // Language switcher
                   _buildLanguageSwitcher(context, localeController),
@@ -162,88 +183,120 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildNotificationDebugSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.orange.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.bug_report, color: Colors.orange, size: 20),
-              const SizedBox(width: 8),
-              const Text(
-                'Notification Debug',
-                style: TextStyle(
-                  color: Colors.orange,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+  Widget _buildAdhanDebugSection() {
+    final isArabic = AppLocaleProvider.of(context).isArabic;
+
+    return GestureDetector(
+      onTapDown: (_) => HapticFeedback.lightImpact(),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppTheme.activeGlow.withValues(alpha: 0.15),
+              AppTheme.activeGlow.withValues(alpha: 0.05),
             ],
           ),
-          const SizedBox(height: 12),
-          // Status
-          Row(
-            children: [
-              const Text(
-                'Permission: ',
-                style: TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-              Text(
-                _notificationStatus,
-                style: TextStyle(
-                  color: _notificationPermission ? Colors.green : Colors.red,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppTheme.activeGlow.withValues(alpha: 0.3),
+            width: 1,
           ),
-          const SizedBox(height: 12),
-          // Buttons
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _testNotification,
-                  icon: const Icon(Icons.notifications_active, size: 18),
-                  label: const Text('Test Notification'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.activeGlow,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.activeGlow.withValues(alpha: 0.1),
+              blurRadius: 20,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppTheme.activeGlow.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.mosque_rounded,
+                    color: AppTheme.activeGlow,
+                    size: 20,
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              if (!_notificationPermission)
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _requestPermission,
-                    icon: const Icon(Icons.security, size: 18),
-                    label: const Text('Grant'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                const SizedBox(width: 12),
+                Text(
+                  isArabic ? 'اختبار الأذان' : 'Adhan Debug',
+                  style: const TextStyle(
+                    color: AppTheme.activeGlow,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-            ],
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Description
+            Text(
+              isArabic
+                  ? 'اضغط لاختبار تشغيل الأذان باستخدام إعدادات صلاة الفجر'
+                  : 'Tap to test Adhan playback using Fajr prayer settings',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Test button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isAdhanTesting ? null : _testAdhan,
+                icon:
+                    _isAdhanTesting
+                        ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                        : const Icon(Icons.play_arrow_rounded, size: 20),
+                label: Text(
+                  _isAdhanTesting
+                      ? (isArabic ? 'جاري التشغيل...' : 'Playing...')
+                      : (isArabic ? 'تشغيل اختبار الأذان' : 'Test Adhan'),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.activeGlow,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: AppTheme.activeGlow.withValues(
+                    alpha: 0.5,
+                  ),
+                  disabledForegroundColor: Colors.white70,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

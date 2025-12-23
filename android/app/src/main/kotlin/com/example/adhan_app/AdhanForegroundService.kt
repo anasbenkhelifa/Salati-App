@@ -4,48 +4,116 @@ import android.app.*
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.SharedPreferences
+import android.content.res.AssetFileDescriptor
+import android.database.ContentObserver
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.*
 
 /**
- * Foreground Service for persistent live prayer notification
- * This service keeps running even when the app is closed
+ * Foreground Service for:
+ * 1) Persistent live prayer countdown notification
+ * 2) Adhan audio playback with ongoing "Adhan is playing" notification
+ * Computes everything NATIVELY from SharedPreferences cache - no Flutter dependency
  */
 class AdhanForegroundService : Service() {
     
     companion object {
         const val TAG = "AdhanForegroundService"
         const val CHANNEL_ID = "adhan_live_channel"
+        const val CHANNEL_ID_PLAYING = "adhan_playing_channel"
         const val NOTIFICATION_ID = 1001
+        const val NOTIFICATION_ID_PLAYING = 1002
         const val ACTION_STOP = "com.example.adhan_app.STOP_SERVICE"
-        const val ACTION_UPDATE = "com.example.adhan_app.UPDATE_NOTIFICATION"
+        const val ACTION_START_ADHAN = "com.example.adhan_app.START_ADHAN"
+        
+        // For backward compatibility with MainActivity/NotificationDismissReceiver
         const val EXTRA_TITLE = "title"
         const val EXTRA_BODY = "body"
+        const val EXTRA_PRAYER_NAME = "prayer_name"
+        const val EXTRA_PRAYER_TIME = "prayer_time"
+        const val EXTRA_IS_ARABIC = "is_arabic"
+        const val EXTRA_OCCURRENCE_KEY = "occurrence_key"
         
-        // Singleton reference for updates
+        // Grace window: 30 minutes after prayer
+        const val GRACE_WINDOW_MINUTES = 30
+        // Warning: last 20 minutes before prayer
+        const val WARNING_MINUTES = 20
+        
         @Volatile
         private var instance: AdhanForegroundService? = null
         
         fun getInstance(): AdhanForegroundService? = instance
-        
         fun isRunning(): Boolean = instance != null
     }
     
     private val handler = Handler(Looper.getMainLooper())
-    private var currentTitle = "Adhan App"
-    private var currentBody = "Prayer times"
+    private var tickerRunning = false
+    private lateinit var prefs: SharedPreferences
+    
+    // Adhan playback state
+    private var mediaPlayer: MediaPlayer? = null
+    var isAdhanPlaying = false
+        private set
+    private var currentOccurrenceKey: String? = null
+    private var currentPrayerName: String? = null
+    private var currentPrayerTime: String? = null
+    private var currentIsArabic: Boolean = false
+    
+    // Hardware stop listeners - for Power/Volume button detection
+    private var screenOffReceiver: BroadcastReceiver? = null
+    private var volumeObserver: ContentObserver? = null
+    private var baselineVolume: Int = -1
+    private var audioManager: AudioManager? = null
+    
+    // Prayer names
+    private val prayerNamesEn = arrayOf("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha")
+    private val prayerNamesAr = arrayOf("الفجر", "الظهر", "العصر", "المغرب", "العشاء")
+    
+    // Hijri month names (Arabic)
+    private val hijriMonthsAr = arrayOf(
+        "محرم", "صفر", "ربيع الأول", "ربيع الثاني",
+        "جمادى الأولى", "جمادى الآخرة", "رجب", "شعبان",
+        "رمضان", "شوال", "ذو القعدة", "ذو الحجة"
+    )
+    private val hijriMonthsEn = arrayOf(
+        "Muharram", "Safar", "Rabi' al-Awwal", "Rabi' al-Thani",
+        "Jumada al-Awwal", "Jumada al-Thani", "Rajab", "Sha'ban",
+        "Ramadan", "Shawwal", "Dhu al-Qi'dah", "Dhu al-Hijjah"
+    )
+    
+    private val tickerRunnable = object : Runnable {
+        override fun run() {
+            if (!isAdhanPlaying) {
+                updateNotificationFromCache()
+            }
+            handler.postDelayed(this, 1000) // Update every second
+        }
+    }
     
     override fun onCreate() {
         super.onCreate()
         instance = this
+        prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         Log.d(TAG, "Service created")
         createNotificationChannel()
+        createAdhanPlayingChannel()
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -54,23 +122,26 @@ class AdhanForegroundService : Service() {
         when (intent?.action) {
             ACTION_STOP -> {
                 Log.d(TAG, "Stopping service via ACTION_STOP")
+                stopAdhanPlayback()
+                stopTicker()
                 stopSelf()
                 return START_NOT_STICKY
             }
-            ACTION_UPDATE -> {
-                val title = intent.getStringExtra(EXTRA_TITLE) ?: currentTitle
-                val body = intent.getStringExtra(EXTRA_BODY) ?: currentBody
-                updateNotificationContent(title, body)
+            ACTION_START_ADHAN -> {
+                Log.d(TAG, "Starting Adhan playback")
+                val prayerName = intent.getStringExtra(EXTRA_PRAYER_NAME) ?: ""
+                val prayerTime = intent.getStringExtra(EXTRA_PRAYER_TIME) ?: ""
+                val isArabic = intent.getBooleanExtra(EXTRA_IS_ARABIC, false)
+                val occurrenceKey = intent.getStringExtra(EXTRA_OCCURRENCE_KEY) ?: ""
+                startAdhanPlayback(prayerName, prayerTime, isArabic, occurrenceKey)
             }
             else -> {
-                // Start or restart service
-                val title = intent?.getStringExtra(EXTRA_TITLE) ?: currentTitle
-                val body = intent?.getStringExtra(EXTRA_BODY) ?: currentBody
-                startForegroundWithNotification(title, body)
+                // Start or restart service - load from cache immediately
+                startForegroundWithCachedData()
+                startTicker()
             }
         }
         
-        // START_STICKY ensures service restarts if killed by system
         return START_STICKY
     }
     
@@ -78,8 +149,26 @@ class AdhanForegroundService : Service() {
     
     override fun onDestroy() {
         Log.d(TAG, "Service destroyed")
+        stopAdhanPlayback()
+        stopTicker()
         instance = null
         super.onDestroy()
+    }
+    
+    private fun startTicker() {
+        if (tickerRunning) {
+            Log.d(TAG, "Ticker already running, skipping")
+            return
+        }
+        tickerRunning = true
+        handler.post(tickerRunnable)
+        Log.d(TAG, "Ticker started")
+    }
+    
+    private fun stopTicker() {
+        tickerRunning = false
+        handler.removeCallbacks(tickerRunnable)
+        Log.d(TAG, "Ticker stopped")
     }
     
     private fun createNotificationChannel() {
@@ -103,26 +192,566 @@ class AdhanForegroundService : Service() {
         }
     }
     
-    private fun startForegroundWithNotification(title: String, body: String) {
-        currentTitle = title
-        currentBody = body
-        
-        val notification = buildNotification(title, body)
-        startForeground(NOTIFICATION_ID, notification)
-        Log.d(TAG, "Started foreground with notification: $title")
+    private fun createAdhanPlayingChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID_PLAYING,
+                "Adhan Playing",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notification shown while Adhan is playing"
+                setShowBadge(true)
+                setSound(null, null) // We play our own audio
+                enableVibration(false) // We handle vibration ourselves
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
+            
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+            Log.d(TAG, "Adhan playing channel created")
+        }
     }
     
-    fun updateNotificationContent(title: String, body: String) {
-        currentTitle = title
-        currentBody = body
+    // ==================== ADHAN PLAYBACK ====================
+    
+    /**
+     * Check if an occurrence is muted in SharedPreferences
+     */
+    fun isOccurrenceMuted(occurrenceKey: String): Boolean {
+        return prefs.getBoolean("flutter.muted_occurrence_$occurrenceKey", false)
+    }
+    
+    /**
+     * Start Adhan playback with notification
+     */
+    fun startAdhanPlayback(prayerName: String, prayerTime: String, isArabic: Boolean, occurrenceKey: String) {
+        Log.d(TAG, "startAdhanPlayback: $prayerName at $prayerTime, key=$occurrenceKey")
         
+        // Check if this occurrence is muted
+        if (isOccurrenceMuted(occurrenceKey)) {
+            Log.d(TAG, "Occurrence $occurrenceKey is muted, skipping playback")
+            return
+        }
+        
+        // Store current playback info
+        isAdhanPlaying = true
+        currentOccurrenceKey = occurrenceKey
+        currentPrayerName = prayerName
+        currentPrayerTime = prayerTime
+        currentIsArabic = isArabic
+        
+        // Vibrate first
+        vibrateForAdhan()
+        
+        // Play audio
+        try {
+            mediaPlayer?.release()
+            mediaPlayer = MediaPlayer().apply {
+                val afd: AssetFileDescriptor = assets.openFd("flutter_assets/assets/audio/adhan.mp3")
+                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                afd.close()
+                
+                setAudioAttributes(AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build())
+                
+                setOnPreparedListener {
+                    Log.d(TAG, "MediaPlayer prepared, starting playback")
+                    start()
+                }
+                
+                setOnCompletionListener {
+                    Log.d(TAG, "Adhan playback completed")
+                    stopAdhanPlayback()
+                }
+                
+                setOnErrorListener { _, what, extra ->
+                    Log.e(TAG, "MediaPlayer error: what=$what, extra=$extra")
+                    stopAdhanPlayback()
+                    true
+                }
+                
+                prepareAsync()
+            }
+            Log.d(TAG, "MediaPlayer initialized")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting Adhan playback: ${e.message}")
+            isAdhanPlaying = false
+            return
+        }
+        
+        // Update notification to "Adhan is playing" mode
+        updateToPlayingNotification()
+        
+        // Register hardware stop listeners (power button, volume buttons)
+        registerHardwareStopListeners()
+    }
+    
+    /**
+     * Stop Adhan playback and revert notification
+     */
+    fun stopAdhanPlayback() {
+        Log.d(TAG, "stopAdhanPlayback")
+        
+        // Unregister hardware stop listeners first
+        unregisterHardwareStopListeners()
+        
+        try {
+            mediaPlayer?.stop()
+            mediaPlayer?.release()
+            mediaPlayer = null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping MediaPlayer: ${e.message}")
+        }
+        
+        isAdhanPlaying = false
+        currentOccurrenceKey = null
+        currentPrayerName = null
+        currentPrayerTime = null
+        
+        // Cancel the playing notification
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.cancel(NOTIFICATION_ID_PLAYING)
+        
+        // Revert to normal countdown notification using startForeground
+        val (title, body) = computeNotificationContent()
+        val notification = buildNotification(title, body)
+        startForeground(NOTIFICATION_ID, notification)
+        Log.d(TAG, "Reverted to countdown notification")
+    }
+    
+    /**
+     * Vibrate for Adhan (3 pulses)
+     */
+    private fun vibrateForAdhan() {
+        try {
+            val pattern = longArrayOf(0, 500, 200, 500, 200, 500)
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                val vibrator = vibratorManager.defaultVibrator
+                vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
+            } else {
+                @Suppress("DEPRECATION")
+                val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(pattern, -1)
+                }
+            }
+            Log.d(TAG, "Vibration triggered")
+        } catch (e: Exception) {
+            Log.e(TAG, "Vibration error: ${e.message}")
+        }
+    }
+    
+    // ==================== HARDWARE STOP LISTENERS ====================
+    
+    /**
+     * Register listeners for hardware button stop (power button via screen off, volume buttons)
+     */
+    private fun registerHardwareStopListeners() {
+        Log.d(TAG, "Registering hardware stop listeners")
+        
+        // Initialize AudioManager
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        
+        // Store baseline volume for alarm stream
+        baselineVolume = audioManager?.getStreamVolume(AudioManager.STREAM_ALARM) ?: -1
+        Log.d(TAG, "Baseline alarm volume: $baselineVolume")
+        
+        // Register screen off receiver (power button proxy)
+        screenOffReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == Intent.ACTION_SCREEN_OFF && isAdhanPlaying) {
+                    Log.d(TAG, "Screen off detected - stopping Adhan")
+                    handler.post { stopAdhanPlayback() }
+                }
+            }
+        }
+        val screenFilter = IntentFilter(Intent.ACTION_SCREEN_OFF)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(screenOffReceiver, screenFilter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(screenOffReceiver, screenFilter)
+        }
+        Log.d(TAG, "Screen off receiver registered")
+        
+        // Register volume change observer
+        volumeObserver = object : ContentObserver(handler) {
+            override fun onChange(selfChange: Boolean) {
+                if (!isAdhanPlaying) return
+                
+                val currentVolume = audioManager?.getStreamVolume(AudioManager.STREAM_ALARM) ?: baselineVolume
+                if (currentVolume != baselineVolume) {
+                    Log.d(TAG, "Volume changed from $baselineVolume to $currentVolume - stopping Adhan")
+                    handler.post { stopAdhanPlayback() }
+                }
+            }
+        }
+        contentResolver.registerContentObserver(
+            Settings.System.CONTENT_URI,
+            true,
+            volumeObserver!!
+        )
+        Log.d(TAG, "Volume observer registered")
+    }
+    
+    /**
+     * Unregister hardware stop listeners
+     */
+    private fun unregisterHardwareStopListeners() {
+        Log.d(TAG, "Unregistering hardware stop listeners")
+        
+        // Unregister screen off receiver
+        screenOffReceiver?.let {
+            try {
+                unregisterReceiver(it)
+                Log.d(TAG, "Screen off receiver unregistered")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error unregistering screen off receiver: ${e.message}")
+            }
+        }
+        screenOffReceiver = null
+        
+        // Unregister volume observer
+        volumeObserver?.let {
+            try {
+                contentResolver.unregisterContentObserver(it)
+                Log.d(TAG, "Volume observer unregistered")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error unregistering volume observer: ${e.message}")
+            }
+        }
+        volumeObserver = null
+        
+        baselineVolume = -1
+        audioManager = null
+    }
+    
+    /**
+     * Update notification to "Adhan is playing" mode with STOP action only
+     * Uses startForeground to make it a proper ongoing foreground notification
+     * Uses BigTextStyle to ensure action button is visible without expanding
+     */
+    private fun updateToPlayingNotification() {
+        val title = if (currentIsArabic) "يتم تشغيل الأذان" else "Adhan is playing"
+        val body = if (currentIsArabic) {
+            // Arabic: use bidi isolate marks for proper formatting
+            "\u2067$currentPrayerName\u2069 - \u2067$currentPrayerTime\u2069"
+        } else {
+            "$currentPrayerName - $currentPrayerTime"
+        }
+        
+        // Create STOP action
+        val stopIntent = Intent(this, AdhanActionReceiver::class.java).apply {
+            action = AdhanActionReceiver.ACTION_STOP_ADHAN
+        }
+        val stopPendingIntent = PendingIntent.getBroadcast(
+            this, 200, stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val stopLabel = if (currentIsArabic) "إيقاف" else "Stop"
+        
+        // Open app intent
+        val openAppIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val openAppPendingIntent = PendingIntent.getActivity(
+            this, 0, openAppIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        // Use BigTextStyle to increase chance of showing action in collapsed view
+        val bigTextStyle = NotificationCompat.BigTextStyle()
+            .setBigContentTitle(title)
+            .bigText(body)
+        
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID_PLAYING)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(bigTextStyle)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setContentIntent(openAppPendingIntent)
+            .addAction(android.R.drawable.ic_media_pause, stopLabel, stopPendingIntent)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .build()
+        
+        // Use startForeground to make this an ongoing foreground notification
+        startForeground(NOTIFICATION_ID_PLAYING, notification)
+        Log.d(TAG, "Playing foreground notification started: $title | $body")
+    }
+    
+    private fun startForegroundWithCachedData() {
+        val (title, body) = computeNotificationContent()
+        val notification = buildNotification(title, body)
+        startForeground(NOTIFICATION_ID, notification)
+        Log.d(TAG, "Started foreground: $title | $body")
+    }
+    
+    private fun updateNotificationFromCache() {
+        val (title, body) = computeNotificationContent()
         val notification = buildNotification(title, body)
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIFICATION_ID, notification)
     }
     
+    /**
+     * Public method for backward compatibility with MainActivity
+     * Still uses native cache computation - ignores parameters
+     */
+    fun updateNotificationContent(title: String, body: String) {
+        Log.d(TAG, "updateNotificationContent called (using cache instead)")
+        updateNotificationFromCache()
+    }
+    
+    /**
+     * Compute notification content from SharedPreferences cache
+     * Returns Pair(title, body)
+     */
+    private fun computeNotificationContent(): Pair<String, String> {
+        // Read cache
+        val prayerTimesJson = prefs.getString("flutter.cached_prayer_times_json", null)
+        val cachedDate = prefs.getString("flutter.cached_prayer_times_date", null)
+        val isArabic = prefs.getString("flutter.app_language", "en") == "ar"
+        val cityAr = prefs.getString("flutter.cached_city_ar", "") ?: ""
+        val cityEn = prefs.getString("flutter.cached_city_en", "") ?: ""
+        
+        val cacheExists = !prayerTimesJson.isNullOrEmpty()
+        Log.d(TAG, "SERVICE TICK: cacheExists=$cacheExists, cachedDate=$cachedDate")
+        
+        if (!cacheExists) {
+            // No cache - show setup message
+            return if (isArabic) {
+                Pair("افتح التطبيق لإكمال الإعداد", "لم يتم تحديد الموقع وأوقات الصلاة")
+            } else {
+                Pair("Open the app to finish setup", "Location & prayer times not cached yet")
+            }
+        }
+        
+        // Parse prayer times
+        val timings = parsePrayerTimes(prayerTimesJson!!)
+        if (timings == null) {
+            return if (isArabic) {
+                Pair("خطأ في البيانات", "أعد تحديث أوقات الصلاة")
+            } else {
+                Pair("Data error", "Please refresh prayer times")
+            }
+        }
+        
+        // Build title: city + hijri date
+        val city = if (isArabic) cityAr.ifEmpty { cityEn } else cityEn.ifEmpty { cityAr }
+        val hijriDate = getHijriDateString(isArabic)
+        val title = if (city.isNotEmpty()) "$city • $hijriDate" else hijriDate
+        
+        // Compute prayer status
+        val now = Calendar.getInstance()
+        val prayerStatus = computePrayerStatus(timings, now, isArabic)
+        
+        Log.d(TAG, "TICK: nextPrayer=${prayerStatus.prayerName}, remaining=${prayerStatus.countdown}, grace=${prayerStatus.isGrace}")
+        
+        // Build body: prayer name + time + countdown
+        val body = "${prayerStatus.prayerName} ${prayerStatus.prayerTime} | ${prayerStatus.countdown}"
+        
+        return Pair(title, body)
+    }
+    
+    /**
+     * Parse prayer times JSON to get timings map
+     */
+    private fun parsePrayerTimes(json: String): Map<String, String>? {
+        return try {
+            val root = JSONObject(json)
+            val data = root.optJSONObject("data") ?: root
+            val timings = data.optJSONObject("timings") ?: return null
+            
+            mapOf(
+                "Fajr" to (timings.optString("Fajr", "05:00") ?: "05:00"),
+                "Dhuhr" to (timings.optString("Dhuhr", "12:00") ?: "12:00"),
+                "Asr" to (timings.optString("Asr", "15:30") ?: "15:30"),
+                "Maghrib" to (timings.optString("Maghrib", "18:00") ?: "18:00"),
+                "Isha" to (timings.optString("Isha", "19:30") ?: "19:30")
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing prayer times: $e")
+            null
+        }
+    }
+    
+    /**
+     * Get Hijri date string from Flutter's cached display strings
+     * Falls back to cached components, then approximation if no cache
+     */
+    private fun getHijriDateString(isArabic: Boolean): String {
+        // First try: cached display strings from Flutter
+        val displayKey = if (isArabic) "flutter.cached_hijri_display_ar" else "flutter.cached_hijri_display_en"
+        val cachedDisplay = prefs.getString(displayKey, null)
+        if (!cachedDisplay.isNullOrBlank()) {
+            return cachedDisplay
+        }
+        
+        // Second try: cached components
+        val cachedHijriDay = prefs.getInt("flutter.cached_hijri_day", 0)
+        val cachedHijriMonth = prefs.getInt("flutter.cached_hijri_month", 0)
+        val cachedHijriYear = prefs.getInt("flutter.cached_hijri_year", 0)
+        
+        if (cachedHijriDay > 0 && cachedHijriMonth > 0 && cachedHijriYear > 0) {
+            val monthName = if (isArabic) {
+                hijriMonthsAr.getOrElse(cachedHijriMonth - 1) { "رجب" }
+            } else {
+                hijriMonthsEn.getOrElse(cachedHijriMonth - 1) { "Rajab" }
+            }
+            return if (isArabic) {
+                "\u200F$cachedHijriDay $monthName $cachedHijriYear\u200F"
+            } else {
+                "$cachedHijriDay $monthName $cachedHijriYear AH"
+            }
+        }
+        
+        // Fallback: approximate from Gregorian
+        val now = Calendar.getInstance()
+        val gregorianYear = now.get(Calendar.YEAR)
+        val gregorianDay = now.get(Calendar.DAY_OF_MONTH)
+        val hijriYear = ((gregorianYear - 622) * 33 / 32)
+        val monthName = if (isArabic) hijriMonthsAr[6] else hijriMonthsEn[6]
+        
+        return if (isArabic) {
+            "\u200F$gregorianDay $monthName $hijriYear\u200F"
+        } else {
+            "$gregorianDay $monthName $hijriYear AH"
+        }
+    }
+    
+    /**
+     * Compute prayer status: name, time, countdown, color indicator
+     */
+    private fun computePrayerStatus(timings: Map<String, String>, now: Calendar, isArabic: Boolean): PrayerStatus {
+        val prayerKeys = arrayOf("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha")
+        val prayerNames = if (isArabic) prayerNamesAr else prayerNamesEn
+        
+        val today = Calendar.getInstance()
+        val prayerCalendars = prayerKeys.mapIndexed { index, key ->
+            val timeStr = timings[key] ?: "12:00"
+            val parts = timeStr.split(":")
+            val hour = parts.getOrElse(0) { "12" }.trim().split(" ")[0].toIntOrNull() ?: 12
+            val minute = parts.getOrElse(1) { "00" }.trim().split(" ")[0].toIntOrNull() ?: 0
+            
+            Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, hour)
+                set(Calendar.MINUTE, minute)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            } to prayerNames[index]
+        }
+        
+        // Find last passed prayer and next upcoming prayer
+        var lastPrayerIndex: Int? = null
+        var lastPrayerTime: Calendar? = null
+        var nextPrayerIndex: Int? = null
+        var nextPrayerTime: Calendar? = null
+        
+        for (i in prayerCalendars.indices) {
+            val (prayerCal, _) = prayerCalendars[i]
+            if (now.before(prayerCal)) {
+                nextPrayerIndex = i
+                nextPrayerTime = prayerCal
+                break
+            } else {
+                lastPrayerIndex = i
+                lastPrayerTime = prayerCal
+            }
+        }
+        
+        // Check for grace window (within 30 min after last prayer)
+        if (lastPrayerTime != null && lastPrayerIndex != null) {
+            val elapsedMinutes = (now.timeInMillis - lastPrayerTime.timeInMillis) / 60000
+            if (elapsedMinutes < GRACE_WINDOW_MINUTES) {
+                // Grace window - show elapsed time with + sign
+                val elapsed = now.timeInMillis - lastPrayerTime.timeInMillis
+                val countdownStr = formatDuration(elapsed, isPositive = true)
+                val prayerName = prayerNames[lastPrayerIndex]
+                val prayerTimeStr = formatPrayerTime(lastPrayerTime, isArabic)
+                
+                return PrayerStatus(
+                    prayerName = prayerName,
+                    prayerTime = prayerTimeStr,
+                    countdown = countdownStr,
+                    isGrace = true,
+                    isWarning = false
+                )
+            }
+        }
+        
+        // If all prayers passed, next is tomorrow's Fajr
+        if (nextPrayerIndex == null) {
+            nextPrayerIndex = 0
+            nextPrayerTime = prayerCalendars[0].first.apply {
+                add(Calendar.DAY_OF_YEAR, 1)
+            }
+        }
+        
+        // Normal countdown to next prayer
+        val remaining = nextPrayerTime!!.timeInMillis - now.timeInMillis
+        val remainingMinutes = remaining / 60000
+        val isWarning = remainingMinutes < WARNING_MINUTES
+        val countdownStr = formatDuration(remaining, isPositive = false)
+        val prayerName = prayerNames[nextPrayerIndex!!]
+        val prayerTimeStr = formatPrayerTime(nextPrayerTime, isArabic)
+        
+        return PrayerStatus(
+            prayerName = prayerName,
+            prayerTime = prayerTimeStr,
+            countdown = countdownStr,
+            isGrace = false,
+            isWarning = isWarning
+        )
+    }
+    
+    /**
+     * Format duration with sign and hide hours when 0
+     */
+    private fun formatDuration(millis: Long, isPositive: Boolean): String {
+        val totalSeconds = kotlin.math.abs(millis / 1000)
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+        
+        val sign = if (isPositive) "+" else "-"
+        
+        return if (hours > 0) {
+            String.format("%s %02d:%02d:%02d", sign, hours, minutes, seconds)
+        } else {
+            String.format("%s %02d:%02d", sign, minutes, seconds)
+        }
+    }
+    
+    /**
+     * Format prayer time for display
+     */
+    private fun formatPrayerTime(cal: Calendar, isArabic: Boolean): String {
+        val hour = cal.get(Calendar.HOUR_OF_DAY)
+        val minute = cal.get(Calendar.MINUTE)
+        val hour12 = if (hour > 12) hour - 12 else if (hour == 0) 12 else hour
+        val period = if (isArabic) {
+            if (hour >= 12) "م" else "ص"
+        } else {
+            if (hour >= 12) "PM" else "AM"
+        }
+        
+        return String.format("%d:%02d %s", hour12, minute, period)
+    }
+    
     private fun buildNotification(title: String, body: String): Notification {
-        // Intent to open app when notification is tapped
         val openAppIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -133,12 +762,8 @@ class AdhanForegroundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
-        // Delete intent - triggered when notification is dismissed
-        // This will restart the notification via our BroadcastReceiver
         val dismissIntent = Intent(this, NotificationDismissReceiver::class.java).apply {
             action = "com.example.adhan_app.NOTIFICATION_DISMISSED"
-            putExtra(EXTRA_TITLE, title)
-            putExtra(EXTRA_BODY, body)
         }
         val dismissPendingIntent = PendingIntent.getBroadcast(
             this,
@@ -150,16 +775,27 @@ class AdhanForegroundService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(body)
-            .setSmallIcon(R.drawable.ic_stat_adhan) // Custom app icon for notification
-            .setOngoing(true)  // Cannot be dismissed by swipe (mostly)
+            .setSmallIcon(R.drawable.ic_stat_adhan)
+            .setOngoing(true)
             .setAutoCancel(false)
             .setSilent(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setContentIntent(openAppPendingIntent)
-            .setDeleteIntent(dismissPendingIntent)  // Repost if somehow dismissed
+            .setDeleteIntent(dismissPendingIntent)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
+    
+    /**
+     * Data class for prayer status
+     */
+    data class PrayerStatus(
+        val prayerName: String,
+        val prayerTime: String,
+        val countdown: String,
+        val isGrace: Boolean,
+        val isWarning: Boolean
+    )
 }
