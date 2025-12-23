@@ -1,24 +1,28 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../data/services/notification_service.dart';
+import '../../data/services/foreground_service_bridge.dart';
 import '../../data/services/prayer_times_api_service.dart';
 import '../../data/services/prayer_times_cache_service.dart';
+import '../../data/services/hijri_date_service.dart';
 import '../../core/localization/western_digits.dart';
 
 /// Provider to manage the live prayer notification with countdown
 class LiveNotificationProvider extends ChangeNotifier {
-  final NotificationService _notificationService = NotificationService();
   final PrayerTimesApiService _apiService = PrayerTimesApiService();
   final PrayerTimesCacheService _cacheService = PrayerTimesCacheService();
+  final HijriDateService _hijriService = HijriDateService();
 
   Timer? _updateTimer;
   AlAdhanResponse? _todayTimings;
   AlAdhanResponse? _tomorrowTimings;
+  HijriDate? _hijriDate;
 
   String _locationName = '';
   bool _isArabic = false;
   bool _isRunning = false;
+  double _latitude = 0;
+  double _longitude = 0;
 
   // Grace window: 30 minutes after a prayer
   static const int _graceWindowMinutes = 30;
@@ -51,11 +55,19 @@ class LiveNotificationProvider extends ChangeNotifier {
 
     _locationName = locationName;
     _isArabic = isArabic;
+    _latitude = latitude;
+    _longitude = longitude;
 
-    await _notificationService.initialize();
+    // Load Hijri date
+    _hijriDate = await _hijriService.getHijriDate(DateTime.now());
 
     // Load today's timings
     await _loadTimings(latitude, longitude);
+
+    // Build initial content and start foreground service
+    final title = _buildTitle(DateTime.now());
+    final body = _buildInitialBody();
+    await ForegroundServiceBridge.startService(title: title, body: body);
 
     // Start the update timer (every second)
     _updateTimer?.cancel();
@@ -65,6 +77,10 @@ class LiveNotificationProvider extends ChangeNotifier {
 
     // Initial update
     _updateNotification();
+  }
+
+  String _buildInitialBody() {
+    return _isArabic ? 'جاري التحميل...' : 'Loading...';
   }
 
   /// Update language setting
@@ -80,6 +96,8 @@ class LiveNotificationProvider extends ChangeNotifier {
     required double longitude,
   }) async {
     _locationName = locationName;
+    _latitude = latitude;
+    _longitude = longitude;
     await _loadTimings(latitude, longitude);
     _updateNotification();
   }
@@ -107,46 +125,36 @@ class LiveNotificationProvider extends ChangeNotifier {
         madhab: madhab,
         date: tomorrow,
       );
+
+      debugPrint('[LiveNotificationProvider] Timings loaded');
     } catch (e) {
-      // Try cache for today
-      final dateStr = DateFormat('dd-MM-yyyy').format(today);
-      _todayTimings = await _cacheService.loadCachedResponse(
-        date: dateStr,
-        latitude: latitude,
-        longitude: longitude,
-        methodId: method.id,
-        madhabId: madhab.id,
-      );
+      debugPrint('[LiveNotificationProvider] Error loading timings: $e');
     }
   }
 
-  /// Parse time string "HH:mm" to DateTime for a given date
-  DateTime _parseTime(String timeStr, DateTime date) {
-    try {
+  /// Get prayer times as DateTime list for a given day
+  List<DateTime> _getPrayerTimes(AlAdhanTimings timings, DateTime date) {
+    final times = <DateTime>[];
+
+    for (final timeStr in [
+      timings.fajr,
+      timings.dhuhr,
+      timings.asr,
+      timings.maghrib,
+      timings.isha,
+    ]) {
       final parts = timeStr.split(':');
       if (parts.length >= 2) {
-        final hour = int.parse(parts[0]);
-        final minute = int.parse(parts[1]);
-        return DateTime(date.year, date.month, date.day, hour, minute);
+        final hour = int.tryParse(parts[0]) ?? 0;
+        final minute = int.tryParse(parts[1].split(' ')[0]) ?? 0;
+        times.add(DateTime(date.year, date.month, date.day, hour, minute));
       }
-    } catch (e) {
-      // Fallback
     }
-    return DateTime(date.year, date.month, date.day);
+
+    return times;
   }
 
-  /// Get prayer times for a given date's timings
-  List<DateTime> _getPrayerTimes(AlAdhanTimings timings, DateTime date) {
-    return [
-      _parseTime(timings.fajr, date),
-      _parseTime(timings.dhuhr, date),
-      _parseTime(timings.asr, date),
-      _parseTime(timings.maghrib, date),
-      _parseTime(timings.isha, date),
-    ];
-  }
-
-  /// Update the notification content
+  /// Update the notification with current countdown
   void _updateNotification() {
     if (_todayTimings == null) return;
 
@@ -154,39 +162,37 @@ class LiveNotificationProvider extends ChangeNotifier {
     final today = DateTime(now.year, now.month, now.day);
     final todayTimes = _getPrayerTimes(_todayTimings!.timings, today);
 
-    // Find the current state
+    // Find the last and next prayers
     int? lastPrayerIndex;
-    int? nextPrayerIndex;
     DateTime? lastPrayerTime;
+    int? nextPrayerIndex;
     DateTime? nextPrayerTime;
     bool isGraceWindow = false;
     bool useTomorrow = false;
 
-    // Check each prayer
+    // Check each prayer time
     for (int i = 0; i < todayTimes.length; i++) {
-      final prayerTime = todayTimes[i];
-      if (prayerTime.isBefore(now) || prayerTime.isAtSameMomentAs(now)) {
-        lastPrayerIndex = i;
-        lastPrayerTime = prayerTime;
+      if (now.isBefore(todayTimes[i])) {
+        // Found next prayer
+        nextPrayerIndex = i;
+        nextPrayerTime = todayTimes[i];
+        break;
       } else {
-        if (nextPrayerIndex == null) {
-          nextPrayerIndex = i;
-          nextPrayerTime = prayerTime;
-        }
+        // This prayer has passed
+        lastPrayerIndex = i;
+        lastPrayerTime = todayTimes[i];
       }
     }
 
-    // Check if we're in grace window (within 30 min after last prayer)
+    // Check for grace window (within 30 min after last prayer)
     if (lastPrayerTime != null) {
-      final graceEnd = lastPrayerTime.add(
-        const Duration(minutes: _graceWindowMinutes),
-      );
-      if (now.isBefore(graceEnd)) {
+      final elapsed = now.difference(lastPrayerTime);
+      if (elapsed.inMinutes < _graceWindowMinutes) {
         isGraceWindow = true;
       }
     }
 
-    // If no next prayer today, use tomorrow's Fajr
+    // If all today's prayers have passed
     if (nextPrayerIndex == null && _tomorrowTimings != null) {
       final tomorrow = today.add(const Duration(days: 1));
       final tomorrowTimes = _getPrayerTimes(
@@ -210,13 +216,23 @@ class LiveNotificationProvider extends ChangeNotifier {
       useTomorrow: useTomorrow,
     );
 
-    _notificationService.showLiveNotification(title: title, body: body);
+    // Update via foreground service bridge
+    ForegroundServiceBridge.updateNotification(title: title, body: body);
   }
 
-  /// Build the notification title (Location | Weekday dd MMM)
+  /// Build the notification title (Location | Hijri Date)
   String _buildTitle(DateTime now) {
-    final dateFormat = DateFormat('EEE dd MMM', _isArabic ? 'ar' : 'en');
-    final dateStr = westernDigits(dateFormat.format(now));
+    String dateStr;
+    if (_hijriDate != null) {
+      // Use Hijri date
+      final hijri =
+          _isArabic ? _hijriDate!.formatArabic() : _hijriDate!.formatEnglish();
+      dateStr = westernDigits(hijri);
+    } else {
+      // Fallback to Gregorian if Hijri not available
+      final dateFormat = DateFormat('EEE dd MMM', _isArabic ? 'ar' : 'en');
+      dateStr = westernDigits(dateFormat.format(now));
+    }
     return '$_locationName  |  $dateStr';
   }
 
@@ -277,7 +293,7 @@ class LiveNotificationProvider extends ChangeNotifier {
   /// Format prayer time for display
   String _formatPrayerTime(DateTime time) {
     if (_isArabic) {
-      // Arabic: 24-hour format with م/ص
+      // Arabic: 12-hour format with م/ص
       final hour = time.hour;
       final minute = time.minute;
       final period = hour >= 12 ? 'م' : 'ص';
@@ -293,9 +309,9 @@ class LiveNotificationProvider extends ChangeNotifier {
   }
 
   /// Stop the notification service
-  void stop() {
+  Future<void> stop() async {
     _updateTimer?.cancel();
-    _notificationService.cancelNotification();
+    await ForegroundServiceBridge.stopService();
     _isRunning = false;
   }
 

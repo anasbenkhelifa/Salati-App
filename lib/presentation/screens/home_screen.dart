@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/localization/strings.dart';
 import '../../core/localization/western_digits.dart';
 import '../../core/localization/app_locale_provider.dart';
+import '../../domain/providers/hijri_date_provider.dart';
 
-/// Home screen with LIVE clock - updates every second
+/// Home screen with LIVE clock and Hijri date
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -18,21 +18,34 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late Timer _timer;
   DateTime _now = DateTime.now();
+  final HijriDateProvider _hijriProvider = HijriDateProvider();
 
   @override
   void initState() {
     super.initState();
-    // Update every second using DateTime.now() for resilience
+    // Update every second
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() {
         _now = DateTime.now();
       });
     });
+    // Initialize Hijri date
+    _initHijriDate();
+  }
+
+  Future<void> _initHijriDate() async {
+    await _hijriProvider.initialize();
+    _hijriProvider.addListener(_onHijriUpdate);
+  }
+
+  void _onHijriUpdate() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _timer.cancel();
+    _hijriProvider.removeListener(_onHijriUpdate);
     super.dispose();
   }
 
@@ -41,7 +54,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return SafeArea(
       child: Column(
         children: [
-          // Title at top
           const SizedBox(height: 24),
           Text(
             t(context, 'home'),
@@ -51,7 +63,6 @@ class _HomeScreenState extends State<HomeScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          // Clock centered in remaining space
           Expanded(
             child: Center(
               child: ConstrainedBox(
@@ -71,20 +82,20 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildClockSection(BuildContext context) {
     final localeController = AppLocaleProvider.of(context);
     final lang = localeController.locale.languageCode;
+    final isArabic = lang == 'ar';
 
-    // Calculate time components from _now
+    // Calculate time components
     final hour12 =
         _now.hour > 12 ? _now.hour - 12 : (_now.hour == 0 ? 12 : _now.hour);
     final minute = _now.minute.toString().padLeft(2, '0');
     final second = _now.second.toString().padLeft(2, '0');
     final period =
-        _now.hour >= 12
-            ? (lang == 'ar' ? 'م' : 'PM')
-            : (lang == 'ar' ? 'ص' : 'AM');
+        _now.hour >= 12 ? (isArabic ? 'م' : 'PM') : (isArabic ? 'ص' : 'AM');
     final timeStr = westernDigits('$hour12:$minute:$second $period');
 
-    // Format date - ALWAYS western digits
-    final dateStr = westernDigits(DateFormat('d MMMM y', lang).format(_now));
+    // Get Hijri date - ALWAYS western digits
+    final hijriDate = _hijriProvider.getFormattedDate(isArabic);
+    final dateStr = westernDigits(hijriDate);
 
     return Container(
       padding: const EdgeInsets.all(40),
@@ -92,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Analog clock - LIVE
+          // Analog clock
           _buildAnalogClock(),
           const SizedBox(height: 32),
           // Label
@@ -104,7 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          // Digital time - LIVE, WESTERN DIGITS
+          // Digital time - WESTERN DIGITS
           Text(
             timeStr,
             style: const TextStyle(
@@ -115,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          // Date - WESTERN DIGITS
+          // Hijri Date - WESTERN DIGITS
           Text(
             dateStr,
             style: TextStyle(
@@ -129,14 +140,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildAnalogClock() {
-    // Calculate hand angles from _now
-    // Hour hand: 360° / 12 hours = 30° per hour, plus minute fraction
     final hourAngle =
         ((_now.hour % 12) + _now.minute / 60 + _now.second / 3600) *
         (2 * math.pi / 12);
-    // Minute hand: 360° / 60 minutes = 6° per minute, plus second fraction
     final minuteAngle = (_now.minute + _now.second / 60) * (2 * math.pi / 60);
-    // Second hand: 360° / 60 seconds = 6° per second
     final secondAngle = _now.second * (2 * math.pi / 60);
 
     return Container(

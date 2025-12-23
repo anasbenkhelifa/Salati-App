@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 import '../domain/providers/live_notification_provider.dart';
 import '../data/services/notification_service.dart';
+import '../data/services/bilingual_location_service.dart';
 import 'core/localization/app_locale_provider.dart';
 
 /// Widget that manages the live notification lifecycle
@@ -25,9 +25,14 @@ class _NotificationManagerState extends State<NotificationManager>
   final LiveNotificationProvider _notificationProvider =
       LiveNotificationProvider();
   final NotificationService _notificationService = NotificationService();
+  final BilingualLocationService _bilingualLocationService =
+      BilingualLocationService();
 
   bool _initialized = false;
   bool _hasPermission = false;
+  BilingualLocation? _bilingualLocation;
+  double? _latitude;
+  double? _longitude;
 
   bool get hasPermission => _hasPermission;
   NotificationService get service => _notificationService;
@@ -89,25 +94,21 @@ class _NotificationManagerState extends State<NotificationManager>
         ),
       );
 
-      // Get location name
-      String locationName = 'Unknown';
-      try {
-        final placemarks = await placemarkFromCoordinates(
-          position.latitude,
-          position.longitude,
-        );
-        if (placemarks.isNotEmpty) {
-          final place = placemarks.first;
-          locationName =
-              place.locality ?? place.subAdministrativeArea ?? 'Unknown';
-        }
-      } catch (e) {
-        locationName =
-            '${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}';
-      }
+      _latitude = position.latitude;
+      _longitude = position.longitude;
 
-      // Start notification with current language
+      // Get bilingual location names using Nominatim API
+      _bilingualLocation = await _bilingualLocationService.getLocationNames(
+        position.latitude,
+        position.longitude,
+      );
+
+      // Start notification with current language - use CITY ONLY for notification header
       final isArabic = mounted ? AppLocaleProvider.of(context).isArabic : false;
+      // Use getCityOnly for notification (e.g., "Batna" or "باتنة")
+      final locationName =
+          _bilingualLocation?.getCityOnly(isArabic) ??
+          '${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}';
 
       await _notificationProvider.start(
         locationName: locationName,
@@ -117,7 +118,9 @@ class _NotificationManagerState extends State<NotificationManager>
       );
 
       _initialized = true;
-      debugPrint('[NotificationManager] Live notification started');
+      debugPrint(
+        '[NotificationManager] Live notification started with location: $locationName',
+      );
     } catch (e) {
       debugPrint('[NotificationManager] Error: $e');
     }
@@ -151,10 +154,24 @@ class _NotificationManagerState extends State<NotificationManager>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Update language when it changes
-    if (_initialized) {
+    // Update notification with CITY ONLY when language changes
+    if (_initialized &&
+        _bilingualLocation != null &&
+        _latitude != null &&
+        _longitude != null) {
       final isArabic = AppLocaleProvider.of(context).isArabic;
+      // Use getCityOnly for notification (e.g., "Batna" or "باتنة")
+      final locationName = _bilingualLocation!.getCityOnly(isArabic);
+
+      // Update the notification with the new language-appropriate location name
       _notificationProvider.updateLanguage(isArabic);
+
+      // Also update location name in provider
+      _notificationProvider.updateLocation(
+        locationName: locationName,
+        latitude: _latitude!,
+        longitude: _longitude!,
+      );
     }
   }
 

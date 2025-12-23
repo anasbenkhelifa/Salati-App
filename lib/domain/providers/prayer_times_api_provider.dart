@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 import '../../data/services/prayer_times_api_service.dart';
 import '../../data/services/prayer_times_cache_service.dart';
+import '../../data/services/bilingual_location_service.dart';
 
 /// State for the prayer times data
 enum PrayerDataState {
@@ -231,38 +231,33 @@ class PrayerTimesApiProvider extends ChangeNotifier {
     }
   }
 
-  /// Reverse geocode to get display name
+  /// Reverse geocode to get bilingual display names (uses Nominatim with lang=en/ar)
   Future<void> _reverseGeocode() async {
     if (_latitude == null || _longitude == null) return;
 
     try {
-      final placemarks = await placemarkFromCoordinates(
+      final bilingualService = BilingualLocationService();
+      final location = await bilingualService.getLocationNames(
         _latitude!,
         _longitude!,
       );
 
-      if (placemarks.isNotEmpty) {
-        final place = placemarks.first;
-        final city = place.locality ?? place.subAdministrativeArea ?? '';
-        final country = place.country ?? '';
+      if (location != null) {
+        _locationNameEn = location.getDisplayName(false);
+        _locationNameAr = location.getDisplayName(true);
 
-        if (city.isNotEmpty || country.isNotEmpty) {
-          _locationNameEn = [
-            city,
-            country,
-          ].where((s) => s.isNotEmpty).join(', ');
-          // For Arabic, use same name (geocoding usually returns in device language)
-          // If Arabic needed, would need translation API
-          _locationNameAr = _locationNameEn;
+        // Cache the names
+        await _cacheService.saveLocationName(
+          nameEn: _locationNameEn,
+          nameAr: _locationNameAr,
+        );
 
-          // Cache the name
-          await _cacheService.saveLocationName(
-            nameEn: _locationNameEn,
-            nameAr: _locationNameAr,
-          );
-        }
+        debugPrint(
+          '[PrayerTimesApiProvider] Location: EN=$_locationNameEn, AR=$_locationNameAr',
+        );
       }
     } catch (e) {
+      debugPrint('[PrayerTimesApiProvider] Reverse geocode error: $e');
       // Keep default names
     }
   }
