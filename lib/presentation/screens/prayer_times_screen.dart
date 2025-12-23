@@ -1,0 +1,615 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/localization/strings.dart';
+import '../../core/localization/western_digits.dart';
+import '../../core/localization/app_locale_provider.dart';
+import '../../domain/providers/prayer_times_api_provider.dart';
+import '../../data/services/prayer_times_api_service.dart';
+
+/// Prayer times screen with AlAdhan API + GPS integration
+class PrayerTimesScreen extends StatefulWidget {
+  const PrayerTimesScreen({super.key});
+
+  @override
+  State<PrayerTimesScreen> createState() => _PrayerTimesScreenState();
+}
+
+class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
+  final PrayerTimesApiProvider _provider = PrayerTimesApiProvider();
+  Timer? _countdownTimer;
+  Duration _countdown = Duration.zero;
+  bool _showDebug = true; // Show debug panel initially
+
+  @override
+  void initState() {
+    super.initState();
+    _initializePrayerTimes();
+  }
+
+  Future<void> _initializePrayerTimes() async {
+    await _provider.initialize();
+    _startCountdownTimer();
+    if (mounted) setState(() {});
+  }
+
+  void _startCountdownTimer() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {
+          _countdown = _provider.getCountdown();
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+            // Title
+            Center(
+              child: Text(
+                t(context, 'prayerTimes'),
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Content based on state
+            Expanded(child: _buildContent(context)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    switch (_provider.state) {
+      case PrayerDataState.loading:
+        return _buildLoadingState();
+      case PrayerDataState.permissionDenied:
+        return _buildPermissionDeniedState(context);
+      case PrayerDataState.locationDisabled:
+        return _buildLocationDisabledState(context);
+      case PrayerDataState.error:
+        return _buildErrorState(context);
+      case PrayerDataState.success:
+        return _buildSuccessState(context);
+    }
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(color: AppTheme.activeGlow),
+          SizedBox(height: 16),
+          Text(
+            'Getting location...',
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPermissionDeniedState(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.location_off,
+              size: 64,
+              color: Colors.white.withOpacity(0.5),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Location Permission Required',
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'We need your location to calculate accurate prayer times for your area.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppTheme.textSecondary.withOpacity(0.7),
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: () async {
+                    await _provider.requestPermission();
+                    if (mounted) setState(() {});
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.activeGlow,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text('Grant Permission'),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton(
+                  onPressed: () async {
+                    await _provider.openAppSettings();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text('Open Settings'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocationDisabledState(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.gps_off, size: 64, color: Colors.white.withOpacity(0.5)),
+            const SizedBox(height: 16),
+            const Text(
+              'Location Services Disabled',
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please enable GPS to get accurate prayer times.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppTheme.textSecondary.withOpacity(0.7),
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: () async {
+                    await _provider.openLocationSettings();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.activeGlow,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text('Enable GPS'),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton(
+                  onPressed: () async {
+                    await _provider.refresh();
+                    if (mounted) setState(() {});
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.cloud_off,
+              size: 64,
+              color: Colors.white.withOpacity(0.5),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Unable to load prayer times',
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _provider.errorMessage ?? 'Please check your internet connection',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppTheme.textSecondary.withOpacity(0.7),
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () async {
+                await _provider.refresh();
+                if (mounted) setState(() {});
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.activeGlow,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuccessState(BuildContext context) {
+    final localeController = AppLocaleProvider.of(context);
+    final isArabic = localeController.isArabic;
+
+    return ListView(
+      children: [
+        // Location header
+        _buildLocationHeader(context, isArabic),
+        const SizedBox(height: 16),
+
+        // Debug panel (temporary)
+        if (_showDebug) ...[
+          _buildDebugPanel(context),
+          const SizedBox(height: 16),
+        ],
+
+        // Prayer cards
+        ...List.generate(5, (index) {
+          final isNext = index == _provider.nextPrayerIndex;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildPrayerCard(
+              context: context,
+              index: index,
+              isNext: isNext,
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildLocationHeader(BuildContext context, bool isArabic) {
+    final locationName =
+        isArabic ? _provider.locationNameAr : _provider.locationNameEn;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: AppTheme.glassDecoration(opacity: 0.06, borderRadius: 20),
+      child: Row(
+        children: [
+          Icon(Icons.location_on, color: AppTheme.activeGlow, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              locationName,
+              style: const TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // Debug toggle
+          IconButton(
+            icon: Icon(
+              _showDebug ? Icons.bug_report : Icons.bug_report_outlined,
+              color:
+                  _showDebug
+                      ? AppTheme.activeGlow
+                      : Colors.white.withOpacity(0.5),
+            ),
+            onPressed: () {
+              setState(() => _showDebug = !_showDebug);
+            },
+          ),
+          // Refresh button
+          IconButton(
+            icon: Icon(Icons.refresh, color: Colors.white.withOpacity(0.5)),
+            onPressed: () async {
+              await _provider.refresh();
+              if (mounted) setState(() {});
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDebugPanel(BuildContext context) {
+    final response = _provider.response;
+    final lat = _provider.latitude;
+    final lon = _provider.longitude;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.withOpacity(0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.bug_report, color: Colors.orange, size: 18),
+              const SizedBox(width: 8),
+              const Text(
+                'DEBUG INFO',
+                style: TextStyle(
+                  color: Colors.orange,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const Divider(color: Colors.orange, height: 16),
+          _debugRow('Source', _provider.isFromCache ? 'CACHE' : 'NETWORK'),
+          if (lat != null && lon != null) ...[
+            _debugRow('Lat', westernDigits(lat.toStringAsFixed(6))),
+            _debugRow('Lon', westernDigits(lon.toStringAsFixed(6))),
+          ],
+          _debugRow('Location', _provider.locationNameEn),
+          _debugRow(
+            'Method',
+            '${_provider.method.nameEn} (ID: ${_provider.method.id})',
+          ),
+          _debugRow(
+            'Madhab',
+            '${_provider.madhab.nameEn} (ID: ${_provider.madhab.id})',
+          ),
+          _debugRow('Device TZ', _provider.deviceTimezone),
+          if (response != null) ...[
+            _debugRow('API TZ', response.meta.timezone),
+          ],
+          _debugRow('API URL', _provider.requestUrl, isUrl: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _debugRow(String label, String value, {bool isUrl = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              '$label:',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 11,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              westernDigits(value),
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+                fontSize: isUrl ? 9 : 11,
+                fontFamily: 'monospace',
+              ),
+              maxLines: isUrl ? 2 : 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrayerCard({
+    required BuildContext context,
+    required int index,
+    bool isNext = false,
+  }) {
+    final response = _provider.response;
+    if (response == null) return const SizedBox();
+
+    final timings = response.timings;
+    final timeStr = westernDigits(_getTimeByIndex(timings, index));
+    final name = getPrayerName(context, index);
+
+    // Format countdown
+    String countdownStr = '';
+    if (isNext && _countdown.inSeconds > 0) {
+      final hours = _countdown.inHours;
+      final minutes = _countdown.inMinutes % 60;
+      final seconds = _countdown.inSeconds % 60;
+      countdownStr = westernDigits(
+        '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(isNext ? 0.15 : 0.08),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color:
+              isNext
+                  ? AppTheme.activeGlow.withOpacity(0.3)
+                  : Colors.white.withOpacity(0.1),
+          width: isNext ? 1.5 : 1,
+        ),
+        boxShadow:
+            isNext
+                ? [
+                  BoxShadow(
+                    color: AppTheme.activeGlow.withOpacity(0.15),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ]
+                : null,
+      ),
+      child: Row(
+        children: [
+          // Speaker icon
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.volume_up,
+              color: Colors.white.withOpacity(0.7),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Prayer name
+          Text(
+            name,
+            style: TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 20,
+              fontWeight: isNext ? FontWeight.bold : FontWeight.w500,
+            ),
+          ),
+          const Spacer(),
+          // Time or countdown
+          if (isNext && countdownStr.isNotEmpty) ...[
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  timeStr,
+                  style: TextStyle(
+                    color: AppTheme.textSecondary.withOpacity(0.7),
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  countdownStr,
+                  style: TextStyle(
+                    color: AppTheme.activeGlow,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            Text(
+              timeStr,
+              style: const TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _getTimeByIndex(AlAdhanTimings timings, int index) {
+    switch (index) {
+      case 0:
+        return timings.fajr;
+      case 1:
+        return timings.dhuhr;
+      case 2:
+        return timings.asr;
+      case 3:
+        return timings.maghrib;
+      case 4:
+        return timings.isha;
+      default:
+        return timings.fajr;
+    }
+  }
+}
