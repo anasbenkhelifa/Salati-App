@@ -90,6 +90,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       case PrayerDataState.error:
         return _buildErrorState(context);
       case PrayerDataState.success:
+      case PrayerDataState.offline:
         return _buildSuccessState(context);
     }
   }
@@ -238,7 +239,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                 const SizedBox(width: 12),
                 OutlinedButton(
                   onPressed: () async {
-                    await _provider.refresh();
+                    await _provider.refreshLocation();
                     if (mounted) setState(() {});
                   },
                   style: OutlinedButton.styleFrom(
@@ -295,7 +296,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () async {
-                await _provider.refresh();
+                await _provider.refreshLocation();
                 if (mounted) setState(() {});
               },
               style: ElevatedButton.styleFrom(
@@ -350,52 +351,115 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   }
 
   Widget _buildLocationHeader(BuildContext context, bool isArabic) {
-    final locationName =
-        isArabic ? _provider.locationNameAr : _provider.locationNameEn;
+    final locationName = _provider.getLocationName(isArabic);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: AppTheme.glassDecoration(opacity: 0.06, borderRadius: 20),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.location_on, color: AppTheme.activeGlow, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              locationName,
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+          Row(
+            children: [
+              Icon(Icons.location_on, color: AppTheme.activeGlow, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  locationName,
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              // Debug toggle
+              IconButton(
+                icon: Icon(
+                  _showDebug ? Icons.bug_report : Icons.bug_report_outlined,
+                  color:
+                      _showDebug
+                          ? AppTheme.activeGlow
+                          : Colors.white.withOpacity(0.5),
+                ),
+                onPressed: () {
+                  setState(() => _showDebug = !_showDebug);
+                },
+              ),
+              // Update Location button
+              IconButton(
+                icon: Icon(
+                  Icons.my_location,
+                  color: Colors.white.withOpacity(0.5),
+                ),
+                tooltip: isArabic ? 'تحديث الموقع' : 'Update Location',
+                onPressed: () => _handleUpdateLocation(context, isArabic),
+              ),
+            ],
+          ),
+          // Offline mode banner
+          if (_provider.isOfflineMode)
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.cloud_off, color: Colors.orange, size: 14),
+                  const SizedBox(width: 6),
+                  Text(
+                    isArabic ? 'وضع عدم الاتصال' : 'Offline - using saved data',
+                    style: const TextStyle(color: Colors.orange, fontSize: 12),
+                  ),
+                ],
+              ),
             ),
-          ),
-          // Debug toggle
-          IconButton(
-            icon: Icon(
-              _showDebug ? Icons.bug_report : Icons.bug_report_outlined,
-              color:
-                  _showDebug
-                      ? AppTheme.activeGlow
-                      : Colors.white.withOpacity(0.5),
-            ),
-            onPressed: () {
-              setState(() => _showDebug = !_showDebug);
-            },
-          ),
-          // Refresh button
-          IconButton(
-            icon: Icon(Icons.refresh, color: Colors.white.withOpacity(0.5)),
-            onPressed: () async {
-              await _provider.refresh();
-              if (mounted) setState(() {});
-            },
-          ),
         ],
       ),
     );
+  }
+
+  Future<void> _handleUpdateLocation(
+    BuildContext context,
+    bool isArabic,
+  ) async {
+    // Show loading
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          isArabic ? 'جاري تحديث الموقع...' : 'Updating location...',
+        ),
+        duration: const Duration(seconds: 1),
+        backgroundColor: AppTheme.activeGlow,
+      ),
+    );
+
+    setState(() {}); // Shows loading in provider
+
+    final success = await _provider.refreshLocation();
+
+    if (mounted) {
+      setState(() {});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? (isArabic ? 'تم تحديث الموقع' : 'Location updated')
+                : (isArabic
+                    ? 'فشل التحديث - يتم استخدام البيانات المحفوظة'
+                    : 'Update failed - using saved data'),
+          ),
+          backgroundColor: success ? Colors.green : Colors.orange,
+        ),
+      );
+    }
   }
 
   Widget _buildDebugPanel(BuildContext context) {

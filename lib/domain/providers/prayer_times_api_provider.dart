@@ -12,26 +12,33 @@ enum PrayerDataState {
   permissionDenied,
   locationDisabled,
   error,
+  offline, // Using cached data, couldn't refresh
 }
 
 /// Provider to manage prayer times data from AlAdhan API using GPS
+/// Implements OFFLINE-FIRST behavior: loads from cache first, only refreshes when needed
 class PrayerTimesApiProvider extends ChangeNotifier {
   final PrayerTimesApiService _apiService = PrayerTimesApiService();
   final PrayerTimesCacheService _cacheService = PrayerTimesCacheService();
+  final BilingualLocationService _locationService = BilingualLocationService();
 
   PrayerDataState _state = PrayerDataState.loading;
   AlAdhanResponse? _response;
   String? _errorMessage;
+  bool _isOfflineMode = false;
 
   // Settings
   CalculationMethodId _method = CalculationMethodId.mwl;
   MadhabId _madhab = MadhabId.shafi;
 
-  // Location
+  // Location (from cache)
   double? _latitude;
   double? _longitude;
-  String _locationNameEn = 'Current Location';
-  String _locationNameAr = 'الموقع الحالي';
+  String _cityEn = '';
+  String _cityAr = '';
+  String _countryEn = '';
+  String _countryAr = '';
+  DateTime? _lastUpdatedAt;
 
   // Debug info
   String _requestUrl = '';
@@ -46,11 +53,46 @@ class PrayerTimesApiProvider extends ChangeNotifier {
   MadhabId get madhab => _madhab;
   double? get latitude => _latitude;
   double? get longitude => _longitude;
-  String get locationNameEn => _locationNameEn;
-  String get locationNameAr => _locationNameAr;
   String get requestUrl => _requestUrl;
   String get deviceTimezone => _deviceTimezone;
   bool get isFromCache => _isFromCache;
+  bool get isOfflineMode => _isOfflineMode;
+  DateTime? get lastUpdatedAt => _lastUpdatedAt;
+
+  /// Get location name for Prayer Times screen (full: Country • City)
+  String getLocationName(bool isArabic) {
+    if (isArabic) {
+      if (_countryAr.isNotEmpty && _cityAr.isNotEmpty) {
+        return '$_countryAr • $_cityAr';
+      }
+      return _cityAr.isNotEmpty ? _cityAr : 'الموقع الحالي';
+    } else {
+      if (_countryEn.isNotEmpty && _cityEn.isNotEmpty) {
+        return '$_countryEn • $_cityEn';
+      }
+      return _cityEn.isNotEmpty ? _cityEn : 'Current Location';
+    }
+  }
+
+  /// Get city-only name for notification
+  String getCityOnly(bool isArabic) {
+    if (isArabic) {
+      return _cityAr.isNotEmpty ? _cityAr : _countryAr;
+    } else {
+      return _cityEn.isNotEmpty ? _cityEn : _countryEn;
+    }
+  }
+
+  /// Get "last updated" display string
+  String get lastUpdatedDisplay {
+    if (_lastUpdatedAt == null) return '';
+    final format = DateFormat('MMM d, HH:mm');
+    return format.format(_lastUpdatedAt!);
+  }
+
+  // Legacy getters for backwards compatibility
+  String get locationNameEn => getLocationName(false);
+  String get locationNameAr => getLocationName(true);
 
   /// Get next prayer index (0=fajr, 1=dhuhr, 2=asr, 3=maghrib, 4=isha)
   int get nextPrayerIndex {
@@ -90,7 +132,7 @@ class PrayerTimesApiProvider extends ChangeNotifier {
       final parts = timeStr.split(':');
       if (parts.length >= 2) {
         final hour = int.parse(parts[0]);
-        final minute = int.parse(parts[1]);
+        final minute = int.parse(parts[1].split(' ')[0]);
         return DateTime(date.year, date.month, date.day, hour, minute);
       }
     } catch (e) {
@@ -121,43 +163,133 @@ class PrayerTimesApiProvider extends ChangeNotifier {
     return Duration.zero;
   }
 
-  /// Initialize and load prayer times
+  /// Initialize - CACHE FIRST, no GPS unless first run
   Future<void> initialize() async {
     _state = PrayerDataState.loading;
+    _deviceTimezone = DateTime.now().timeZoneName;
     notifyListeners();
 
-    // Load saved settings
+    // Load settings
     _method = await _cacheService.loadMethod();
     _madhab = await _cacheService.loadMadhab();
 
-    // Load cached location name
-    final cachedName = await _cacheService.loadLocationName();
-    _locationNameEn = cachedName.nameEn;
-    _locationNameAr = cachedName.nameAr;
+    // Check if setup was already done
+    final setupDone = await _cacheService.isSetupDone();
 
-    // Get device timezone info
-    _deviceTimezone = DateTime.now().timeZoneName;
-
-    // Get location and fetch prayer times
-    await _acquireLocationAndFetch();
+    if (setupDone) {
+      // CACHE-FIRST: Load from cache, no GPS
+      await _loadFromCache();
+    } else {
+      // FIRST RUN: Need GPS + network
+      await _firstTimeSetup();
+    }
   }
 
-  /// Acquire GPS location and fetch prayer times
-  Future<void> _acquireLocationAndFetch() async {
-    // Check if location service is enabled
+  /// Load from cache (offline-first)
+  Future<void> _loadFromCache() async {
+    debugPrint('[PrayerTimesApiProvider] Loading from cache...');
+
+    final cached = await _cacheService.loadAppState();
+    if (cached == null) {
+      // Cache corrupted, do first-time setup
+      await _firstTimeSetup();
+      return;
+    }
+
+    // Set cached values
+    _latitude = cached.latitude;
+    _longitude = cached.longitude;
+    _cityEn = cached.cityEn;
+    _cityAr = cached.cityAr;
+    _countryEn = cached.countryEn;
+    _countryAr = cached.countryAr;
+    _method = cached.method;
+    _madhab = cached.madhab;
+    _lastUpdatedAt = cached.updatedAt;
+
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    if (cached.isToday && cached.prayerTimes != null) {
+      // Cache is for today, use it directly
+      _response = cached.prayerTimes;
+      _isFromCache = true;
+      _isOfflineMode = false;
+      _state = PrayerDataState.success;
+      debugPrint('[PrayerTimesApiProvider] Using cached data for today');
+    } else if (cached.prayerTimes != null) {
+      // Cache is old, try to refresh prayer times ONLY (no GPS)
+      _response = cached.prayerTimes; // Show old data first
+      _isFromCache = true;
+      _state = PrayerDataState.success;
+      notifyListeners();
+
+      // Try to refresh prayer times in background
+      await _refreshPrayerTimesOnly(cached.latitude, cached.longitude, today);
+    } else {
+      // No prayer times at all, need to fetch
+      await _refreshPrayerTimesOnly(cached.latitude, cached.longitude, today);
+    }
+
+    notifyListeners();
+  }
+
+  /// Refresh only prayer times using cached location (no GPS)
+  Future<void> _refreshPrayerTimesOnly(
+    double lat,
+    double lng,
+    String dateStr,
+  ) async {
+    debugPrint(
+      '[PrayerTimesApiProvider] Refreshing prayer times for $dateStr...',
+    );
+
+    try {
+      final response = await _apiService.fetchPrayerTimesByCoordinates(
+        latitude: lat,
+        longitude: lng,
+        method: _method,
+        madhab: _madhab,
+        date: DateTime.now(),
+      );
+
+      _response = response;
+      _requestUrl = response.requestUrl;
+      _isFromCache = false;
+      _isOfflineMode = false;
+      _state = PrayerDataState.success;
+
+      // Update cache with new prayer times
+      await _cacheService.updatePrayerTimes(
+        prayerTimes: response,
+        prayerTimesDate: dateStr,
+      );
+
+      debugPrint('[PrayerTimesApiProvider] Prayer times refreshed');
+    } catch (e) {
+      debugPrint('[PrayerTimesApiProvider] Offline, using cached times: $e');
+      _isOfflineMode = true;
+      // Keep existing _response from cache
+      if (_response != null) {
+        _state = PrayerDataState.offline;
+      } else {
+        _state = PrayerDataState.error;
+        _errorMessage = 'No internet connection';
+      }
+    }
+
+    notifyListeners();
+  }
+
+  /// First time setup - requires GPS and network
+  Future<void> _firstTimeSetup() async {
+    debugPrint('[PrayerTimesApiProvider] First time setup...');
+
+    // Check location services
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      // Try to use cached position
-      final cached = await _cacheService.loadLastPosition();
-      if (cached != null) {
-        _latitude = cached.lat;
-        _longitude = cached.lon;
-        await _fetchPrayerTimes();
-      } else {
-        _state = PrayerDataState.locationDisabled;
-        _errorMessage = 'Location services are disabled';
-        notifyListeners();
-      }
+      _state = PrayerDataState.locationDisabled;
+      _errorMessage = 'Location services are disabled';
+      notifyListeners();
       return;
     }
 
@@ -166,37 +298,21 @@ class PrayerTimesApiProvider extends ChangeNotifier {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        // Try cached position
-        final cached = await _cacheService.loadLastPosition();
-        if (cached != null) {
-          _latitude = cached.lat;
-          _longitude = cached.lon;
-          await _fetchPrayerTimes();
-        } else {
-          _state = PrayerDataState.permissionDenied;
-          _errorMessage = 'Location permission denied';
-          notifyListeners();
-        }
+        _state = PrayerDataState.permissionDenied;
+        _errorMessage = 'Location permission denied';
+        notifyListeners();
         return;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      // Try cached position
-      final cached = await _cacheService.loadLastPosition();
-      if (cached != null) {
-        _latitude = cached.lat;
-        _longitude = cached.lon;
-        await _fetchPrayerTimes();
-      } else {
-        _state = PrayerDataState.permissionDenied;
-        _errorMessage = 'Location permission permanently denied';
-        notifyListeners();
-      }
+      _state = PrayerDataState.permissionDenied;
+      _errorMessage = 'Location permission permanently denied';
+      notifyListeners();
       return;
     }
 
-    // Get current position
+    // Get GPS location
     try {
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
@@ -208,120 +324,150 @@ class PrayerTimesApiProvider extends ChangeNotifier {
       _latitude = position.latitude;
       _longitude = position.longitude;
 
-      // Cache the position
-      await _cacheService.saveLastPosition(_latitude!, _longitude!);
-
-      // Reverse geocode for display name
-      await _reverseGeocode();
-
-      // Fetch prayer times
-      await _fetchPrayerTimes();
-    } catch (e) {
-      // Try cached position
-      final cached = await _cacheService.loadLastPosition();
-      if (cached != null) {
-        _latitude = cached.lat;
-        _longitude = cached.lon;
-        await _fetchPrayerTimes();
-      } else {
-        _state = PrayerDataState.error;
-        _errorMessage = 'Could not get location: $e';
-        notifyListeners();
-      }
-    }
-  }
-
-  /// Reverse geocode to get bilingual display names (uses Nominatim with lang=en/ar)
-  Future<void> _reverseGeocode() async {
-    if (_latitude == null || _longitude == null) return;
-
-    try {
-      final bilingualService = BilingualLocationService();
-      final location = await bilingualService.getLocationNames(
-        _latitude!,
-        _longitude!,
+      // Reverse geocode
+      final location = await _locationService.getLocationNames(
+        position.latitude,
+        position.longitude,
       );
 
       if (location != null) {
-        _locationNameEn = location.getDisplayName(false);
-        _locationNameAr = location.getDisplayName(true);
-
-        // Cache the names
-        await _cacheService.saveLocationName(
-          nameEn: _locationNameEn,
-          nameAr: _locationNameAr,
-        );
-
-        debugPrint(
-          '[PrayerTimesApiProvider] Location: EN=$_locationNameEn, AR=$_locationNameAr',
-        );
+        _cityEn = location.cityEn;
+        _cityAr = location.cityAr;
+        _countryEn = location.countryEn;
+        _countryAr = location.countryAr;
       }
-    } catch (e) {
-      debugPrint('[PrayerTimesApiProvider] Reverse geocode error: $e');
-      // Keep default names
-    }
-  }
 
-  /// Fetch prayer times from API
-  Future<void> _fetchPrayerTimes() async {
-    if (_latitude == null || _longitude == null) {
-      _state = PrayerDataState.error;
-      _errorMessage = 'No location available';
-      notifyListeners();
-      return;
-    }
-
-    final today = DateTime.now();
-    final dateStr = DateFormat('dd-MM-yyyy').format(today);
-
-    try {
-      // Fetch from API using coordinates
+      // Fetch prayer times
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final response = await _apiService.fetchPrayerTimesByCoordinates(
-        latitude: _latitude!,
-        longitude: _longitude!,
+        latitude: position.latitude,
+        longitude: position.longitude,
         method: _method,
         madhab: _madhab,
-        date: today,
+        date: DateTime.now(),
       );
 
       _response = response;
       _requestUrl = response.requestUrl;
       _isFromCache = false;
+      _lastUpdatedAt = DateTime.now();
 
-      // Cache the response
-      await _cacheService.saveApiResponse(
-        response: response,
-        date: dateStr,
-        latitude: _latitude!,
-        longitude: _longitude!,
-        methodId: _method.id,
-        madhabId: _madhab.id,
+      // Save to cache
+      await _cacheService.saveAppState(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        cityEn: _cityEn,
+        cityAr: _cityAr,
+        countryEn: _countryEn,
+        countryAr: _countryAr,
+        prayerTimes: response,
+        prayerTimesDate: today,
+        method: _method,
+        madhab: _madhab,
       );
 
       _state = PrayerDataState.success;
-      _errorMessage = null;
+      debugPrint('[PrayerTimesApiProvider] First time setup complete');
     } catch (e) {
-      // Try to load from cache
-      final cached = await _cacheService.loadCachedResponse(
-        date: dateStr,
-        latitude: _latitude!,
-        longitude: _longitude!,
-        methodId: _method.id,
-        madhabId: _madhab.id,
-      );
-
-      if (cached != null) {
-        _response = cached;
-        _isFromCache = true;
-        _state = PrayerDataState.success;
-        _errorMessage = null;
-      } else {
-        _state = PrayerDataState.error;
-        _errorMessage = 'Network error: $e';
-      }
+      _state = PrayerDataState.error;
+      _errorMessage = 'Setup failed: $e';
+      debugPrint('[PrayerTimesApiProvider] First time setup error: $e');
     }
 
     notifyListeners();
+  }
+
+  /// Manually refresh location - ONLY called when user taps "Update Location"
+  Future<bool> refreshLocation() async {
+    debugPrint('[PrayerTimesApiProvider] Manual location refresh requested...');
+
+    final previousState = _state;
+    _state = PrayerDataState.loading;
+    notifyListeners();
+
+    try {
+      // Check location services
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw Exception('Location services disabled');
+      }
+
+      // Check permission
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw Exception('Location permission denied');
+      }
+
+      // Get fresh GPS location
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+
+      _latitude = position.latitude;
+      _longitude = position.longitude;
+
+      // Reverse geocode
+      final location = await _locationService.getLocationNames(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (location != null) {
+        _cityEn = location.cityEn;
+        _cityAr = location.cityAr;
+        _countryEn = location.countryEn;
+        _countryAr = location.countryAr;
+      }
+
+      // Fetch fresh prayer times
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final response = await _apiService.fetchPrayerTimesByCoordinates(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        method: _method,
+        madhab: _madhab,
+        date: DateTime.now(),
+      );
+
+      _response = response;
+      _requestUrl = response.requestUrl;
+      _isFromCache = false;
+      _isOfflineMode = false;
+      _lastUpdatedAt = DateTime.now();
+
+      // Save to cache
+      await _cacheService.saveAppState(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        cityEn: _cityEn,
+        cityAr: _cityAr,
+        countryEn: _countryEn,
+        countryAr: _countryAr,
+        prayerTimes: response,
+        prayerTimesDate: today,
+        method: _method,
+        madhab: _madhab,
+      );
+
+      _state = PrayerDataState.success;
+      notifyListeners();
+      debugPrint('[PrayerTimesApiProvider] Location refresh complete');
+      return true;
+    } catch (e) {
+      debugPrint('[PrayerTimesApiProvider] Location refresh failed: $e');
+      // Restore previous state, keep old cached values
+      _state = previousState;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
   }
 
   /// Update calculation method and refetch
@@ -329,7 +475,12 @@ class PrayerTimesApiProvider extends ChangeNotifier {
     if (_method != method) {
       _method = method;
       await _cacheService.saveMethod(method);
-      await _fetchPrayerTimes();
+
+      // Refresh prayer times with new method (using cached location)
+      if (_latitude != null && _longitude != null) {
+        final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        await _refreshPrayerTimesOnly(_latitude!, _longitude!, today);
+      }
     }
   }
 
@@ -338,21 +489,19 @@ class PrayerTimesApiProvider extends ChangeNotifier {
     if (_madhab != madhab) {
       _madhab = madhab;
       await _cacheService.saveMadhab(madhab);
-      await _fetchPrayerTimes();
+
+      // Refresh prayer times with new madhab (using cached location)
+      if (_latitude != null && _longitude != null) {
+        final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        await _refreshPrayerTimesOnly(_latitude!, _longitude!, today);
+      }
     }
   }
 
-  /// Refresh location and prayer times
-  Future<void> refresh() async {
-    _state = PrayerDataState.loading;
-    notifyListeners();
-    await _acquireLocationAndFetch();
-  }
-
-  /// Request permission and retry
+  /// Request permission and retry (for first-time setup)
   Future<void> requestPermission() async {
     await Geolocator.requestPermission();
-    await refresh();
+    await _firstTimeSetup();
   }
 
   /// Open app settings

@@ -84,14 +84,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final lang = localeController.locale.languageCode;
     final isArabic = lang == 'ar';
 
-    // Calculate time components
+    // Calculate time components - NO SECONDS
     final hour12 =
         _now.hour > 12 ? _now.hour - 12 : (_now.hour == 0 ? 12 : _now.hour);
     final minute = _now.minute.toString().padLeft(2, '0');
-    final second = _now.second.toString().padLeft(2, '0');
     final period =
         _now.hour >= 12 ? (isArabic ? 'م' : 'PM') : (isArabic ? 'ص' : 'AM');
-    final timeStr = westernDigits('$hour12:$minute:$second $period');
+
+    // Format: "9:41 PM" - with western digits
+    final timeStr = westernDigits('$hour12:$minute');
 
     // Get Hijri date - ALWAYS western digits
     final hijriDate = _hijriProvider.getFormattedDate(isArabic);
@@ -115,15 +116,31 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          // Digital time - WESTERN DIGITS
-          Text(
-            timeStr,
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 44,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
-            ),
+          // Digital time - HH:MM centered with AM/PM
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                timeStr,
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 48,
+                  fontWeight: FontWeight.w300,
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                period,
+                style: TextStyle(
+                  color: AppTheme.textSecondary.withOpacity(0.8),
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           // Hijri Date - WESTERN DIGITS

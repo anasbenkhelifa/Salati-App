@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import '../domain/providers/live_notification_provider.dart';
 import '../data/services/notification_service.dart';
-import '../data/services/bilingual_location_service.dart';
+import '../data/services/prayer_times_cache_service.dart';
 import 'core/localization/app_locale_provider.dart';
 
 /// Widget that manages the live notification lifecycle
+/// Uses CACHE-ONLY for notification - NO GPS or network calls
 class NotificationManager extends StatefulWidget {
   final Widget child;
 
@@ -25,14 +25,10 @@ class _NotificationManagerState extends State<NotificationManager>
   final LiveNotificationProvider _notificationProvider =
       LiveNotificationProvider();
   final NotificationService _notificationService = NotificationService();
-  final BilingualLocationService _bilingualLocationService =
-      BilingualLocationService();
+  final PrayerTimesCacheService _cacheService = PrayerTimesCacheService();
 
   bool _initialized = false;
   bool _hasPermission = false;
-  BilingualLocation? _bilingualLocation;
-  double? _latitude;
-  double? _longitude;
 
   bool get hasPermission => _hasPermission;
   NotificationService get service => _notificationService;
@@ -54,8 +50,12 @@ class _NotificationManagerState extends State<NotificationManager>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // DO NOT refresh location on resume - use cache only
+    // This is intentional for offline-first behavior
     if (state == AppLifecycleState.resumed && _initialized) {
-      _refreshLocation();
+      // Just update the notification language if it changed
+      final isArabic = mounted ? AppLocaleProvider.of(context).isArabic : false;
+      _notificationProvider.updateLanguage(isArabic);
     }
   }
 
@@ -68,69 +68,63 @@ class _NotificationManagerState extends State<NotificationManager>
       return;
     }
 
-    // Get location and start live notifications
-    await _refreshLocation();
+    // Load from CACHE ONLY - no GPS, no network
+    await _startFromCache();
   }
 
-  Future<void> _refreshLocation() async {
+  /// Start notification using CACHED data only - NO GPS
+  Future<void> _startFromCache() async {
     try {
-      // Check location permission
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return;
+      // Check if setup was done
+      final setupDone = await _cacheService.isSetupDone();
 
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
+      if (!setupDone) {
+        debugPrint(
+          '[NotificationManager] Setup not done, skipping notification',
+        );
+        // Don't start notification until first-time setup is complete
         return;
       }
 
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
+      // Load cached state
+      final cached = await _cacheService.loadAppState();
 
-      _latitude = position.latitude;
-      _longitude = position.longitude;
+      if (cached == null) {
+        debugPrint('[NotificationManager] No cached data available');
+        return;
+      }
 
-      // Get bilingual location names using Nominatim API
-      _bilingualLocation = await _bilingualLocationService.getLocationNames(
-        position.latitude,
-        position.longitude,
-      );
-
-      // Start notification with current language - use CITY ONLY for notification header
+      // Start notification with cached data
       final isArabic = mounted ? AppLocaleProvider.of(context).isArabic : false;
-      // Use getCityOnly for notification (e.g., "Batna" or "باتنة")
-      final locationName =
-          _bilingualLocation?.getCityOnly(isArabic) ??
-          '${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}';
+      final locationName = cached.getCityOnly(isArabic);
 
       await _notificationProvider.start(
         locationName: locationName,
         isArabic: isArabic,
-        latitude: position.latitude,
-        longitude: position.longitude,
+        latitude: cached.latitude,
+        longitude: cached.longitude,
       );
 
       _initialized = true;
       debugPrint(
-        '[NotificationManager] Live notification started with location: $locationName',
+        '[NotificationManager] Notification started from cache: $locationName',
       );
     } catch (e) {
-      debugPrint('[NotificationManager] Error: $e');
+      debugPrint('[NotificationManager] Error starting from cache: $e');
     }
+  }
+
+  /// Called when cache is updated (e.g., after location refresh)
+  Future<void> refreshFromCache() async {
+    if (!_hasPermission) return;
+    await _startFromCache();
   }
 
   /// Request notification permission
   Future<bool> requestPermission() async {
     _hasPermission = await _notificationService.requestPermission();
     if (_hasPermission && !_initialized) {
-      await _refreshLocation();
+      await _startFromCache();
     }
     if (mounted) setState(() {});
     return _hasPermission;
@@ -147,30 +141,32 @@ class _NotificationManagerState extends State<NotificationManager>
       _hasPermission = await requestPermission();
     }
     if (_hasPermission) {
-      await _refreshLocation();
+      await _startFromCache();
     }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Update notification with CITY ONLY when language changes
-    if (_initialized &&
-        _bilingualLocation != null &&
-        _latitude != null &&
-        _longitude != null) {
-      final isArabic = AppLocaleProvider.of(context).isArabic;
-      // Use getCityOnly for notification (e.g., "Batna" or "باتنة")
-      final locationName = _bilingualLocation!.getCityOnly(isArabic);
+    // Update notification language when app language changes
+    if (_initialized) {
+      _updateNotificationLanguage();
+    }
+  }
 
-      // Update the notification with the new language-appropriate location name
+  Future<void> _updateNotificationLanguage() async {
+    final isArabic = AppLocaleProvider.of(context).isArabic;
+
+    // Load cached location name for the new language
+    final cached = await _cacheService.loadAppState();
+    if (cached != null) {
+      final locationName = cached.getCityOnly(isArabic);
+
       _notificationProvider.updateLanguage(isArabic);
-
-      // Also update location name in provider
       _notificationProvider.updateLocation(
         locationName: locationName,
-        latitude: _latitude!,
-        longitude: _longitude!,
+        latitude: cached.latitude,
+        longitude: cached.longitude,
       );
     }
   }

@@ -8,21 +8,18 @@ import '../../data/services/hijri_date_service.dart';
 import '../../core/localization/western_digits.dart';
 
 /// Provider to manage the live prayer notification with countdown
+/// Uses CACHE ONLY for offline-first behavior - NO network calls
 class LiveNotificationProvider extends ChangeNotifier {
-  final PrayerTimesApiService _apiService = PrayerTimesApiService();
   final PrayerTimesCacheService _cacheService = PrayerTimesCacheService();
   final HijriDateService _hijriService = HijriDateService();
 
   Timer? _updateTimer;
-  AlAdhanResponse? _todayTimings;
-  AlAdhanResponse? _tomorrowTimings;
+  CachedAppState? _cachedState;
   HijriDate? _hijriDate;
 
   String _locationName = '';
   bool _isArabic = false;
   bool _isRunning = false;
-  double _latitude = 0;
-  double _longitude = 0;
 
   // Grace window: 30 minutes after a prayer
   static const int _graceWindowMinutes = 30;
@@ -43,7 +40,7 @@ class LiveNotificationProvider extends ChangeNotifier {
     'العشاء',
   ];
 
-  /// Start the live notification service
+  /// Start the live notification service - LOADS FROM CACHE ONLY
   Future<void> start({
     required String locationName,
     required bool isArabic,
@@ -55,84 +52,59 @@ class LiveNotificationProvider extends ChangeNotifier {
 
     _locationName = locationName;
     _isArabic = isArabic;
-    _latitude = latitude;
-    _longitude = longitude;
 
-    // Load Hijri date
+    // Load from CACHE ONLY - no network calls
+    _cachedState = await _cacheService.loadAppState();
+
+    if (_cachedState == null || _cachedState!.prayerTimes == null) {
+      // No cache - show setup message
+      await ForegroundServiceBridge.startService(
+        title: isArabic ? 'تطبيق الأذان' : 'Adhan App',
+        body:
+            isArabic
+                ? 'افتح التطبيق لإكمال الإعداد'
+                : 'Open app to finish setup',
+      );
+      debugPrint('[LiveNotificationProvider] No cached data available');
+      return;
+    }
+
+    // Load Hijri date from cache
     _hijriDate = await _hijriService.getHijriDate(DateTime.now());
 
-    // Load today's timings
-    await _loadTimings(latitude, longitude);
-
-    // Build initial content and start foreground service
+    // Build initial content and start foreground service IMMEDIATELY
     final title = _buildTitle(DateTime.now());
-    final body = _buildInitialBody();
+    final body = _buildBodyFromCache(DateTime.now());
     await ForegroundServiceBridge.startService(title: title, body: body);
+
+    debugPrint('[LiveNotificationProvider] Started from cache: $body');
 
     // Start the update timer (every second)
     _updateTimer?.cancel();
     _updateTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       _updateNotification();
     });
-
-    // Initial update
-    _updateNotification();
   }
 
-  String _buildInitialBody() {
-    return _isArabic ? 'جاري التحميل...' : 'Loading...';
-  }
-
-  /// Update language setting
+  /// Update language setting - ONLY changes labels, no data refetch
   void updateLanguage(bool isArabic) {
     _isArabic = isArabic;
     _updateNotification();
   }
 
-  /// Update location
+  /// Update location name - ONLY changes display name
   Future<void> updateLocation({
     required String locationName,
     required double latitude,
     required double longitude,
   }) async {
     _locationName = locationName;
-    _latitude = latitude;
-    _longitude = longitude;
-    await _loadTimings(latitude, longitude);
+    // Reload cache to get latest data
+    _cachedState = await _cacheService.loadAppState();
     _updateNotification();
   }
 
-  /// Load today's and tomorrow's prayer timings
-  Future<void> _loadTimings(double latitude, double longitude) async {
-    final method = await _cacheService.loadMethod();
-    final madhab = await _cacheService.loadMadhab();
-    final today = DateTime.now();
-    final tomorrow = today.add(const Duration(days: 1));
-
-    try {
-      _todayTimings = await _apiService.fetchPrayerTimesByCoordinates(
-        latitude: latitude,
-        longitude: longitude,
-        method: method,
-        madhab: madhab,
-        date: today,
-      );
-
-      _tomorrowTimings = await _apiService.fetchPrayerTimesByCoordinates(
-        latitude: latitude,
-        longitude: longitude,
-        method: method,
-        madhab: madhab,
-        date: tomorrow,
-      );
-
-      debugPrint('[LiveNotificationProvider] Timings loaded');
-    } catch (e) {
-      debugPrint('[LiveNotificationProvider] Error loading timings: $e');
-    }
-  }
-
-  /// Get prayer times as DateTime list for a given day
+  /// Get prayer times as DateTime list from cached timings
   List<DateTime> _getPrayerTimes(AlAdhanTimings timings, DateTime date) {
     final times = <DateTime>[];
 
@@ -156,11 +128,24 @@ class LiveNotificationProvider extends ChangeNotifier {
 
   /// Update the notification with current countdown
   void _updateNotification() {
-    if (_todayTimings == null) return;
+    if (_cachedState == null || _cachedState!.prayerTimes == null) return;
 
     final now = DateTime.now();
+    final title = _buildTitle(now);
+    final body = _buildBodyFromCache(now);
+
+    ForegroundServiceBridge.updateNotification(title: title, body: body);
+  }
+
+  /// Build notification body from CACHED data only
+  String _buildBodyFromCache(DateTime now) {
+    if (_cachedState == null || _cachedState!.prayerTimes == null) {
+      return _isArabic ? 'افتح التطبيق للإعداد' : 'Open app to setup';
+    }
+
+    final timings = _cachedState!.prayerTimes!.timings;
     final today = DateTime(now.year, now.month, now.day);
-    final todayTimes = _getPrayerTimes(_todayTimings!.timings, today);
+    final todayTimes = _getPrayerTimes(timings, today);
 
     // Find the last and next prayers
     int? lastPrayerIndex;
@@ -168,7 +153,6 @@ class LiveNotificationProvider extends ChangeNotifier {
     int? nextPrayerIndex;
     DateTime? nextPrayerTime;
     bool isGraceWindow = false;
-    bool useTomorrow = false;
 
     // Check each prayer time
     for (int i = 0; i < todayTimes.length; i++) {
@@ -192,32 +176,23 @@ class LiveNotificationProvider extends ChangeNotifier {
       }
     }
 
-    // If all today's prayers have passed
-    if (nextPrayerIndex == null && _tomorrowTimings != null) {
-      final tomorrow = today.add(const Duration(days: 1));
-      final tomorrowTimes = _getPrayerTimes(
-        _tomorrowTimings!.timings,
-        tomorrow,
-      );
+    // If all today's prayers have passed, next is tomorrow's Fajr
+    if (nextPrayerIndex == null) {
       nextPrayerIndex = 0; // Fajr
-      nextPrayerTime = tomorrowTimes[0];
-      useTomorrow = true;
+      // Use today's Fajr time + 1 day as estimate
+      if (todayTimes.isNotEmpty) {
+        nextPrayerTime = todayTimes[0].add(const Duration(days: 1));
+      }
     }
 
-    // Build notification content
-    String title = _buildTitle(now);
-    String body = _buildBody(
+    return _buildBody(
       now: now,
       isGraceWindow: isGraceWindow,
       lastPrayerIndex: lastPrayerIndex,
       lastPrayerTime: lastPrayerTime,
       nextPrayerIndex: nextPrayerIndex,
       nextPrayerTime: nextPrayerTime,
-      useTomorrow: useTomorrow,
     );
-
-    // Update via foreground service bridge
-    ForegroundServiceBridge.updateNotification(title: title, body: body);
   }
 
   /// Build the notification title (Location | Hijri Date)
@@ -244,7 +219,6 @@ class LiveNotificationProvider extends ChangeNotifier {
     DateTime? lastPrayerTime,
     int? nextPrayerIndex,
     DateTime? nextPrayerTime,
-    bool useTomorrow = false,
   }) {
     final prayerNames = _isArabic ? _prayerNamesAr : _prayerNamesEn;
 
@@ -274,7 +248,7 @@ class LiveNotificationProvider extends ChangeNotifier {
       }
     }
 
-    return _isArabic ? 'جاري التحميل...' : 'Loading...';
+    return _isArabic ? 'افتح التطبيق للإعداد' : 'Open app to setup';
   }
 
   /// Format duration as "+/- HH:MM:SS" with western digits
