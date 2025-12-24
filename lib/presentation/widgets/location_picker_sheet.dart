@@ -19,7 +19,15 @@ class LocationPickerSheet extends StatefulWidget {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const LocationPickerSheet(),
+      builder:
+          (sheetContext) => Localizations(
+            locale: Localizations.localeOf(context),
+            delegates: const [
+              DefaultMaterialLocalizations.delegate,
+              DefaultWidgetsLocalizations.delegate,
+            ],
+            child: const LocationPickerSheet(),
+          ),
     );
   }
 
