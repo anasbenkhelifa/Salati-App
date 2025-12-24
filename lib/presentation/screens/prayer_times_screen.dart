@@ -377,69 +377,109 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Stack(
+              alignment: Alignment.centerLeft,
               children: [
-                Icon(Icons.location_on, color: AppTheme.activeGlow, size: 24),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                // 1. Content Layer (Text)
+                // Added padding on right to prevent text from going under buttons
+                Padding(
+                  padding: const EdgeInsets.only(right: 84),
+                  child: Row(
                     children: [
-                      Text(
-                        locationName,
-                        style: const TextStyle(
-                          color: AppTheme.textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      Icon(
+                        Icons.location_on,
+                        color: AppTheme.activeGlow,
+                        size: 24,
                       ),
-                      if (_provider.lastUpdatedDisplay.isNotEmpty)
-                        Text(
-                          'Updated: ${_provider.lastUpdatedDisplay}',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.5),
-                            fontSize: 11,
-                          ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              locationName,
+                              style: const TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textDirection:
+                                  isArabic
+                                      ? TextDirection.rtl
+                                      : TextDirection.ltr,
+                            ),
+                            if (_provider.lastUpdatedDisplay.isNotEmpty)
+                              Text(
+                                isArabic
+                                    ? 'آخر تحديث: ${_provider.lastUpdatedDisplay}'
+                                    : 'Updated: ${_provider.lastUpdatedDisplay}',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.5),
+                                  fontSize: 11,
+                                ),
+                                textDirection:
+                                    isArabic
+                                        ? TextDirection.rtl
+                                        : TextDirection.ltr,
+                              ),
+                          ],
                         ),
+                      ),
                     ],
                   ),
                 ),
-                // Icon buttons in a separate, non-expandable container
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Change Location - GestureDetector for reliable RTL taps
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () {
-                        debugPrint('ChangeLocation tapped (GestureDetector)');
-                        _openLocationPicker(context, isArabic);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        child: Icon(
-                          Icons.edit_location_alt,
-                          color: AppTheme.activeGlow,
-                          size: 22,
+
+                // 2. Interaction Layer (Buttons) - Positioned at End/Right
+                // Using Stack ensures these are absolutely on top of everything
+                Positioned(
+                  right: 0,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Change Location Button
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(50),
+                          onTap: () {
+                            debugPrint('ChangeLocation tapped (InkWell)');
+                            _openLocationPicker(context, isArabic);
+                          },
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            alignment: Alignment.center,
+                            child: Icon(
+                              Icons.edit_location_alt,
+                              color: AppTheme.activeGlow,
+                              size: 22,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                    // Update Location (GPS)
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _handleUpdateLocation(context, isArabic),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        child: Icon(
-                          Icons.my_location,
-                          color: Colors.white.withOpacity(0.5),
-                          size: 22,
+                      const SizedBox(width: 4),
+                      // Update Location Button
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(50),
+                          onTap: () => _handleUpdateLocation(context, isArabic),
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            alignment: Alignment.center,
+                            child: Icon(
+                              Icons.my_location,
+                              color: Colors.white.withOpacity(0.5),
+                              size: 22,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -544,93 +584,6 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
         );
       }
     }
-  }
-
-  Widget _buildDebugPanel(BuildContext context) {
-    final response = _provider.response;
-    final lat = _provider.latitude;
-    final lon = _provider.longitude;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.withOpacity(0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.bug_report, color: Colors.orange, size: 18),
-              const SizedBox(width: 8),
-              const Text(
-                'DEBUG INFO',
-                style: TextStyle(
-                  color: Colors.orange,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const Divider(color: Colors.orange, height: 16),
-          _debugRow('Source', _provider.isFromCache ? 'CACHE' : 'NETWORK'),
-          if (lat != null && lon != null) ...[
-            _debugRow('Lat', westernDigits(lat.toStringAsFixed(6))),
-            _debugRow('Lon', westernDigits(lon.toStringAsFixed(6))),
-          ],
-          _debugRow('Location', _provider.locationNameEn),
-          _debugRow(
-            'Method',
-            '${_provider.method.nameEn} (ID: ${_provider.method.id})',
-          ),
-          _debugRow(
-            'Madhab',
-            '${_provider.madhab.nameEn} (ID: ${_provider.madhab.id})',
-          ),
-          _debugRow('Device TZ', _provider.deviceTimezone),
-          if (response != null) ...[
-            _debugRow('API TZ', response.meta.timezone),
-          ],
-          _debugRow('API URL', _provider.requestUrl, isUrl: true),
-        ],
-      ),
-    );
-  }
-
-  Widget _debugRow(String label, String value, {bool isUrl = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              '$label:',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
-                fontSize: 11,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              westernDigits(value),
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: isUrl ? 9 : 11,
-                fontFamily: 'monospace',
-              ),
-              maxLines: isUrl ? 2 : 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildPrayerCard({
