@@ -371,38 +371,49 @@ class _QiblaScreenState extends State<QiblaScreen>
                       ? AppTheme.activeGlow.withOpacity(0.15)
                       : Colors.transparent,
             ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Centered degrees number (anchor)
-                Text(
-                  westernDigits('$headingDeg'),
-                  style: TextStyle(
-                    color:
-                        isAligned ? AppTheme.activeGlow : AppTheme.textPrimary,
-                    fontSize: 42,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                // Degree symbol positioned to the right
-                Transform.translate(
-                  offset: Offset(
-                    headingDeg.toString().length > 2 ? 45 : 35,
-                    -10,
-                  ),
-                  child: Text(
-                    '°',
-                    style: TextStyle(
-                      color: (isAligned
-                              ? AppTheme.activeGlow
-                              : AppTheme.textPrimary)
-                          .withOpacity(0.7),
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
+            child: Builder(
+              builder: (context) {
+                // Define degree style once for measurement and rendering
+                final degreeStyle = TextStyle(
+                  color: isAligned ? AppTheme.activeGlow : AppTheme.textPrimary,
+                  fontSize: 42,
+                  fontWeight: FontWeight.bold,
+                );
+                final degreeText = westernDigits('$headingDeg');
+
+                // Measure the actual width of the degrees text
+                final textPainter = TextPainter(
+                  text: TextSpan(text: degreeText, style: degreeStyle),
+                  textDirection: TextDirection.ltr,
+                )..layout();
+
+                // Gap between number and degree symbol
+                const gap = 4.0;
+                final symbolOffset = (textPainter.width / 2) + gap;
+
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Centered degrees number (anchor)
+                    Text(degreeText, style: degreeStyle),
+                    // Degree symbol positioned right after the number
+                    Transform.translate(
+                      offset: Offset(symbolOffset, -8),
+                      child: Text(
+                        '°',
+                        style: TextStyle(
+                          color: (isAligned
+                                  ? AppTheme.activeGlow
+                                  : AppTheme.textPrimary)
+                              .withOpacity(0.7),
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ],
+                  ],
+                );
+              },
             ),
           ),
         ],

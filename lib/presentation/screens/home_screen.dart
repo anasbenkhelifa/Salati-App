@@ -120,36 +120,50 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildAnalogClock(),
           const SizedBox(height: 16),
           // Digital time - HH:MM centered, AM/PM positioned beside (true centering)
-          SizedBox(
-            width: double.infinity,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Centered HH:MM (anchor)
-                Text(
-                  '$hourStr:$minuteStr',
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 56,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                  ),
-                ),
-                // AM/PM positioned to the right of center
-                // Uses Transform to position without affecting layout
-                Transform.translate(
-                  offset: const Offset(95, 0), // Adjust based on font metrics
-                  child: Text(
-                    period,
-                    style: TextStyle(
-                      color: AppTheme.textPrimary.withOpacity(0.7),
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
+          Builder(
+            builder: (context) {
+              // Define time style once for measurement and rendering
+              const timeStyle = TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 56,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2,
+              );
+              final timeText = '$hourStr:$minuteStr';
+
+              // Measure the actual width of the time text
+              final textPainter = TextPainter(
+                text: TextSpan(text: timeText, style: timeStyle),
+                textDirection: TextDirection.ltr,
+              )..layout();
+
+              // Gap between time and AM/PM
+              const gap = 8.0;
+              final amPmOffset = (textPainter.width / 2) + gap;
+
+              return SizedBox(
+                width: double.infinity,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Centered HH:MM (anchor)
+                    Text(timeText, style: timeStyle),
+                    // AM/PM positioned right after the time text
+                    Transform.translate(
+                      offset: Offset(amPmOffset, 0),
+                      child: Text(
+                        period,
+                        style: TextStyle(
+                          color: AppTheme.textPrimary.withOpacity(0.7),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
           const SizedBox(height: 6),
           // Hijri Date
