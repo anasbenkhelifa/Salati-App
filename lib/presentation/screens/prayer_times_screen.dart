@@ -346,7 +346,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     return ListView(
       children: [
         // Location header
-        _buildLocationHeader(context, isArabic),
+        _buildLocationHeader(context, isArabic, rootContext: context),
         const SizedBox(height: 16),
 
         // Prayer cards
@@ -365,7 +365,11 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     );
   }
 
-  Widget _buildLocationHeader(BuildContext context, bool isArabic) {
+  Widget _buildLocationHeader(
+    BuildContext context,
+    bool isArabic, {
+    required BuildContext rootContext,
+  }) {
     final locationName = _provider.getLocationName(isArabic);
 
     // Force LTR layout for consistent hit-testing (icons stay on right in both languages)
@@ -443,10 +447,8 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                         color: Colors.transparent,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(50),
-                          onTap: () {
-                            debugPrint('ChangeLocation tapped (InkWell)');
-                            _openLocationPicker(context, isArabic);
-                          },
+                          onTap:
+                              () => _openLocationPicker(rootContext, isArabic),
                           child: Container(
                             width: 40,
                             height: 40,
@@ -465,7 +467,9 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                         color: Colors.transparent,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(50),
-                          onTap: () => _handleUpdateLocation(context, isArabic),
+                          onTap:
+                              () =>
+                                  _handleUpdateLocation(rootContext, isArabic),
                           child: Container(
                             width: 40,
                             height: 40,
@@ -556,42 +560,31 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   }
 
   Future<void> _openLocationPicker(BuildContext context, bool isArabic) async {
-    debugPrint('Opening Location Picker... (Context: $context)');
-    try {
-      final result = await LocationPickerSheet.show(context);
+    final result = await LocationPickerSheet.show(context);
 
-      if (result != null && mounted) {
-        // User confirmed a location
-        final success = await _provider.setManualLocation(
-          lat: result.lat,
-          lng: result.lng,
-          cityAr:
-              result.cityName, // Will use same for both if only one available
-          cityEn: result.cityName,
-          countryAr: result.countryName,
-          countryEn: result.countryName,
-        );
+    if (result != null && mounted) {
+      // User confirmed a location
+      final success = await _provider.setManualLocation(
+        lat: result.lat,
+        lng: result.lng,
+        cityAr: result.cityName,
+        cityEn: result.cityName,
+        countryAr: result.countryName,
+        countryEn: result.countryName,
+      );
 
-        if (mounted) {
-          setState(() {});
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                success
-                    ? (isArabic ? 'تم تحديث الموقع' : 'Location updated')
-                    : (isArabic ? 'فشل التحديث' : 'Update failed'),
-              ),
-              backgroundColor: success ? Colors.green : Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint('Error opening location picker: $e');
       if (mounted) {
+        setState(() {});
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(
+              success
+                  ? (isArabic ? 'تم تحديث الموقع' : 'Location updated')
+                  : (isArabic ? 'فشل التحديث' : 'Update failed'),
+            ),
+            backgroundColor: success ? Colors.green : Colors.red,
+          ),
         );
       }
     }

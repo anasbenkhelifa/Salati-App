@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_theme.dart';
@@ -81,11 +82,18 @@ class _AdhanAppState extends State<AdhanApp> {
             locale: _localeController.locale,
             supportedLocales: const [Locale('ar'), Locale('en')],
 
-            // Apply text direction based on locale
+            // Localization delegates for proper MaterialLocalizations
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+
+            // Safe builder: just wrap child with Directionality, don't break inheritance
             builder: (context, child) {
               return Directionality(
                 textDirection: _localeController.textDirection,
-                child: child!,
+                child: child ?? const SizedBox.shrink(),
               );
             },
 
