@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/services/prayer_times_cache_service.dart';
@@ -56,6 +57,10 @@ class QiblaProvider extends ChangeNotifier {
   // Page visibility - haptics only fire when Qibla is active
   bool _isQiblaActive = false;
   bool get isQiblaActive => _isQiblaActive;
+
+  // App lifecycle state - stop compass when app is backgrounded
+  AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
+  AppLifecycleState get appLifecycleState => _appLifecycleState;
 
   bool get compassHapticsEnabled => _compassHapticsEnabled;
 
@@ -287,12 +292,19 @@ class QiblaProvider extends ChangeNotifier {
 
       _lastUpdateTime = now;
 
-      // Haptic tick ONLY when Qibla is active and haptics enabled
-      if (_isQiblaActive && _compassHapticsEnabled && _lastTickDegree != null) {
+      // Haptic tick ONLY when: app resumed AND Qibla is active AND haptics enabled
+      final canTriggerHaptics =
+          _appLifecycleState == AppLifecycleState.resumed &&
+          _isQiblaActive &&
+          _compassHapticsEnabled &&
+          _lastTickDegree != null;
+
+      if (canTriggerHaptics) {
         final currentDegree = _smoothedHeading.round() % 360;
         if (currentDegree != _lastTickDegree) {
           final nowMs = now.millisecondsSinceEpoch;
           if (nowMs - _lastTickMs >= _tickThrottleMs) {
+            debugPrint('[QiblaProvider] HAPTIC TRIGGERED');
             HapticFeedback.selectionClick();
             _lastTickMs = nowMs;
           }
@@ -332,6 +344,27 @@ class QiblaProvider extends ChangeNotifier {
     } else {
       // Leaving - stop compass immediately
       _stopCompassListening();
+    }
+  }
+
+  /// Handle app lifecycle changes - stop compass when app goes to background
+  void onAppLifecycleChanged(AppLifecycleState state) {
+    final prevState = _appLifecycleState;
+    _appLifecycleState = state;
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      // App going to background - stop compass immediately
+      debugPrint('[QiblaProvider] LIFE: $state -> stopCompass');
+      _stopCompassListening();
+    } else if (state == AppLifecycleState.resumed &&
+        prevState != AppLifecycleState.resumed) {
+      // App returning to foreground - only restart if Qibla is active
+      debugPrint('[QiblaProvider] LIFE: resumed (qiblaActive=$_isQiblaActive)');
+      if (_isQiblaActive && _hasCompass && _qiblaBearing != null) {
+        _startCompassListening();
+      }
     }
   }
 

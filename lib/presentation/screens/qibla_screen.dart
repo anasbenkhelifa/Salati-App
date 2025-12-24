@@ -15,7 +15,7 @@ class QiblaScreen extends StatefulWidget {
 }
 
 class _QiblaScreenState extends State<QiblaScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final QiblaProvider _provider = QiblaProvider();
   bool _showDebug = false;
   double _currentDialTurns = 0;
@@ -23,6 +23,7 @@ class _QiblaScreenState extends State<QiblaScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeQibla();
   }
 
@@ -40,7 +41,14 @@ class _QiblaScreenState extends State<QiblaScreen>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Notify provider about app lifecycle changes
+    _provider.onAppLifecycleChanged(state);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _provider.removeListener(_onProviderUpdate);
     _provider.dispose();
     super.dispose();
