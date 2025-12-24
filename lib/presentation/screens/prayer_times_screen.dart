@@ -403,27 +403,40 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                   ],
                 ),
               ),
-              // Change Location button - IconButton for reliable hit-testing in RTL
-              IconButton(
-                icon: const Icon(
-                  Icons.edit_location_alt,
-                  color: AppTheme.activeGlow,
-                  size: 22,
-                ),
-                tooltip: isArabic ? 'تغيير الموقع' : 'Change location',
-                onPressed: () {
-                  debugPrint('ChangeLocation tapped');
-                  _openLocationPicker(context, isArabic);
-                },
-              ),
-              // Update Location button
-              IconButton(
-                icon: Icon(
-                  Icons.my_location,
-                  color: Colors.white.withOpacity(0.5),
-                ),
-                tooltip: isArabic ? 'تحديث الموقع' : 'Update Location',
-                onPressed: () => _handleUpdateLocation(context, isArabic),
+              // Icon buttons in a separate, non-expandable container
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Change Location - GestureDetector for reliable RTL taps
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      debugPrint('ChangeLocation tapped (GestureDetector)');
+                      _openLocationPicker(context, isArabic);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.edit_location_alt,
+                        color: AppTheme.activeGlow,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                  // Update Location (GPS)
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _handleUpdateLocation(context, isArabic),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.my_location,
+                        color: Colors.white.withOpacity(0.5),
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
