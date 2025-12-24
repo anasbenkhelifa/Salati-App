@@ -6,6 +6,7 @@ import '../../core/localization/app_locale_provider.dart';
 import '../../data/services/adhan_playback_service.dart';
 import '../../data/services/alert_mode_service.dart';
 import '../../domain/providers/qibla_provider.dart';
+import '../widgets/app_option_tile.dart';
 import 'controls_screen.dart';
 
 /// Settings screen with glass setting cards and language switcher
@@ -110,63 +111,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final localeController = AppLocaleProvider.of(context);
+    final isArabic = localeController.isArabic;
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            // Title
-            Center(
-              child: Text(
-                t(context, 'settings'),
-                style: const TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
+    return Directionality(
+      textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+              // Title
+              Center(
+                child: Text(
+                  t(context, 'settings'),
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 32),
-            // Settings list
-            Expanded(
-              child: ListView(
-                children: [
-                  // Adhan Debug Section
-                  _buildAdhanDebugSection(),
-                  const SizedBox(height: 20),
-                  // Language switcher
-                  _buildLanguageSwitcher(context, localeController),
-                  const SizedBox(height: 12),
-                  // Controls section (groups notifications, haptics, theme)
-                  _buildControlsItem(context),
-                  const SizedBox(height: 12),
-                  // Share
-                  _buildSettingItem(
-                    icon: Icons.share_outlined,
-                    title: t(context, 'shareApp'),
-                  ),
-                  const SizedBox(height: 12),
-                  // Rate
-                  _buildSettingItem(
-                    icon: Icons.star_outline,
-                    title: t(context, 'rateApp'),
-                  ),
-                  const SizedBox(height: 12),
-                  // About
-                  _buildSettingItem(
-                    icon: Icons.info_outline,
-                    title: t(context, 'aboutApp'),
-                  ),
-                  const SizedBox(height: 40),
-                  // Footer
-                  _buildFooter(),
-                ],
+              const SizedBox(height: 32),
+              // Settings list
+              Expanded(
+                child: ListView(
+                  children: [
+                    // Adhan Debug Section
+                    _buildAdhanDebugSection(),
+                    const SizedBox(height: 20),
+                    // Language switcher
+                    _buildLanguageSwitcher(context, localeController),
+                    const SizedBox(height: 12),
+                    // Controls section (groups notifications, haptics, theme)
+                    AppOptionTile.navigation(
+                      icon: Icons.tune,
+                      title: t(context, 'controlsTitle'),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const ControlsScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    // Share
+                    AppOptionTile.navigation(
+                      icon: Icons.share_outlined,
+                      title: t(context, 'shareApp'),
+                      onTap: () {},
+                    ),
+                    const SizedBox(height: 12),
+                    // Rate
+                    AppOptionTile.navigation(
+                      icon: Icons.star_outline,
+                      title: t(context, 'rateApp'),
+                      onTap: () {},
+                    ),
+                    const SizedBox(height: 12),
+                    // About
+                    AppOptionTile.navigation(
+                      icon: Icons.info_outline,
+                      title: t(context, 'aboutApp'),
+                      onTap: () {},
+                    ),
+                    const SizedBox(height: 40),
+                    // Footer
+                    _buildFooter(),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -405,82 +423,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSettingItem({required IconData icon, required String title}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-      decoration: AppTheme.glassDecoration(opacity: 0.08, borderRadius: 20),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: AppTheme.activeGlow, size: 22),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
-                fontSize: 17,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Icon(Icons.chevron_right, color: Colors.white.withOpacity(0.4)),
-        ],
-      ),
-    );
-  }
-
-  /// Controls navigation card that opens ControlsScreen
-  Widget _buildControlsItem(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (context) => const ControlsScreen()));
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        decoration: AppTheme.glassDecoration(opacity: 0.08, borderRadius: 20),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.tune,
-                color: AppTheme.activeGlow,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                t(context, 'controlsTitle'),
-                style: const TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            Icon(Icons.chevron_right, color: Colors.white.withOpacity(0.4)),
-          ],
-        ),
       ),
     );
   }

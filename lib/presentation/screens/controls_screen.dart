@@ -3,6 +3,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/localization/strings.dart';
 import '../../core/localization/app_locale_provider.dart';
 import '../../domain/providers/qibla_provider.dart';
+import '../widgets/app_option_tile.dart';
 
 /// Controls screen with full-screen notification, compass haptics, and theme settings
 class ControlsScreen extends StatefulWidget {
@@ -96,7 +97,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
                     child: ListView(
                       children: [
                         // Full screen notification toggle
-                        _buildSettingToggle(
+                        AppOptionTile.toggle(
                           icon: Icons.fullscreen,
                           title: t(context, 'fullScreenNotification'),
                           value: _fullScreenNotification,
@@ -106,7 +107,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
                         ),
                         const SizedBox(height: 12),
                         // Compass haptics toggle
-                        _buildSettingToggle(
+                        AppOptionTile.toggle(
                           icon: Icons.vibration,
                           title: t(context, 'compassHaptics'),
                           value: _compassHapticsEnabled,
@@ -114,7 +115,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
                         ),
                         const SizedBox(height: 12),
                         // Theme picker
-                        _buildSettingItem(
+                        AppOptionTile.navigation(
                           icon: Icons.palette_outlined,
                           title: t(context, 'chooseTheme'),
                           onTap: () {
@@ -162,89 +163,6 @@ class _ControlsScreenState extends State<ControlsScreen> {
           // Spacer to balance the back button
           const SizedBox(width: 48),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSettingToggle({
-    required IconData icon,
-    required String title,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      decoration: AppTheme.glassDecoration(opacity: 0.08, borderRadius: 20),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: AppTheme.activeGlow, size: 22),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
-                fontSize: 17,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeColor: AppTheme.activeGlow,
-            activeTrackColor: AppTheme.activeGlow.withOpacity(0.3),
-            inactiveThumbColor: Colors.white.withOpacity(0.6),
-            inactiveTrackColor: Colors.white.withOpacity(0.2),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSettingItem({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        decoration: AppTheme.glassDecoration(opacity: 0.08, borderRadius: 20),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: AppTheme.activeGlow, size: 22),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            Icon(Icons.chevron_right, color: Colors.white.withOpacity(0.4)),
-          ],
-        ),
       ),
     );
   }

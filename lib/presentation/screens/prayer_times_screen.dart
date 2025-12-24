@@ -73,28 +73,34 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            // Title
-            Center(
-              child: Text(
-                t(context, 'prayerTimes'),
-                style: const TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
+    final localeController = AppLocaleProvider.of(context);
+    final isArabic = localeController.isArabic;
+
+    return Directionality(
+      textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+              // Title
+              Center(
+                child: Text(
+                  t(context, 'prayerTimes'),
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            // Content based on state
-            Expanded(child: _buildContent(context)),
-          ],
+              const SizedBox(height: 16),
+              // Content based on state
+              Expanded(child: _buildContent(context)),
+            ],
+          ),
         ),
       ),
     );
@@ -372,152 +378,134 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   }) {
     final locationName = _provider.getLocationName(isArabic);
 
-    // Force LTR layout for consistent hit-testing (icons stay on right in both languages)
-    return Directionality(
-      textDirection: TextDirection.ltr,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        decoration: AppTheme.glassDecoration(opacity: 0.06, borderRadius: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              alignment: Alignment.centerLeft,
-              children: [
-                // 1. Content Layer (Text)
-                // Added padding on right to prevent text from going under buttons
-                Padding(
-                  padding: const EdgeInsets.only(right: 84),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.location_on,
-                        color: AppTheme.activeGlow,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              locationName,
-                              style: const TextStyle(
-                                color: AppTheme.textPrimary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              textDirection:
-                                  isArabic
-                                      ? TextDirection.rtl
-                                      : TextDirection.ltr,
-                            ),
-                            if (_provider.lastUpdatedDisplay.isNotEmpty)
-                              Text(
-                                isArabic
-                                    ? 'آخر تحديث: ${_provider.lastUpdatedDisplay}'
-                                    : 'Updated: ${_provider.lastUpdatedDisplay}',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.5),
-                                  fontSize: 11,
-                                ),
-                                textDirection:
-                                    isArabic
-                                        ? TextDirection.rtl
-                                        : TextDirection.ltr,
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // 2. Interaction Layer (Buttons) - Positioned at End/Right
-                // Using Stack ensures these are absolutely on top of everything
-                Positioned(
-                  right: 0,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Change Location Button
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(50),
-                          onTap:
-                              () => _openLocationPicker(rootContext, isArabic),
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            alignment: Alignment.center,
-                            child: Icon(
-                              Icons.edit_location_alt,
-                              color: AppTheme.activeGlow,
-                              size: 22,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      // Update Location Button
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(50),
-                          onTap:
-                              () =>
-                                  _handleUpdateLocation(rootContext, isArabic),
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            alignment: Alignment.center,
-                            child: Icon(
-                              Icons.my_location,
-                              color: Colors.white.withOpacity(0.5),
-                              size: 22,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            // Offline mode banner
-            if (_provider.isOfflineMode)
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
+    // Uses the Directionality from parent context - properly flips in RTL
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: 20,
+        vertical: 16,
+      ),
+      decoration: AppTheme.glassDecoration(opacity: 0.06, borderRadius: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            alignment: AlignmentDirectional.centerStart,
+            children: [
+              // 1. Content Layer (Icon + Text)
+              // Padding on trailing side to prevent text from going under buttons
+              Padding(
+                padding: const EdgeInsetsDirectional.only(end: 84),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.cloud_off, color: Colors.orange, size: 14),
-                    const SizedBox(width: 6),
-                    Text(
-                      isArabic
-                          ? 'وضع عدم الاتصال'
-                          : 'Offline - using saved data',
-                      style: const TextStyle(
-                        color: Colors.orange,
-                        fontSize: 12,
+                    Icon(
+                      Icons.location_on,
+                      color: AppTheme.activeGlow,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            locationName,
+                            style: const TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (_provider.lastUpdatedDisplay.isNotEmpty)
+                            Text(
+                              isArabic
+                                  ? 'آخر تحديث: ${_provider.lastUpdatedDisplay}'
+                                  : 'Updated: ${_provider.lastUpdatedDisplay}',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.5),
+                                fontSize: 11,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-          ],
-        ),
+
+              // 2. Interaction Layer (Buttons) - Positioned at End (trailing side)
+              // Using PositionedDirectional for RTL support
+              PositionedDirectional(
+                end: 0,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Change Location Button
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(50),
+                        onTap: () => _openLocationPicker(rootContext, isArabic),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.edit_location_alt,
+                            color: AppTheme.activeGlow,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    // Update Location Button
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(50),
+                        onTap:
+                            () => _handleUpdateLocation(rootContext, isArabic),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.my_location,
+                            color: Colors.white.withOpacity(0.5),
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          // Offline mode banner
+          if (_provider.isOfflineMode)
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.cloud_off, color: Colors.orange, size: 14),
+                  const SizedBox(width: 6),
+                  Text(
+                    isArabic ? 'وضع عدم الاتصال' : 'Offline - using saved data',
+                    style: const TextStyle(color: Colors.orange, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
