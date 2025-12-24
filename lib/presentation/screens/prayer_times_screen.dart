@@ -556,31 +556,42 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   }
 
   Future<void> _openLocationPicker(BuildContext context, bool isArabic) async {
-    final result = await LocationPickerSheet.show(context);
+    debugPrint('Opening Location Picker... (Context: $context)');
+    try {
+      final result = await LocationPickerSheet.show(context);
 
-    if (result != null && mounted) {
-      // User confirmed a location
-      final success = await _provider.setManualLocation(
-        lat: result.lat,
-        lng: result.lng,
-        cityAr: result.cityName, // Will use same for both if only one available
-        cityEn: result.cityName,
-        countryAr: result.countryName,
-        countryEn: result.countryName,
-      );
+      if (result != null && mounted) {
+        // User confirmed a location
+        final success = await _provider.setManualLocation(
+          lat: result.lat,
+          lng: result.lng,
+          cityAr:
+              result.cityName, // Will use same for both if only one available
+          cityEn: result.cityName,
+          countryAr: result.countryName,
+          countryEn: result.countryName,
+        );
 
-      if (mounted) {
-        setState(() {});
+        if (mounted) {
+          setState(() {});
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              success
-                  ? (isArabic ? 'تم تحديث الموقع' : 'Location updated')
-                  : (isArabic ? 'فشل التحديث' : 'Update failed'),
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                success
+                    ? (isArabic ? 'تم تحديث الموقع' : 'Location updated')
+                    : (isArabic ? 'فشل التحديث' : 'Update failed'),
+              ),
+              backgroundColor: success ? Colors.green : Colors.red,
             ),
-            backgroundColor: success ? Colors.green : Colors.red,
-          ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error opening location picker: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }

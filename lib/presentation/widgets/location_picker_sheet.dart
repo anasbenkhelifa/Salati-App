@@ -18,6 +18,7 @@ class LocationPickerSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      useRootNavigator: true, // Ensure we use the root navigator/overlay
       backgroundColor: Colors.transparent,
       builder: (context) => const LocationPickerSheet(),
     );
