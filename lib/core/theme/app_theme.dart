@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// App theme with dark navy gradient and glassmorphism styling
+/// Uses Tajawal font for Arabic typography support
 class AppTheme {
   // Primary colors
   static const Color primaryNavy = Color(0xFF0A1628);
@@ -38,8 +40,41 @@ class AppTheme {
     );
   }
 
-  // Theme data
+  // Base text theme with Tajawal font
+  static TextTheme _tajawalTextTheme(TextTheme base) {
+    return GoogleFonts.tajawalTextTheme(base).copyWith(
+      headlineLarge: GoogleFonts.tajawal(
+        textStyle: base.headlineLarge,
+        color: textPrimary,
+        fontSize: 32,
+        fontWeight: FontWeight.bold,
+      ),
+      headlineMedium: GoogleFonts.tajawal(
+        textStyle: base.headlineMedium,
+        color: textPrimary,
+        fontSize: 24,
+        fontWeight: FontWeight.w600,
+      ),
+      bodyLarge: GoogleFonts.tajawal(
+        textStyle: base.bodyLarge,
+        color: textPrimary,
+        fontSize: 18,
+      ),
+      bodyMedium: GoogleFonts.tajawal(
+        textStyle: base.bodyMedium,
+        color: textSecondary,
+        fontSize: 16,
+      ),
+    );
+  }
+
+  // Theme data with Tajawal font
   static ThemeData get darkTheme {
+    final baseTheme = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+    );
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
@@ -49,29 +84,18 @@ class AppTheme {
         brightness: Brightness.dark,
         surface: primaryNavy,
       ),
-      appBarTheme: const AppBarTheme(
+      // Apply Tajawal to all text
+      textTheme: _tajawalTextTheme(baseTheme.textTheme),
+      primaryTextTheme: _tajawalTextTheme(baseTheme.primaryTextTheme),
+      appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        titleTextStyle: TextStyle(
+        titleTextStyle: GoogleFonts.tajawal(
           color: textPrimary,
           fontSize: 24,
           fontWeight: FontWeight.w600,
         ),
-      ),
-      textTheme: const TextTheme(
-        headlineLarge: TextStyle(
-          color: textPrimary,
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-        ),
-        headlineMedium: TextStyle(
-          color: textPrimary,
-          fontSize: 24,
-          fontWeight: FontWeight.w600,
-        ),
-        bodyLarge: TextStyle(color: textPrimary, fontSize: 18),
-        bodyMedium: TextStyle(color: textSecondary, fontSize: 16),
       ),
     );
   }
