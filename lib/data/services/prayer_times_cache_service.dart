@@ -366,4 +366,29 @@ class PrayerTimesCacheService {
     }
     return null;
   }
+
+  // ========== MANUAL LOCATION ==========
+
+  /// Save manual location (from place picker, not GPS)
+  Future<void> saveManualLocation({
+    required double lat,
+    required double lng,
+    required String cityAr,
+    required String cityEn,
+    required String countryAr,
+    required String countryEn,
+  }) async {
+    final prefs = await _preferences;
+    await prefs.setDouble(_keyLat, lat);
+    await prefs.setDouble(_keyLng, lng);
+    await prefs.setString(_keyCityAr, cityAr);
+    await prefs.setString(_keyCityEn, cityEn);
+    await prefs.setString(_keyCountryAr, countryAr);
+    await prefs.setString(_keyCountryEn, countryEn);
+    await prefs.setString('cached_location_source', 'manual');
+    await prefs.setInt(_keyUpdatedAt, DateTime.now().millisecondsSinceEpoch);
+    debugPrint(
+      '[PrayerTimesCacheService] Manual location saved: $cityEn, $countryEn ($lat, $lng)',
+    );
+  }
 }

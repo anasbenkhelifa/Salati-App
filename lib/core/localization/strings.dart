@@ -27,6 +27,14 @@ const Map<String, Map<String, String>> _strings = {
     'isha': 'العشاء',
     'country': 'الجزائر',
     'city': 'باتنة',
+    // Location picker
+    'changeLocation': 'تغيير الموقع',
+    'selectLocation': 'اختيار الموقع',
+    'searchPlaceholder': 'ابحث عن مدينة أو مكان...',
+    'noResults': 'لا توجد نتائج',
+    'confirm': 'تأكيد',
+    'cancel': 'إلغاء',
+    'searchRequiresInternet': 'البحث يحتاج إنترنت',
   },
   'en': {
     'qibla': 'Qibla',
@@ -52,6 +60,14 @@ const Map<String, Map<String, String>> _strings = {
     'isha': 'Isha',
     'country': 'Algeria',
     'city': 'Batna',
+    // Location picker
+    'changeLocation': 'Change location',
+    'selectLocation': 'Select location',
+    'searchPlaceholder': 'Search for a city or place...',
+    'noResults': 'No results found',
+    'confirm': 'Confirm',
+    'cancel': 'Cancel',
+    'searchRequiresInternet': 'Search requires internet',
   },
 };
 

@@ -553,4 +553,73 @@ class PrayerTimesApiProvider extends ChangeNotifier {
   Future<void> openLocationSettings() async {
     await Geolocator.openLocationSettings();
   }
+
+  /// Set manual location from place picker (no GPS)
+  /// Saves to cache with source='manual' and fetches prayer times + qibla by coordinates
+  Future<bool> setManualLocation({
+    required double lat,
+    required double lng,
+    required String cityAr,
+    required String cityEn,
+    required String countryAr,
+    required String countryEn,
+  }) async {
+    debugPrint(
+      '[PrayerTimesApiProvider] setManualLocation: $cityEn, $countryEn ($lat, $lng)',
+    );
+
+    _state = PrayerDataState.loading;
+    notifyListeners();
+
+    try {
+      // Update in-memory state
+      _latitude = lat;
+      _longitude = lng;
+      _cityAr = cityAr.isNotEmpty ? cityAr : cityEn;
+      _cityEn = cityEn.isNotEmpty ? cityEn : cityAr;
+      _countryAr = countryAr.isNotEmpty ? countryAr : countryEn;
+      _countryEn = countryEn.isNotEmpty ? countryEn : countryAr;
+      _lastUpdatedAt = DateTime.now();
+
+      // Save to cache with manual source
+      await _cacheService.saveManualLocation(
+        lat: lat,
+        lng: lng,
+        cityAr: _cityAr,
+        cityEn: _cityEn,
+        countryAr: _countryAr,
+        countryEn: _countryEn,
+      );
+
+      // Fetch prayer times by coordinates
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      await _refreshPrayerTimesOnly(lat, lng, today);
+
+      // Fetch qibla by coordinates and notify QiblaProvider
+      try {
+        final qiblaResponse = await _qiblaApiService.fetchQiblaDirection(
+          latitude: lat,
+          longitude: lng,
+        );
+        await _cacheService.saveQiblaDirection(qiblaResponse.direction);
+        QiblaProvider.instance?.refreshFromNewLocation(lat, lng);
+      } catch (e) {
+        debugPrint('[PrayerTimesApiProvider] Qibla fetch failed: $e');
+      }
+
+      _isFromCache = false;
+      _isOfflineMode = false;
+      _state = PrayerDataState.success;
+      notifyListeners();
+
+      debugPrint('[PrayerTimesApiProvider] Manual location set successfully');
+      return true;
+    } catch (e) {
+      debugPrint('[PrayerTimesApiProvider] setManualLocation failed: $e');
+      _state = PrayerDataState.error;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
 }

@@ -8,6 +8,7 @@ import '../../domain/providers/prayer_times_api_provider.dart';
 import '../../data/services/prayer_times_api_service.dart';
 import '../../data/services/alert_mode_service.dart';
 import '../widgets/prayer_alert_mode_button.dart';
+import '../widgets/location_picker_sheet.dart';
 
 /// Prayer times screen with AlAdhan API + GPS integration
 class PrayerTimesScreen extends StatefulWidget {
@@ -22,7 +23,6 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   final AlertModeService _alertModeService = AlertModeService();
   Timer? _countdownTimer;
   Duration _countdown = Duration.zero;
-  bool _showDebug = true; // Show debug panel initially
 
   // Per-prayer alert modes
   Map<String, AlertMode> _alertModes = {};
@@ -349,12 +349,6 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
         _buildLocationHeader(context, isArabic),
         const SizedBox(height: 16),
 
-        // Debug panel (temporary)
-        if (_showDebug) ...[
-          _buildDebugPanel(context),
-          const SizedBox(height: 16),
-        ],
-
         // Prayer cards
         ...List.generate(5, (index) {
           final isNext = index == _provider.nextPrayerIndex;
@@ -409,18 +403,18 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                   ],
                 ),
               ),
-              // Debug toggle
-              IconButton(
+              // Change Location button
+              TextButton.icon(
                 icon: Icon(
-                  _showDebug ? Icons.bug_report : Icons.bug_report_outlined,
-                  color:
-                      _showDebug
-                          ? AppTheme.activeGlow
-                          : Colors.white.withOpacity(0.5),
+                  Icons.edit_location_alt,
+                  color: AppTheme.activeGlow,
+                  size: 20,
                 ),
-                onPressed: () {
-                  setState(() => _showDebug = !_showDebug);
-                },
+                label: Text(
+                  t(context, 'changeLocation'),
+                  style: TextStyle(color: AppTheme.activeGlow, fontSize: 12),
+                ),
+                onPressed: () => _openLocationPicker(context, isArabic),
               ),
               // Update Location button
               IconButton(
@@ -493,6 +487,37 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
           backgroundColor: success ? Colors.green : Colors.orange,
         ),
       );
+    }
+  }
+
+  Future<void> _openLocationPicker(BuildContext context, bool isArabic) async {
+    final result = await LocationPickerSheet.show(context);
+
+    if (result != null && mounted) {
+      // User confirmed a location
+      final success = await _provider.setManualLocation(
+        lat: result.lat,
+        lng: result.lng,
+        cityAr: result.cityName, // Will use same for both if only one available
+        cityEn: result.cityName,
+        countryAr: result.countryName,
+        countryEn: result.countryName,
+      );
+
+      if (mounted) {
+        setState(() {});
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              success
+                  ? (isArabic ? 'تم تحديث الموقع' : 'Location updated')
+                  : (isArabic ? 'فشل التحديث' : 'Update failed'),
+            ),
+            backgroundColor: success ? Colors.green : Colors.red,
+          ),
+        );
+      }
     }
   }
 
