@@ -6,6 +6,7 @@ import '../../core/localization/app_locale_provider.dart';
 import '../../data/services/adhan_playback_service.dart';
 import '../../data/services/alert_mode_service.dart';
 import '../../domain/providers/qibla_provider.dart';
+import 'controls_screen.dart';
 
 /// Settings screen with glass setting cards and language switcher
 class SettingsScreen extends StatefulWidget {
@@ -16,8 +17,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _fullScreenNotification = true;
-
   // Adhan debug state
   final AdhanPlaybackService _adhanService = AdhanPlaybackService();
   bool _isAdhanTesting = false;
@@ -141,33 +140,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // Language switcher
                   _buildLanguageSwitcher(context, localeController),
                   const SizedBox(height: 12),
-                  // Toggle setting
-                  _buildSettingToggle(
-                    icon: Icons.fullscreen,
-                    title: t(context, 'fullScreenNotification'),
-                    value: _fullScreenNotification,
-                    onChanged: (val) {
-                      setState(() => _fullScreenNotification = val);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  // Compass haptics toggle
-                  _buildSettingToggle(
-                    icon: Icons.vibration,
-                    title: t(context, 'compassHaptics'),
-                    value:
-                        QiblaProvider.instance?.compassHapticsEnabled ?? true,
-                    onChanged: (val) {
-                      QiblaProvider.instance?.setCompassHaptics(val);
-                      setState(() {});
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  // Theme
-                  _buildSettingItem(
-                    icon: Icons.palette_outlined,
-                    title: t(context, 'chooseTheme'),
-                  ),
+                  // Controls section (groups notifications, haptics, theme)
+                  _buildControlsItem(context),
                   const SizedBox(height: 12),
                   // Share
                   _buildSettingItem(
@@ -467,46 +441,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildSettingToggle({
-    required IconData icon,
-    required String title,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      decoration: AppTheme.glassDecoration(opacity: 0.08, borderRadius: 20),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: AppTheme.activeGlow, size: 22),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
-                fontSize: 17,
-                fontWeight: FontWeight.w500,
+  /// Controls navigation card that opens ControlsScreen
+  Widget _buildControlsItem(BuildContext context) {
+    final isArabic = AppLocaleProvider.of(context).isArabic;
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (context) => const ControlsScreen()));
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: AppTheme.glassDecoration(opacity: 0.08, borderRadius: 20),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.tune,
+                color: AppTheme.activeGlow,
+                size: 22,
               ),
             ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeColor: AppTheme.activeGlow,
-            activeTrackColor: AppTheme.activeGlow.withOpacity(0.3),
-            inactiveThumbColor: Colors.white.withOpacity(0.6),
-            inactiveTrackColor: Colors.white.withOpacity(0.2),
-          ),
-        ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    t(context, 'controlsTitle'),
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    t(context, 'controlsSubtitle'),
+                    style: TextStyle(
+                      color: AppTheme.textSecondary.withOpacity(0.6),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              isArabic ? Icons.chevron_left : Icons.chevron_right,
+              color: Colors.white.withOpacity(0.4),
+            ),
+          ],
+        ),
       ),
     );
   }

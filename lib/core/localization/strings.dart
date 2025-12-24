@@ -27,6 +27,9 @@ const Map<String, Map<String, String>> _strings = {
     'isha': 'العشاء',
     'country': 'الجزائر',
     'city': 'باتنة',
+    // Controls section
+    'controlsTitle': 'التحكم',
+    'controlsSubtitle': 'الإشعارات، الاهتزاز، المظهر',
     // Location picker
     'changeLocation': 'تغيير الموقع',
     'selectLocation': 'اختيار الموقع',
@@ -60,6 +63,9 @@ const Map<String, Map<String, String>> _strings = {
     'isha': 'Isha',
     'country': 'Algeria',
     'city': 'Batna',
+    // Controls section
+    'controlsTitle': 'Controls',
+    'controlsSubtitle': 'Notifications, haptics, theme',
     // Location picker
     'changeLocation': 'Change location',
     'selectLocation': 'Select location',
