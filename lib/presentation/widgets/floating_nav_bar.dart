@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 
 /// Custom floating glassmorphism bottom navigation bar
-/// Wrapped in LTR directionality to maintain left→right icon order
+/// Features a single animated glow indicator that slides between icons
 class FloatingNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
@@ -17,6 +17,24 @@ class FloatingNavBar extends StatelessWidget {
   // Nav bar height for external padding calculations
   static const double navBarHeight = 72;
   static const double navBarBottomMargin = 24;
+  static const int _itemCount = 4;
+  static const double _indicatorWidth = 52;
+  static const double _indicatorHeight = 46;
+
+  // Icon definitions
+  static const List<IconData> _icons = [
+    Icons.explore_outlined,
+    Icons.home_outlined,
+    Icons.access_time,
+    Icons.settings_outlined,
+  ];
+
+  static const List<IconData> _activeIcons = [
+    Icons.explore,
+    Icons.home,
+    Icons.access_time_filled,
+    Icons.settings,
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -48,28 +66,34 @@ class FloatingNavBar extends StatelessWidget {
             // Force LTR so icons are always: Qibla, Home, PrayerTimes, Settings
             child: Directionality(
               textDirection: TextDirection.ltr,
-              child: Row(
-                children: [
-                  _buildNavItem(
-                    context,
-                    0,
-                    Icons.explore_outlined,
-                    Icons.explore,
-                  ),
-                  _buildNavItem(context, 1, Icons.home_outlined, Icons.home),
-                  _buildNavItem(
-                    context,
-                    2,
-                    Icons.access_time,
-                    Icons.access_time_filled,
-                  ),
-                  _buildNavItem(
-                    context,
-                    3,
-                    Icons.settings_outlined,
-                    Icons.settings,
-                  ),
-                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final itemWidth = constraints.maxWidth / _itemCount;
+                  // Calculate indicator position (center of selected item)
+                  final indicatorLeft =
+                      (currentIndex * itemWidth) +
+                      (itemWidth - _indicatorWidth) / 2;
+
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Layer 1: Animated glow indicator (slides smoothly)
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
+                        left: indicatorLeft,
+                        child: _buildGlowIndicator(),
+                      ),
+
+                      // Layer 2: Row of icons (on top)
+                      Row(
+                        children: List.generate(_itemCount, (index) {
+                          return _buildNavItem(index);
+                        }),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -78,12 +102,29 @@ class FloatingNavBar extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(
-    BuildContext context,
-    int index,
-    IconData icon,
-    IconData activeIcon,
-  ) {
+  /// The single glow indicator that moves between icons
+  Widget _buildGlowIndicator() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      width: _indicatorWidth,
+      height: _indicatorHeight,
+      decoration: BoxDecoration(
+        color: AppTheme.activeGlow.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.activeGlow.withOpacity(0.3),
+            blurRadius: 12,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Individual nav item (icon only, no glow - glow is handled separately)
+  Widget _buildNavItem(int index) {
     final isActive = currentIndex == index;
 
     return Expanded(
@@ -91,30 +132,20 @@ class FloatingNavBar extends StatelessWidget {
         onTap: () => onTap(index),
         borderRadius: BorderRadius.circular(16),
         child: Center(
-          child: AnimatedContainer(
+          child: AnimatedScale(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.all(10),
-            decoration:
-                isActive
-                    ? BoxDecoration(
-                      color: AppTheme.activeGlow.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.activeGlow.withOpacity(0.3),
-                          blurRadius: 12,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    )
-                    : null,
-            child: Icon(
-              isActive ? activeIcon : icon,
-              color:
-                  isActive
-                      ? AppTheme.activeGlow
-                      : Colors.white.withOpacity(0.6),
-              size: 26,
+            scale: isActive ? 1.1 : 1.0,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                isActive ? _activeIcons[index] : _icons[index],
+                key: ValueKey(isActive),
+                color:
+                    isActive
+                        ? AppTheme.activeGlow
+                        : Colors.white.withOpacity(0.6),
+                size: 26,
+              ),
             ),
           ),
         ),
