@@ -449,8 +449,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               borderRadius: BorderRadius.circular(8),
               onTap: () async {
                 final uri = Uri.parse('https://t.me/anassbkk');
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                final ok = await launchUrl(
+                  uri,
+                  mode: LaunchMode.externalApplication,
+                );
+                if (!ok && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        isArabic ? 'تعذر فتح الرابط' : 'Could not open link',
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               },
               child: Padding(
