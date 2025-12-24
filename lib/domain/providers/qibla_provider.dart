@@ -53,6 +53,10 @@ class QiblaProvider extends ChangeNotifier {
   int _lastTickMs = 0;
   static const int _tickThrottleMs = 100; // Max 10 ticks/second
 
+  // Page visibility - haptics only fire when Qibla is active
+  bool _isQiblaActive = false;
+  bool get isQiblaActive => _isQiblaActive;
+
   bool get compassHapticsEnabled => _compassHapticsEnabled;
 
   // Smoothing settings
@@ -238,9 +242,15 @@ class QiblaProvider extends ChangeNotifier {
 
   /// Start listening to compass events
   void _startCompassListening() {
-    _compassSubscription?.cancel();
+    if (_compassSubscription != null) {
+      debugPrint('[QiblaProvider] Compass already listening, skipping');
+      return;
+    }
+    debugPrint('[QiblaProvider] startCompass');
     _compassSubscription = FlutterCompass.events?.listen((event) {
       if (event.heading == null || _qiblaBearing == null) return;
+      if (!_isQiblaActive)
+        return; // Guard: only update when Qibla page is active
 
       final now = DateTime.now();
       final elapsed = now.difference(_lastUpdateTime).inMilliseconds;
@@ -277,9 +287,9 @@ class QiblaProvider extends ChangeNotifier {
 
       _lastUpdateTime = now;
 
-      // Haptic tick when displayed degree changes
-      final currentDegree = _smoothedHeading.round() % 360;
-      if (_compassHapticsEnabled && _lastTickDegree != null) {
+      // Haptic tick ONLY when Qibla is active and haptics enabled
+      if (_isQiblaActive && _compassHapticsEnabled && _lastTickDegree != null) {
+        final currentDegree = _smoothedHeading.round() % 360;
         if (currentDegree != _lastTickDegree) {
           final nowMs = now.millisecondsSinceEpoch;
           if (nowMs - _lastTickMs >= _tickThrottleMs) {
@@ -287,11 +297,42 @@ class QiblaProvider extends ChangeNotifier {
             _lastTickMs = nowMs;
           }
         }
+        _lastTickDegree = currentDegree;
+      } else {
+        _lastTickDegree = _smoothedHeading.round() % 360;
       }
-      _lastTickDegree = currentDegree;
 
       notifyListeners();
     });
+  }
+
+  /// Stop listening to compass events
+  void _stopCompassListening() {
+    if (_compassSubscription != null) {
+      debugPrint('[QiblaProvider] stopCompass');
+      _compassSubscription?.cancel();
+      _compassSubscription = null;
+      // Reset haptic state to prevent burst on resume
+      _lastTickDegree = null;
+      _lastTickMs = 0;
+    }
+  }
+
+  /// Set Qibla page active/inactive - controls compass and haptics
+  void setActive(bool active) {
+    if (_isQiblaActive == active) return;
+    _isQiblaActive = active;
+    debugPrint('[QiblaProvider] setActive($active)');
+
+    if (active) {
+      // Resuming - start compass if we have bearing
+      if (_hasCompass && _qiblaBearing != null) {
+        _startCompassListening();
+      }
+    } else {
+      // Leaving - stop compass immediately
+      _stopCompassListening();
+    }
   }
 
   /// Soft refresh from cache (on resume) - no GPS, no network

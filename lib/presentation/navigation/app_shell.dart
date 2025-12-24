@@ -5,6 +5,7 @@ import '../screens/prayer_times_screen.dart';
 import '../screens/settings_screen.dart';
 import '../widgets/floating_nav_bar.dart';
 import '../../core/theme/app_theme.dart';
+import '../../domain/providers/qibla_provider.dart';
 
 /// Main app shell with floating bottom navigation and swipe navigation
 class AppShell extends StatefulWidget {
@@ -49,6 +50,9 @@ class _AppShellState extends State<AppShell> {
 
   /// Update current index when page is swiped
   void _onPageChanged(int index) {
+    // Notify Qibla about page visibility (Qibla is at index 0)
+    QiblaProvider.instance?.setActive(index == 0);
+
     setState(() {
       _currentIndex = index;
     });
