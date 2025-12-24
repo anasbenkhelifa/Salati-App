@@ -9,6 +9,7 @@ import android.content.SharedPreferences
 import android.content.res.AssetFileDescriptor
 import android.database.ContentObserver
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.Uri
@@ -20,8 +21,11 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.Settings
+import android.support.v4.media.session.MediaSessionCompat
+import android.support.v4.media.session.PlaybackStateCompat
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.media.VolumeProviderCompat
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
@@ -81,6 +85,10 @@ class AdhanForegroundService : Service() {
     private var volumeObserver: ContentObserver? = null
     private var baselineVolume: Int = -1
     private var audioManager: AudioManager? = null
+    
+    // MediaSession for intercepting volume keys even when other apps are playing
+    private var mediaSession: MediaSessionCompat? = null
+    private var audioFocusRequest: AudioFocusRequest? = null
     
     // Prayer names
     private val prayerNamesEn = arrayOf("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha")
@@ -348,20 +356,48 @@ class AdhanForegroundService : Service() {
         }
     }
     
-    // ==================== HARDWARE STOP LISTENERS ====================
-    
     /**
      * Register listeners for hardware button stop (power button via screen off, volume buttons)
+     * Uses MediaSession + VolumeProviderCompat to intercept volume keys even when other apps are playing
      */
     private fun registerHardwareStopListeners() {
-        Log.d(TAG, "Registering hardware stop listeners")
+        Log.d(TAG, "Registering hardware stop listeners with MediaSession")
         
         // Initialize AudioManager
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         
-        // Store baseline volume for alarm stream
+        // Request audio focus with AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE for alarm-like priority
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+            
+            audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
+                .setAudioAttributes(audioAttributes)
+                .setOnAudioFocusChangeListener { focusChange ->
+                    Log.d(TAG, "Audio focus change: $focusChange")
+                }
+                .build()
+            
+            val result = audioManager?.requestAudioFocus(audioFocusRequest!!)
+            Log.d(TAG, "Audio focus request result: $result")
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager?.requestAudioFocus(
+                { Log.d(TAG, "Audio focus change (legacy)") },
+                AudioManager.STREAM_ALARM,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE
+            )
+        }
+        
+        // Store baseline volume for alarm stream (fallback detection)
         baselineVolume = audioManager?.getStreamVolume(AudioManager.STREAM_ALARM) ?: -1
         Log.d(TAG, "Baseline alarm volume: $baselineVolume")
+        
+        // Initialize MediaSession with VolumeProviderCompat for remote volume control
+        // This intercepts volume button presses even when other apps have audio focus
+        initMediaSession()
         
         // Register screen off receiver (power button proxy)
         screenOffReceiver = object : BroadcastReceiver() {
@@ -380,14 +416,14 @@ class AdhanForegroundService : Service() {
         }
         Log.d(TAG, "Screen off receiver registered")
         
-        // Register volume change observer
+        // Keep volume observer as a fallback for devices where MediaSession doesn't work
         volumeObserver = object : ContentObserver(handler) {
             override fun onChange(selfChange: Boolean) {
                 if (!isAdhanPlaying) return
                 
                 val currentVolume = audioManager?.getStreamVolume(AudioManager.STREAM_ALARM) ?: baselineVolume
                 if (currentVolume != baselineVolume) {
-                    Log.d(TAG, "Volume changed from $baselineVolume to $currentVolume - stopping Adhan")
+                    Log.d(TAG, "Volume changed from $baselineVolume to $currentVolume (fallback) - stopping Adhan")
                     handler.post { stopAdhanPlayback() }
                 }
             }
@@ -397,7 +433,74 @@ class AdhanForegroundService : Service() {
             true,
             volumeObserver!!
         )
-        Log.d(TAG, "Volume observer registered")
+        Log.d(TAG, "Volume observer registered (fallback)")
+    }
+    
+    /**
+     * Initialize MediaSession with VolumeProviderCompat to intercept volume keys
+     */
+    private fun initMediaSession() {
+        mediaSession = MediaSessionCompat(this, "AdhanSession").apply {
+            // Set playback state to PLAYING so system knows we're active
+            val playbackState = PlaybackStateCompat.Builder()
+                .setState(PlaybackStateCompat.STATE_PLAYING, 0, 1f)
+                .setActions(
+                    PlaybackStateCompat.ACTION_STOP or
+                    PlaybackStateCompat.ACTION_PAUSE or
+                    PlaybackStateCompat.ACTION_PLAY_PAUSE
+                )
+                .build()
+            setPlaybackState(playbackState)
+            
+            // Set callback for media button events (play/pause hardware buttons)
+            setCallback(object : MediaSessionCompat.Callback() {
+                override fun onStop() {
+                    Log.d(TAG, "MediaSession onStop - stopping Adhan")
+                    handler.post { stopAdhanPlayback() }
+                }
+                
+                override fun onPause() {
+                    Log.d(TAG, "MediaSession onPause - stopping Adhan")
+                    handler.post { stopAdhanPlayback() }
+                }
+                
+                override fun onPlay() {
+                    // Ignore play commands
+                    Log.d(TAG, "MediaSession onPlay - ignored")
+                }
+                
+                override fun onMediaButtonEvent(mediaButtonEvent: Intent?): Boolean {
+                    Log.d(TAG, "MediaSession media button event: ${mediaButtonEvent?.action}")
+                    // Let default handling occur
+                    return super.onMediaButtonEvent(mediaButtonEvent)
+                }
+            })
+            
+            // KEY PART: VolumeProviderCompat intercepts ALL volume key presses
+            // Even when other apps (YouTube, Facebook, etc.) are playing audio
+            val volumeProvider = object : VolumeProviderCompat(
+                VOLUME_CONTROL_ABSOLUTE,
+                audioManager?.getStreamMaxVolume(AudioManager.STREAM_ALARM) ?: 15,
+                audioManager?.getStreamVolume(AudioManager.STREAM_ALARM) ?: 7
+            ) {
+                override fun onAdjustVolume(direction: Int) {
+                    // Any volume adjustment stops Adhan
+                    Log.d(TAG, "VolumeProvider onAdjustVolume: direction=$direction - stopping Adhan")
+                    handler.post { stopAdhanPlayback() }
+                }
+                
+                override fun onSetVolumeTo(volume: Int) {
+                    // Direct volume set also stops Adhan
+                    Log.d(TAG, "VolumeProvider onSetVolumeTo: volume=$volume - stopping Adhan")
+                    handler.post { stopAdhanPlayback() }
+                }
+            }
+            setPlaybackToRemote(volumeProvider)
+            
+            // Activate the session
+            isActive = true
+            Log.d(TAG, "MediaSession initialized and activated")
+        }
     }
     
     /**
@@ -405,6 +508,30 @@ class AdhanForegroundService : Service() {
      */
     private fun unregisterHardwareStopListeners() {
         Log.d(TAG, "Unregistering hardware stop listeners")
+        
+        // Release MediaSession
+        mediaSession?.let {
+            try {
+                it.isActive = false
+                it.release()
+                Log.d(TAG, "MediaSession released")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error releasing MediaSession: ${e.message}")
+            }
+        }
+        mediaSession = null
+        
+        // Abandon audio focus
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let {
+                audioManager?.abandonAudioFocusRequest(it)
+                Log.d(TAG, "Audio focus abandoned")
+            }
+            audioFocusRequest = null
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager?.abandonAudioFocus(null)
+        }
         
         // Unregister screen off receiver
         screenOffReceiver?.let {

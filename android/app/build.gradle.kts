@@ -46,4 +46,6 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    // MediaSession and VolumeProvider for intercepting volume keys
+    implementation("androidx.media:media:1.7.0")
 }
