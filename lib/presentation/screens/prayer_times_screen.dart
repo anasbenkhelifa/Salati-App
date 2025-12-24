@@ -368,100 +368,112 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   Widget _buildLocationHeader(BuildContext context, bool isArabic) {
     final locationName = _provider.getLocationName(isArabic);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: AppTheme.glassDecoration(opacity: 0.06, borderRadius: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.location_on, color: AppTheme.activeGlow, size: 24),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      locationName,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (_provider.lastUpdatedDisplay.isNotEmpty)
+    // Force LTR layout for consistent hit-testing (icons stay on right in both languages)
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: AppTheme.glassDecoration(opacity: 0.06, borderRadius: 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.location_on, color: AppTheme.activeGlow, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        'Updated: ${_provider.lastUpdatedDisplay}',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
-                          fontSize: 11,
+                        locationName,
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (_provider.lastUpdatedDisplay.isNotEmpty)
+                        Text(
+                          'Updated: ${_provider.lastUpdatedDisplay}',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.5),
+                            fontSize: 11,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                // Icon buttons in a separate, non-expandable container
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Change Location - GestureDetector for reliable RTL taps
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        debugPrint('ChangeLocation tapped (GestureDetector)');
+                        _openLocationPicker(context, isArabic);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.edit_location_alt,
+                          color: AppTheme.activeGlow,
+                          size: 22,
                         ),
                       ),
+                    ),
+                    // Update Location (GPS)
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _handleUpdateLocation(context, isArabic),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.my_location,
+                          color: Colors.white.withOpacity(0.5),
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            // Offline mode banner
+            if (_provider.isOfflineMode)
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.cloud_off, color: Colors.orange, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      isArabic
+                          ? 'وضع عدم الاتصال'
+                          : 'Offline - using saved data',
+                      style: const TextStyle(
+                        color: Colors.orange,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              // Icon buttons in a separate, non-expandable container
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Change Location - GestureDetector for reliable RTL taps
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      debugPrint('ChangeLocation tapped (GestureDetector)');
-                      _openLocationPicker(context, isArabic);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      child: Icon(
-                        Icons.edit_location_alt,
-                        color: AppTheme.activeGlow,
-                        size: 22,
-                      ),
-                    ),
-                  ),
-                  // Update Location (GPS)
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => _handleUpdateLocation(context, isArabic),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      child: Icon(
-                        Icons.my_location,
-                        color: Colors.white.withOpacity(0.5),
-                        size: 22,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          // Offline mode banner
-          if (_provider.isOfflineMode)
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.cloud_off, color: Colors.orange, size: 14),
-                  const SizedBox(width: 6),
-                  Text(
-                    isArabic ? 'وضع عدم الاتصال' : 'Offline - using saved data',
-                    style: const TextStyle(color: Colors.orange, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
