@@ -11,6 +11,10 @@ import 'package:flutter/material.dart';
 /// - Thin border with highlight
 /// - Optional outer glow
 /// - Child content rendered crisp on top
+///
+/// Sizing behavior:
+/// - If width/height provided: uses fixed sizing
+/// - If width/height null: sizes to fit child content (using IntrinsicHeight/Width)
 class AppleGlassCard extends StatelessWidget {
   final double? width;
   final double? height;
@@ -39,10 +43,91 @@ class AppleGlassCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveBorderColor = borderColor ?? Colors.white.withOpacity(0.15);
 
+    // Build the glass effect stack
+    Widget glassStack = Stack(
+      fit: StackFit.passthrough,
+      children: [
+        // Layer 1: Backdrop blur (strong glassmorphism)
+        Positioned.fill(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+            child: Container(color: Colors.transparent),
+          ),
+        ),
+
+        // Layer 2: Vibrancy effect (saturation boost via color overlay)
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(borderRadius),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.12),
+                  Colors.white.withOpacity(0.04),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // Layer 3: Soft highlight gradient (top-left shine)
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(borderRadius),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomCenter,
+                stops: const [0.0, 0.5],
+                colors: [Colors.white.withOpacity(0.10), Colors.transparent],
+              ),
+            ),
+          ),
+        ),
+
+        // Layer 4: Procedural noise for texture (very subtle)
+        Positioned.fill(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return CustomPaint(
+                size: Size(constraints.maxWidth, constraints.maxHeight),
+                painter: _NoisePainter(
+                  borderRadius: borderRadius,
+                  opacity: 0.04,
+                ),
+              );
+            },
+          ),
+        ),
+
+        // Layer 5: Thin border for definition
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(borderRadius),
+              border: Border.all(color: effectiveBorderColor, width: 0.5),
+            ),
+          ),
+        ),
+
+        // Layer 6: Child content (crisp on top)
+        if (child != null)
+          Padding(padding: padding ?? EdgeInsets.zero, child: child!),
+      ],
+    );
+
+    // Wrap with ClipRRect for rounded corners on blur
+    Widget clippedGlass = ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: glassStack,
+    );
+
+    // Apply outer container with optional glow
     return Container(
       width: width,
       height: height,
-      // Outer glow shadow (optional, typically blue for active state)
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(borderRadius),
         boxShadow:
@@ -56,80 +141,7 @@ class AppleGlassCard extends StatelessWidget {
                 ]
                 : null,
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: Stack(
-          children: [
-            // Layer 1: Backdrop blur (strong glassmorphism)
-            BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-              child: Container(
-                width: width,
-                height: height,
-                color: Colors.transparent,
-              ),
-            ),
-
-            // Layer 2: Vibrancy effect (saturation boost via color overlay)
-            // This simulates iOS vibrancy by adding a subtle colored tint
-            Container(
-              width: width,
-              height: height,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(borderRadius),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withOpacity(0.12),
-                    Colors.white.withOpacity(0.04),
-                  ],
-                ),
-              ),
-            ),
-
-            // Layer 3: Soft highlight gradient (top-left shine)
-            Container(
-              width: width,
-              height: height,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(borderRadius),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomCenter,
-                  stops: const [0.0, 0.5],
-                  colors: [Colors.white.withOpacity(0.10), Colors.transparent],
-                ),
-              ),
-            ),
-
-            // Layer 4: Procedural noise for texture (very subtle)
-            CustomPaint(
-              size: Size(width ?? double.infinity, height ?? double.infinity),
-              painter: _NoisePainter(borderRadius: borderRadius, opacity: 0.04),
-            ),
-
-            // Layer 5: Thin border for definition
-            Container(
-              width: width,
-              height: height,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(borderRadius),
-                border: Border.all(color: effectiveBorderColor, width: 0.5),
-              ),
-            ),
-
-            // Layer 6: Child content (crisp on top)
-            if (child != null)
-              Positioned.fill(
-                child: Padding(
-                  padding: padding ?? EdgeInsets.zero,
-                  child: child!,
-                ),
-              ),
-          ],
-        ),
-      ),
+      child: clippedGlass,
     );
   }
 }
@@ -145,7 +157,11 @@ class _NoisePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (size.width <= 0 || size.height <= 0) return;
+    if (size.width <= 0 ||
+        size.height <= 0 ||
+        size.width.isInfinite ||
+        size.height.isInfinite)
+      return;
 
     // Create a clipping path for rounded rectangle
     final rrect = RRect.fromRectAndRadius(
