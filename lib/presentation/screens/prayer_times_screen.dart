@@ -417,16 +417,6 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (_provider.lastUpdatedDisplay.isNotEmpty)
-                            Text(
-                              isArabic
-                                  ? 'آخر تحديث: ${_provider.lastUpdatedDisplay}'
-                                  : 'Updated: ${_provider.lastUpdatedDisplay}',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.5),
-                                fontSize: 11,
-                              ),
-                            ),
                         ],
                       ),
                     ),

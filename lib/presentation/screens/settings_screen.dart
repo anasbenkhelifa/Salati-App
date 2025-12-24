@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/localization/strings.dart';
 import '../../core/localization/app_locale_provider.dart';
@@ -428,34 +429,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildFooter() {
+    final isArabic = AppLocaleProvider.of(context).isArabic;
+
     return Center(
       child: Column(
         children: [
           Text(
-            'Designed & Developed by',
+            isArabic ? 'تصميم وتطوير' : 'Designed & Developed by',
             style: TextStyle(
               color: AppTheme.textSecondary.withOpacity(0.4),
               fontSize: 12,
             ),
           ),
           const SizedBox(height: 8),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.code,
-                color: AppTheme.textSecondary.withOpacity(0.5),
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Your Name Here',
-                style: TextStyle(
-                  color: AppTheme.textSecondary.withOpacity(0.5),
-                  fontSize: 13,
+          // Clickable Telegram link
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () async {
+                final uri = Uri.parse('https://t.me/anassbkk');
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Telegram icon (using send icon as telegram-like)
+                    Icon(
+                      Icons.send_rounded,
+                      color: const Color(0xFF0088CC), // Telegram blue
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Anas',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary.withOpacity(0.6),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ],
       ),
