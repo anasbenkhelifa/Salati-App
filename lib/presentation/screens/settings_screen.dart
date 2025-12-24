@@ -5,6 +5,7 @@ import '../../core/localization/strings.dart';
 import '../../core/localization/app_locale_provider.dart';
 import '../../data/services/adhan_playback_service.dart';
 import '../../data/services/alert_mode_service.dart';
+import '../../domain/providers/qibla_provider.dart';
 
 /// Settings screen with glass setting cards and language switcher
 class SettingsScreen extends StatefulWidget {
@@ -25,6 +26,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _adhanService.initialize();
+    // Initialize QiblaProvider if not already
+    QiblaProvider.instance?.initialize();
   }
 
   Future<void> _testAdhan() async {
@@ -145,6 +148,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: _fullScreenNotification,
                     onChanged: (val) {
                       setState(() => _fullScreenNotification = val);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  // Compass haptics toggle
+                  _buildSettingToggle(
+                    icon: Icons.vibration,
+                    title: t(context, 'compassHaptics'),
+                    value:
+                        QiblaProvider.instance?.compassHapticsEnabled ?? true,
+                    onChanged: (val) {
+                      QiblaProvider.instance?.setCompassHaptics(val);
+                      setState(() {});
                     },
                   ),
                   const SizedBox(height: 12),

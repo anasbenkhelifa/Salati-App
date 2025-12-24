@@ -44,9 +44,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _initProviders() async {
-    await _hijriProvider.initialize();
+    // Initialize in background - don't block UI rendering
+    // Providers will notifyListeners when cache is loaded
+    _hijriProvider.initialize();
     _hijriProvider.addListener(_onUpdate);
-    await _prayerProvider.initialize();
+    _prayerProvider.initialize();
     _prayerProvider.addListener(_onUpdate);
   }
 

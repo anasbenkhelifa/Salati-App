@@ -5,6 +5,7 @@ import '../../data/services/prayer_times_api_service.dart';
 import '../../data/services/prayer_times_cache_service.dart';
 import '../../data/services/bilingual_location_service.dart';
 import '../../data/services/qibla_api_service.dart';
+import 'qibla_provider.dart';
 
 /// State for the prayer times data
 enum PrayerDataState {
@@ -46,6 +47,7 @@ class PrayerTimesApiProvider extends ChangeNotifier {
   String _requestUrl = '';
   String _deviceTimezone = '';
   bool _isFromCache = false;
+  bool _cacheIsToday = false;
 
   // Getters
   PrayerDataState get state => _state;
@@ -165,13 +167,19 @@ class PrayerTimesApiProvider extends ChangeNotifier {
     return Duration.zero;
   }
 
-  /// Initialize - CACHE FIRST, no GPS unless first run
-  Future<void> initialize() async {
-    _state = PrayerDataState.loading;
-    _deviceTimezone = DateTime.now().timeZoneName;
-    notifyListeners();
+  /// Initialize - CACHE FIRST, instant rendering, background refresh
+  /// Phase A: Load from cache immediately and notify
+  /// Phase B: Background refresh (unawaited) if needed
+  bool _initialized = false;
 
-    // Load settings
+  Future<void> initialize() async {
+    // Guard against multiple initializations
+    if (_initialized) return;
+    _initialized = true;
+
+    _deviceTimezone = DateTime.now().timeZoneName;
+
+    // Load settings synchronously-ish
     _method = await _cacheService.loadMethod();
     _madhab = await _cacheService.loadMadhab();
 
@@ -179,26 +187,32 @@ class PrayerTimesApiProvider extends ChangeNotifier {
     final setupDone = await _cacheService.isSetupDone();
 
     if (setupDone) {
-      // CACHE-FIRST: Load from cache, no GPS
-      await _loadFromCache();
+      // PHASE A: Load cache immediately and notify UI
+      await _loadFromCacheInstant();
+      // PHASE B: Refresh in background if needed (unawaited)
+      _refreshIfNeeded();
     } else {
-      // FIRST RUN: Need GPS + network
+      // FIRST RUN: Need GPS + network (loading state is fine here)
+      _state = PrayerDataState.loading;
+      notifyListeners();
       await _firstTimeSetup();
     }
   }
 
-  /// Load from cache (offline-first)
-  Future<void> _loadFromCache() async {
-    debugPrint('[PrayerTimesApiProvider] Loading from cache...');
+  /// Phase A: Load from cache immediately and notify UI - NO network calls
+  Future<void> _loadFromCacheInstant() async {
+    debugPrint('[PrayerTimesApiProvider] Loading from cache (instant)...');
 
     final cached = await _cacheService.loadAppState();
     if (cached == null) {
-      // Cache corrupted, do first-time setup
+      // Cache corrupted, need first-time setup
+      _state = PrayerDataState.loading;
+      notifyListeners();
       await _firstTimeSetup();
       return;
     }
 
-    // Set cached values
+    // Set cached values IMMEDIATELY
     _latitude = cached.latitude;
     _longitude = cached.longitude;
     _cityEn = cached.cityEn;
@@ -208,31 +222,32 @@ class PrayerTimesApiProvider extends ChangeNotifier {
     _method = cached.method;
     _madhab = cached.madhab;
     _lastUpdatedAt = cached.updatedAt;
+    _response = cached.prayerTimes;
+    _isFromCache = true;
+    _cacheIsToday = cached.isToday;
+    _state = PrayerDataState.success;
 
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    // NOTIFY UI IMMEDIATELY - Home can now render with cached data
+    notifyListeners();
+    debugPrint('[PrayerTimesApiProvider] UI notified with cached data');
+  }
 
-    if (cached.isToday && cached.prayerTimes != null) {
-      // Cache is for today, use it directly
-      _response = cached.prayerTimes;
-      _isFromCache = true;
-      _isOfflineMode = false;
-      _state = PrayerDataState.success;
-      debugPrint('[PrayerTimesApiProvider] Using cached data for today');
-    } else if (cached.prayerTimes != null) {
-      // Cache is old, try to refresh prayer times ONLY (no GPS)
-      _response = cached.prayerTimes; // Show old data first
-      _isFromCache = true;
-      _state = PrayerDataState.success;
-      notifyListeners();
+  /// Phase B: Background refresh if cache is stale (unawaited, non-blocking)
+  void _refreshIfNeeded() {
+    // Check if prayer times need refresh (not for today)
+    if (_response == null || _latitude == null || _longitude == null) return;
 
-      // Try to refresh prayer times in background
-      await _refreshPrayerTimesOnly(cached.latitude, cached.longitude, today);
-    } else {
-      // No prayer times at all, need to fetch
-      await _refreshPrayerTimesOnly(cached.latitude, cached.longitude, today);
+    if (_cacheIsToday) {
+      debugPrint('[PrayerTimesApiProvider] Cache is fresh, no refresh needed');
+      return;
     }
 
-    notifyListeners();
+    // Cache is stale, refresh in background
+    debugPrint(
+      '[PrayerTimesApiProvider] Cache stale, refreshing in background...',
+    );
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    _refreshPrayerTimesOnly(_latitude!, _longitude!, today);
   }
 
   /// Refresh only prayer times using cached location (no GPS)
@@ -470,6 +485,12 @@ class PrayerTimesApiProvider extends ChangeNotifier {
         await _cacheService.saveQiblaDirection(qiblaResponse.direction);
         debugPrint(
           '[PrayerTimesApiProvider] Qibla also updated: ${qiblaResponse.direction}',
+        );
+
+        // Notify QiblaProvider to refresh its UI immediately
+        QiblaProvider.instance?.refreshFromNewLocation(
+          position.latitude,
+          position.longitude,
         );
       } catch (qiblaError) {
         debugPrint(

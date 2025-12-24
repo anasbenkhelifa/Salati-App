@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_compass/flutter_compass.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/services/prayer_times_cache_service.dart';
 import '../../data/services/qibla_api_service.dart';
 
@@ -21,6 +23,14 @@ class QiblaProvider extends ChangeNotifier {
   final QiblaApiService _apiService = QiblaApiService();
   final PrayerTimesCacheService _cacheService = PrayerTimesCacheService();
 
+  // Static instance for cross-provider access
+  static QiblaProvider? _instance;
+  static QiblaProvider? get instance => _instance;
+
+  QiblaProvider() {
+    _instance = this;
+  }
+
   QiblaDataState _state = QiblaDataState.loading;
   double? _qiblaBearing; // Fixed bearing from API (0-360)
   double _rawHeading = 0; // Raw device heading (0-360)
@@ -36,6 +46,14 @@ class QiblaProvider extends ChangeNotifier {
 
   StreamSubscription<CompassEvent>? _compassSubscription;
   DateTime _lastUpdateTime = DateTime.now();
+
+  // Haptic tick settings
+  bool _compassHapticsEnabled = true;
+  int? _lastTickDegree;
+  int _lastTickMs = 0;
+  static const int _tickThrottleMs = 100; // Max 10 ticks/second
+
+  bool get compassHapticsEnabled => _compassHapticsEnabled;
 
   // Smoothing settings
   static const double _smoothingAlpha = 0.22;
@@ -81,10 +99,37 @@ class QiblaProvider extends ChangeNotifier {
     return diff;
   }
 
+  /// Load compass haptics setting from SharedPreferences
+  Future<void> _loadHapticsSetting() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _compassHapticsEnabled = prefs.getBool('compass_haptics_enabled') ?? true;
+    } catch (e) {
+      debugPrint('[QiblaProvider] Error loading haptics setting: $e');
+    }
+  }
+
+  /// Set compass haptics enabled/disabled and save
+  Future<void> setCompassHaptics(bool enabled) async {
+    if (_compassHapticsEnabled == enabled) return;
+    _compassHapticsEnabled = enabled;
+    notifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('compass_haptics_enabled', enabled);
+    } catch (e) {
+      debugPrint('[QiblaProvider] Error saving haptics setting: $e');
+    }
+  }
+
   /// Initialize Qibla provider - CACHE-FIRST, no GPS
   Future<void> initialize() async {
     _state = QiblaDataState.loading;
     notifyListeners();
+
+    // Load haptics setting
+    await _loadHapticsSetting();
 
     _hasCompass = FlutterCompass.events != null;
 
@@ -231,6 +276,20 @@ class QiblaProvider extends ChangeNotifier {
       }
 
       _lastUpdateTime = now;
+
+      // Haptic tick when displayed degree changes
+      final currentDegree = _smoothedHeading.round() % 360;
+      if (_compassHapticsEnabled && _lastTickDegree != null) {
+        if (currentDegree != _lastTickDegree) {
+          final nowMs = now.millisecondsSinceEpoch;
+          if (nowMs - _lastTickMs >= _tickThrottleMs) {
+            HapticFeedback.selectionClick();
+            _lastTickMs = nowMs;
+          }
+        }
+      }
+      _lastTickDegree = currentDegree;
+
       notifyListeners();
     });
   }
