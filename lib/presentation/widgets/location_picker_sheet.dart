@@ -109,14 +109,15 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
       textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
       child: Container(
         height: MediaQuery.of(context).size.height * 0.75,
-        decoration: BoxDecoration(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: const BoxDecoration(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          // App's blue gradient background
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.grey.shade900.withOpacity(0.95),
-              Colors.black.withOpacity(0.98),
+              Color(0xFF1B263B), // Lighter navy at top
+              Color(0xFF0D1B2A), // Darker navy at bottom
             ],
           ),
         ),

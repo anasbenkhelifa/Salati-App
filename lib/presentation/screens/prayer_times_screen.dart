@@ -403,18 +403,18 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                   ],
                 ),
               ),
-              // Change Location button
-              TextButton.icon(
-                icon: Icon(
+              // Change Location button - IconButton for reliable hit-testing in RTL
+              IconButton(
+                icon: const Icon(
                   Icons.edit_location_alt,
                   color: AppTheme.activeGlow,
-                  size: 20,
+                  size: 22,
                 ),
-                label: Text(
-                  t(context, 'changeLocation'),
-                  style: TextStyle(color: AppTheme.activeGlow, fontSize: 12),
-                ),
-                onPressed: () => _openLocationPicker(context, isArabic),
+                tooltip: isArabic ? 'تغيير الموقع' : 'Change location',
+                onPressed: () {
+                  debugPrint('ChangeLocation tapped');
+                  _openLocationPicker(context, isArabic);
+                },
               ),
               // Update Location button
               IconButton(
