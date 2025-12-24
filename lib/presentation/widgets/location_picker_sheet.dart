@@ -18,7 +18,6 @@ class LocationPickerSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      useRootNavigator: true, // Ensure we use the root navigator/overlay
       backgroundColor: Colors.transparent,
       builder: (context) => const LocationPickerSheet(),
     );
@@ -108,38 +107,41 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
 
     return Directionality(
       textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
-      child: Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        decoration: const BoxDecoration(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          // App's blue gradient background
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF1B263B), // Lighter navy at top
-              Color(0xFF0D1B2A), // Darker navy at bottom
-            ],
-          ),
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-            child: Column(
-              children: [
-                // Header
-                _buildHeader(context, isArabic),
-
-                // Search field
-                _buildSearchField(context, isArabic),
-
-                // Results list
-                Expanded(child: _buildResultsList(context, isArabic)),
-
-                // Footer buttons
-                _buildFooter(context, isArabic),
+      child: Material(
+        type: MaterialType.transparency,
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          decoration: const BoxDecoration(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            // App's blue gradient background
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF1B263B), // Lighter navy at top
+                Color(0xFF0D1B2A), // Darker navy at bottom
               ],
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Column(
+                children: [
+                  // Header
+                  _buildHeader(context, isArabic),
+
+                  // Search field
+                  _buildSearchField(context, isArabic),
+
+                  // Results list
+                  Expanded(child: _buildResultsList(context, isArabic)),
+
+                  // Footer buttons
+                  _buildFooter(context, isArabic),
+                ],
+              ),
             ),
           ),
         ),
