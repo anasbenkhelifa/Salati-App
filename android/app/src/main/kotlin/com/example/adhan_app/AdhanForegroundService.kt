@@ -83,10 +83,16 @@ class AdhanForegroundService : Service() {
     // Hardware stop listeners - for Power/Volume button detection
     private var screenOffReceiver: BroadcastReceiver? = null
     private var volumeObserver: ContentObserver? = null
-    private var baselineVolume: Int = -1
     private var audioManager: AudioManager? = null
     
-    // MediaSession for intercepting volume keys even when other apps are playing
+    // Multi-stream volume baseline tracking for robust detection
+    private var baselineMusicVolume: Int = -1
+    private var baselineAlarmVolume: Int = -1
+    private var baselineRingVolume: Int = -1
+    private var volumeChangeDebounceRunnable: Runnable? = null
+    private val VOLUME_DEBOUNCE_MS = 50L  // Debounce window
+    
+    // MediaSession for media button fallback (headset buttons, etc.)
     private var mediaSession: MediaSessionCompat? = null
     private var audioFocusRequest: AudioFocusRequest? = null
     
@@ -358,22 +364,23 @@ class AdhanForegroundService : Service() {
     
     /**
      * Register listeners for hardware button stop (power button via screen off, volume buttons)
-     * Uses MediaSession + VolumeProviderCompat to intercept volume keys even when other apps are playing
+     * Uses multi-stream ContentObserver for robust volume key detection
      */
     private fun registerHardwareStopListeners() {
-        Log.d(TAG, "Registering hardware stop listeners with MediaSession")
+        Log.d(TAG, "Registering hardware stop listeners with multi-stream volume observer")
         
         // Initialize AudioManager
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         
-        // Request audio focus with AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE for alarm-like priority
+        // Request audio focus with AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+        // Some devices ignore EXCLUSIVE when other media is playing
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val audioAttributes = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                 .build()
             
-            audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
+            audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
                 .setAudioAttributes(audioAttributes)
                 .setOnAudioFocusChangeListener { focusChange ->
                     Log.d(TAG, "Audio focus change: $focusChange")
@@ -387,16 +394,17 @@ class AdhanForegroundService : Service() {
             audioManager?.requestAudioFocus(
                 { Log.d(TAG, "Audio focus change (legacy)") },
                 AudioManager.STREAM_ALARM,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
             )
         }
         
-        // Store baseline volume for alarm stream (fallback detection)
-        baselineVolume = audioManager?.getStreamVolume(AudioManager.STREAM_ALARM) ?: -1
-        Log.d(TAG, "Baseline alarm volume: $baselineVolume")
+        // Store baseline volumes for ALL relevant streams
+        baselineMusicVolume = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: -1
+        baselineAlarmVolume = audioManager?.getStreamVolume(AudioManager.STREAM_ALARM) ?: -1
+        baselineRingVolume = audioManager?.getStreamVolume(AudioManager.STREAM_RING) ?: -1
+        Log.d(TAG, "Baseline volumes - Music: $baselineMusicVolume, Alarm: $baselineAlarmVolume, Ring: $baselineRingVolume")
         
-        // Initialize MediaSession with VolumeProviderCompat for remote volume control
-        // This intercepts volume button presses even when other apps have audio focus
+        // Initialize MediaSession (callback only, no VolumeProvider)
         initMediaSession()
         
         // Register screen off receiver (power button proxy)
@@ -416,28 +424,55 @@ class AdhanForegroundService : Service() {
         }
         Log.d(TAG, "Screen off receiver registered")
         
-        // Keep volume observer as a fallback for devices where MediaSession doesn't work
+        // Register robust multi-stream volume observer
+        // This observes Settings.System for ANY volume change (Music, Alarm, Ring)
         volumeObserver = object : ContentObserver(handler) {
             override fun onChange(selfChange: Boolean) {
                 if (!isAdhanPlaying) return
                 
-                val currentVolume = audioManager?.getStreamVolume(AudioManager.STREAM_ALARM) ?: baselineVolume
-                if (currentVolume != baselineVolume) {
-                    Log.d(TAG, "Volume changed from $baselineVolume to $currentVolume (fallback) - stopping Adhan")
-                    handler.post { stopAdhanPlayback() }
+                // Check all volume streams
+                val currentMusic = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: baselineMusicVolume
+                val currentAlarm = audioManager?.getStreamVolume(AudioManager.STREAM_ALARM) ?: baselineAlarmVolume
+                val currentRing = audioManager?.getStreamVolume(AudioManager.STREAM_RING) ?: baselineRingVolume
+                
+                val musicChanged = currentMusic != baselineMusicVolume
+                val alarmChanged = currentAlarm != baselineAlarmVolume
+                val ringChanged = currentRing != baselineRingVolume
+                
+                if (musicChanged || alarmChanged || ringChanged) {
+                    val changeInfo = buildString {
+                        if (musicChanged) append("Music: $baselineMusicVolume→$currentMusic ")
+                        if (alarmChanged) append("Alarm: $baselineAlarmVolume→$currentAlarm ")
+                        if (ringChanged) append("Ring: $baselineRingVolume→$currentRing")
+                    }
+                    Log.d(TAG, "Volume change detected: $changeInfo")
+                    
+                    // Debounce to avoid multiple rapid triggers
+                    volumeChangeDebounceRunnable?.let { handler.removeCallbacks(it) }
+                    volumeChangeDebounceRunnable = Runnable {
+                        if (isAdhanPlaying) {
+                            Log.d(TAG, "Debounced volume change - stopping Adhan")
+                            stopAdhanPlayback()
+                        }
+                    }
+                    handler.postDelayed(volumeChangeDebounceRunnable!!, VOLUME_DEBOUNCE_MS)
                 }
             }
         }
+        
+        // Register on Settings.System.CONTENT_URI with notifyForDescendants=true
+        // This catches changes to VOLUME_MUSIC, VOLUME_ALARM, VOLUME_RING, etc.
         contentResolver.registerContentObserver(
             Settings.System.CONTENT_URI,
-            true,
+            true,  // notifyForDescendants - important for catching all volume changes
             volumeObserver!!
         )
-        Log.d(TAG, "Volume observer registered (fallback)")
+        Log.d(TAG, "Multi-stream volume observer registered")
     }
     
     /**
-     * Initialize MediaSession with VolumeProviderCompat to intercept volume keys
+     * Initialize MediaSession with callback for media button events (headset buttons, etc.)
+     * Does NOT use VolumeProvider as it's unreliable for volume key interception
      */
     private fun initMediaSession() {
         mediaSession = MediaSessionCompat(this, "AdhanSession").apply {
@@ -452,7 +487,7 @@ class AdhanForegroundService : Service() {
                 .build()
             setPlaybackState(playbackState)
             
-            // Set callback for media button events (play/pause hardware buttons)
+            // Set callback for media button events (play/pause hardware buttons, headsets)
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onStop() {
                     Log.d(TAG, "MediaSession onStop - stopping Adhan")
@@ -476,30 +511,13 @@ class AdhanForegroundService : Service() {
                 }
             })
             
-            // KEY PART: VolumeProviderCompat intercepts ALL volume key presses
-            // Even when other apps (YouTube, Facebook, etc.) are playing audio
-            val volumeProvider = object : VolumeProviderCompat(
-                VOLUME_CONTROL_ABSOLUTE,
-                audioManager?.getStreamMaxVolume(AudioManager.STREAM_ALARM) ?: 15,
-                audioManager?.getStreamVolume(AudioManager.STREAM_ALARM) ?: 7
-            ) {
-                override fun onAdjustVolume(direction: Int) {
-                    // Any volume adjustment stops Adhan
-                    Log.d(TAG, "VolumeProvider onAdjustVolume: direction=$direction - stopping Adhan")
-                    handler.post { stopAdhanPlayback() }
-                }
-                
-                override fun onSetVolumeTo(volume: Int) {
-                    // Direct volume set also stops Adhan
-                    Log.d(TAG, "VolumeProvider onSetVolumeTo: volume=$volume - stopping Adhan")
-                    handler.post { stopAdhanPlayback() }
-                }
-            }
-            setPlaybackToRemote(volumeProvider)
+            // Use local playback (not remote) - let system handle volume normally
+            // This allows our ContentObserver to detect volume changes
+            setPlaybackToLocal(AudioManager.STREAM_ALARM)
             
             // Activate the session
             isActive = true
-            Log.d(TAG, "MediaSession initialized and activated")
+            Log.d(TAG, "MediaSession initialized (callback-only, no VolumeProvider)")
         }
     }
     
@@ -508,6 +526,10 @@ class AdhanForegroundService : Service() {
      */
     private fun unregisterHardwareStopListeners() {
         Log.d(TAG, "Unregistering hardware stop listeners")
+        
+        // Cancel any pending debounce
+        volumeChangeDebounceRunnable?.let { handler.removeCallbacks(it) }
+        volumeChangeDebounceRunnable = null
         
         // Release MediaSession
         mediaSession?.let {
@@ -555,7 +577,10 @@ class AdhanForegroundService : Service() {
         }
         volumeObserver = null
         
-        baselineVolume = -1
+        // Reset baselines
+        baselineMusicVolume = -1
+        baselineAlarmVolume = -1
+        baselineRingVolume = -1
         audioManager = null
     }
     
