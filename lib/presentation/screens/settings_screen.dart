@@ -443,8 +443,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// Controls navigation card that opens ControlsScreen
   Widget _buildControlsItem(BuildContext context) {
-    final isArabic = AppLocaleProvider.of(context).isArabic;
-
     return GestureDetector(
       onTap: () {
         Navigator.of(
@@ -452,7 +450,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ).push(MaterialPageRoute(builder: (context) => const ControlsScreen()));
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: AppTheme.glassDecoration(opacity: 0.08, borderRadius: 20),
         child: Row(
           children: [
@@ -471,32 +469,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    t(context, 'controlsTitle'),
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    t(context, 'controlsSubtitle'),
-                    style: TextStyle(
-                      color: AppTheme.textSecondary.withOpacity(0.6),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
+              child: Text(
+                t(context, 'controlsTitle'),
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
-            Icon(
-              isArabic ? Icons.chevron_left : Icons.chevron_right,
-              color: Colors.white.withOpacity(0.4),
-            ),
+            Icon(Icons.chevron_right, color: Colors.white.withOpacity(0.4)),
           ],
         ),
       ),
