@@ -64,7 +64,6 @@ dependencies:
   
   # Vibration for prayer alerts
   vibration: ^2.0.0
-  liquid_glass_renderer: ^0.2.0-dev.4
   
   # Google Fonts for Arabic typography
   google_fonts: ^6.2.1
