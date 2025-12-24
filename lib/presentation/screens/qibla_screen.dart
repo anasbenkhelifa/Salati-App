@@ -360,7 +360,7 @@ class _QiblaScreenState extends State<QiblaScreen>
               ),
             ),
           ),
-          // Center: LIVE delta angle only (no subtitle)
+          // Center: LIVE delta angle (true centering - degrees centered, ° positioned)
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.all(24),
@@ -371,13 +371,38 @@ class _QiblaScreenState extends State<QiblaScreen>
                       ? AppTheme.activeGlow.withOpacity(0.15)
                       : Colors.transparent,
             ),
-            child: Text(
-              westernDigits('$headingDeg°'),
-              style: TextStyle(
-                color: isAligned ? AppTheme.activeGlow : AppTheme.textPrimary,
-                fontSize: 42,
-                fontWeight: FontWeight.bold,
-              ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Centered degrees number (anchor)
+                Text(
+                  westernDigits('$headingDeg'),
+                  style: TextStyle(
+                    color:
+                        isAligned ? AppTheme.activeGlow : AppTheme.textPrimary,
+                    fontSize: 42,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                // Degree symbol positioned to the right
+                Transform.translate(
+                  offset: Offset(
+                    headingDeg.toString().length > 2 ? 45 : 35,
+                    -10,
+                  ),
+                  child: Text(
+                    '°',
+                    style: TextStyle(
+                      color: (isAligned
+                              ? AppTheme.activeGlow
+                              : AppTheme.textPrimary)
+                          .withOpacity(0.7),
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

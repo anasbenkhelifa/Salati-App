@@ -119,32 +119,37 @@ class _HomeScreenState extends State<HomeScreen> {
           // Analog clock
           _buildAnalogClock(),
           const SizedBox(height: 16),
-          // Digital time - HH:MM with AM/PM on side (BIGGER)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            textDirection: TextDirection.ltr, // Force LTR for consistent layout
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                '$hourStr:$minuteStr',
-                style: const TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 56,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
+          // Digital time - HH:MM centered, AM/PM positioned beside (true centering)
+          SizedBox(
+            width: double.infinity,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Centered HH:MM (anchor)
+                Text(
+                  '$hourStr:$minuteStr',
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 56,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                period,
-                style: TextStyle(
-                  color: AppTheme.textPrimary.withOpacity(0.7),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
+                // AM/PM positioned to the right of center
+                // Uses Transform to position without affecting layout
+                Transform.translate(
+                  offset: const Offset(95, 0), // Adjust based on font metrics
+                  child: Text(
+                    period,
+                    style: TextStyle(
+                      color: AppTheme.textPrimary.withOpacity(0.7),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 6),
           // Hijri Date
@@ -210,14 +215,38 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          // Live countdown with color
-          Text(
-            prayerStatus.countdownStr,
-            style: TextStyle(
-              color: prayerStatus.color,
-              fontSize: 36,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1,
+          // Live countdown with color (true centering)
+          SizedBox(
+            width: double.infinity,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Centered time (anchor)
+                Text(
+                  prayerStatus.countdownTime,
+                  style: TextStyle(
+                    color: prayerStatus.color,
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+                // Sign positioned to the left of center
+                Transform.translate(
+                  offset: Offset(
+                    prayerStatus.countdownTime.length > 5 ? -85 : -55,
+                    0,
+                  ),
+                  child: Text(
+                    prayerStatus.countdownSign,
+                    style: TextStyle(
+                      color: prayerStatus.color.withOpacity(0.7),
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -299,21 +328,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Determine color and countdown
     Color color;
-    String countdownStr;
+    String countdownSign;
+    String countdownTime;
     String prayerName;
     String prayerTime;
 
     if (isGraceWindow && lastPrayerIndex != null && lastPrayerTime != null) {
       // Grace window: counting UP from last prayer
       final elapsed = _now.difference(lastPrayerTime);
-      countdownStr = formatCountdownWithSign(elapsed, sign: '+');
+      final parts = formatCountdownParts(elapsed, sign: '+');
+      countdownSign = parts.sign;
+      countdownTime = parts.time;
       color = const Color(0xFF4CAF50); // Calm green
       prayerName = prayerNames[lastPrayerIndex];
       prayerTime = _formatPrayerTime(lastPrayerTime, isArabic);
     } else {
       // Normal countdown to next prayer
       final remaining = nextPrayerTime!.difference(_now);
-      countdownStr = formatCountdownWithSign(remaining, sign: '-');
+      final parts = formatCountdownParts(remaining, sign: '-');
+      countdownSign = parts.sign;
+      countdownTime = parts.time;
       prayerName = prayerNames[nextPrayerIndex!];
       prayerTime = _formatPrayerTime(nextPrayerTime, isArabic);
 
@@ -328,7 +362,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return _PrayerStatus(
       prayerName: prayerName,
       prayerTime: prayerTime,
-      countdownStr: countdownStr,
+      countdownSign: countdownSign,
+      countdownTime: countdownTime,
       color: color,
     );
   }
@@ -472,13 +507,15 @@ class _HomeScreenState extends State<HomeScreen> {
 class _PrayerStatus {
   final String prayerName;
   final String prayerTime;
-  final String countdownStr;
+  final String countdownSign;
+  final String countdownTime;
   final Color color;
 
   _PrayerStatus({
     required this.prayerName,
     required this.prayerTime,
-    required this.countdownStr,
+    required this.countdownSign,
+    required this.countdownTime,
     required this.color,
   });
 }

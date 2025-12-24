@@ -33,12 +33,23 @@ String westernDigits(String input) {
   return out;
 }
 
-/// Shared countdown formatter for all UI/notification displays
-/// - sign: "+" for grace window (after prayer), "-" for countdown (before prayer)
-/// - If hours == 0: output "± MM:SS" (no hours)
-/// - If hours > 0: output "± HH:MM:SS"
-/// - Always uses western digits 0-9
-String formatCountdownWithSign(Duration duration, {required String sign}) {
+/// Countdown parts for true centering UI
+/// sign: "+" for grace window (after prayer), "-" for countdown (before prayer)
+/// time: "MM:SS" or "HH:MM:SS" (the main block to center)
+class CountdownParts {
+  final String sign;
+  final String time;
+
+  CountdownParts({required this.sign, required this.time});
+
+  /// Combined string (for backward compatibility or non-centered displays)
+  String get combined => '$sign $time';
+}
+
+/// Parse countdown into separate parts for true centering
+/// - sign: "+" or "-"
+/// - time: "MM:SS" or "HH:MM:SS" (centered)
+CountdownParts formatCountdownParts(Duration duration, {required String sign}) {
   final hours = duration.inHours.abs();
   final minutes = (duration.inMinutes % 60).abs();
   final seconds = (duration.inSeconds % 60).abs();
@@ -54,6 +65,14 @@ String formatCountdownWithSign(Duration duration, {required String sign}) {
         '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  // Force western digits and prepend sign
-  return '$sign ${westernDigits(timeStr)}';
+  return CountdownParts(sign: sign, time: westernDigits(timeStr));
+}
+
+/// Shared countdown formatter for all UI/notification displays (legacy)
+/// - sign: "+" for grace window (after prayer), "-" for countdown (before prayer)
+/// - If hours == 0: output "± MM:SS" (no hours)
+/// - If hours > 0: output "± HH:MM:SS"
+/// - Always uses western digits 0-9
+String formatCountdownWithSign(Duration duration, {required String sign}) {
+  return formatCountdownParts(duration, sign: sign).combined;
 }

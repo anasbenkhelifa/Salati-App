@@ -592,10 +592,10 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
 
     // Format countdown using shared formatter (matches notification logic)
     // Normal countdown to next prayer: MINUS sign "- MM:SS" or "- HH:MM:SS"
-    String countdownStr = '';
+    CountdownParts? countdownParts;
     if (isNext && _countdown.inSeconds > 0) {
       // Use shared formatter that handles "hide hours when 0" + western digits
-      countdownStr = formatCountdownWithSign(_countdown, sign: '-');
+      countdownParts = formatCountdownParts(_countdown, sign: '-');
     }
 
     return Container(
@@ -640,7 +640,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
           ),
           const Spacer(),
           // Time or countdown
-          if (isNext && countdownStr.isNotEmpty) ...[
+          if (isNext && countdownParts != null) ...[
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -652,13 +652,30 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  countdownStr,
-                  style: TextStyle(
-                    color: AppTheme.activeGlow,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                // Countdown with separate sign and time for visual balance
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      countdownParts.sign,
+                      style: TextStyle(
+                        color: AppTheme.activeGlow.withOpacity(0.7),
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      countdownParts.time,
+                      style: TextStyle(
+                        color: AppTheme.activeGlow,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
