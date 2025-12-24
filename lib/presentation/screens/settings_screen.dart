@@ -469,25 +469,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   horizontal: 12,
                   vertical: 6,
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Telegram icon (using send icon as telegram-like)
-                    Icon(
-                      Icons.send_rounded,
-                      color: const Color(0xFF0088CC), // Telegram blue
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Anas',
-                      style: TextStyle(
-                        color: AppTheme.textSecondary.withOpacity(0.6),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                child: Directionality(
+                  // Force LTR so icon is always on left of "Anas"
+                  textDirection: TextDirection.ltr,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Telegram icon from assets
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: Image.asset(
+                          'assets/icons/telegram.png',
+                          fit: BoxFit.contain,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      // Name stays constant (not localized)
+                      Text(
+                        'Anas',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary.withOpacity(0.6),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
