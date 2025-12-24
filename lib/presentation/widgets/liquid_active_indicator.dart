@@ -25,7 +25,7 @@ class LiquidActiveIndicator extends StatelessWidget {
       width: width,
       height: height,
       borderRadius: borderRadius,
-      // Optional tint for the glass droplet
+      // Use provided color or transparent fallback
       color: color ?? Colors.transparent,
       child: const SizedBox(),
     );
