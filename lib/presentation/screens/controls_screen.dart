@@ -14,6 +14,57 @@ class ControlsScreen extends StatefulWidget {
 
 class _ControlsScreenState extends State<ControlsScreen> {
   bool _fullScreenNotification = true;
+  bool _compassHapticsEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load initial state from provider
+    _loadSettings();
+    // Listen to provider changes
+    QiblaProvider.instance?.addListener(_onProviderChange);
+  }
+
+  @override
+  void dispose() {
+    QiblaProvider.instance?.removeListener(_onProviderChange);
+    super.dispose();
+  }
+
+  void _loadSettings() {
+    // Load compass haptics from provider (or default to true)
+    final provider = QiblaProvider.instance;
+    if (provider != null) {
+      _compassHapticsEnabled = provider.compassHapticsEnabled;
+    }
+  }
+
+  void _onProviderChange() {
+    // Update local state when provider changes
+    if (mounted) {
+      final provider = QiblaProvider.instance;
+      if (provider != null &&
+          _compassHapticsEnabled != provider.compassHapticsEnabled) {
+        setState(() {
+          _compassHapticsEnabled = provider.compassHapticsEnabled;
+        });
+      }
+    }
+  }
+
+  void _setCompassHaptics(bool enabled) {
+    // Update local state immediately for responsive UI
+    setState(() {
+      _compassHapticsEnabled = enabled;
+    });
+    // Update provider (which will persist)
+    final provider = QiblaProvider.instance;
+    if (provider != null) {
+      provider.setCompassHaptics(enabled);
+    } else {
+      debugPrint('[ControlsScreen] Warning: QiblaProvider.instance is null');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,13 +109,8 @@ class _ControlsScreenState extends State<ControlsScreen> {
                         _buildSettingToggle(
                           icon: Icons.vibration,
                           title: t(context, 'compassHaptics'),
-                          value:
-                              QiblaProvider.instance?.compassHapticsEnabled ??
-                              true,
-                          onChanged: (val) {
-                            QiblaProvider.instance?.setCompassHaptics(val);
-                            setState(() {});
-                          },
+                          value: _compassHapticsEnabled,
+                          onChanged: _setCompassHaptics,
                         ),
                         const SizedBox(height: 12),
                         // Theme picker
