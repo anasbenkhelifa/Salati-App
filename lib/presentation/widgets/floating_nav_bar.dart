@@ -1,9 +1,12 @@
 import 'dart:ui';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import '../../core/theme/app_theme.dart';
 
 /// Custom floating glassmorphism bottom navigation bar
-/// Features a single animated glow indicator that slides between icons
+/// Features a single animated liquid glass indicator that slides between icons
 class FloatingNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
@@ -35,6 +38,16 @@ class FloatingNavBar extends StatelessWidget {
     Icons.access_time_filled,
     Icons.settings,
   ];
+
+  /// Check if LiquidGlass can be used (Android with Impeller)
+  bool get _canUseLiquidGlass {
+    if (kIsWeb) return false;
+    try {
+      return Platform.isAndroid;
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,12 +90,15 @@ class FloatingNavBar extends StatelessWidget {
                   return Stack(
                     alignment: Alignment.center,
                     children: [
-                      // Layer 1: Animated glow indicator (slides smoothly)
+                      // Layer 1: Animated indicator (slides smoothly)
                       AnimatedPositioned(
                         duration: const Duration(milliseconds: 300),
                         curve: Curves.easeOutCubic,
                         left: indicatorLeft,
-                        child: _buildGlowIndicator(),
+                        child:
+                            _canUseLiquidGlass
+                                ? _buildLiquidGlassIndicator()
+                                : _buildFallbackIndicator(),
                       ),
 
                       // Layer 2: Row of icons (on top)
@@ -102,8 +118,49 @@ class FloatingNavBar extends StatelessWidget {
     );
   }
 
-  /// The single glow indicator that moves between icons
-  Widget _buildGlowIndicator() {
+  /// Liquid glass indicator for Android with Impeller
+  Widget _buildLiquidGlassIndicator() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      width: _indicatorWidth,
+      height: _indicatorHeight,
+      // Outer glow shadow for the blue "active" theme
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.activeGlow.withOpacity(0.4),
+            blurRadius: 14,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: LiquidGlassLayer(
+          child: LiquidGlass(
+            shape: LiquidRoundedSuperellipse(borderRadius: 16),
+            glassContainsChild: true,
+            child: Container(
+              width: _indicatorWidth,
+              height: _indicatorHeight,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.12),
+                  width: 1,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Fallback indicator for web/desktop (same as old style)
+  Widget _buildFallbackIndicator() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutCubic,
