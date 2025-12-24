@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
-import 'apple_glass_indicator.dart';
+import 'apple_glass_card.dart';
 
 /// Custom floating glassmorphism bottom navigation bar
 /// Features a single animated Apple liquid glass indicator that slides between icons
@@ -83,7 +83,7 @@ class FloatingNavBar extends StatelessWidget {
                         duration: const Duration(milliseconds: 300),
                         curve: Curves.easeOutCubic,
                         left: indicatorLeft,
-                        child: AppleGlassIndicator(
+                        child: AppleGlassCard(
                           width: _indicatorWidth,
                           height: _indicatorHeight,
                           borderRadius: 16,

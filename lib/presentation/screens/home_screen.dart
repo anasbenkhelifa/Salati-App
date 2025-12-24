@@ -8,6 +8,7 @@ import '../../core/localization/app_locale_provider.dart';
 import '../../domain/providers/hijri_date_provider.dart';
 import '../../domain/providers/prayer_times_api_provider.dart';
 import '../../data/services/prayer_times_api_service.dart';
+import '../widgets/apple_glass_card.dart';
 
 /// Home screen with LIVE clock, Hijri date, and Prayer Status
 class HomeScreen extends StatefulWidget {
@@ -196,18 +197,13 @@ class _HomeScreenState extends State<HomeScreen> {
     // Calculate prayer status using same logic as notification
     final prayerStatus = _calculatePrayerStatus(response.timings, isArabic);
 
-    return Container(
-      width: double.infinity,
+    return AppleGlassCard(
+      borderRadius: 24,
+      blurSigma: 22,
+      borderColor: prayerStatus.color.withOpacity(0.3),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: prayerStatus.color.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Prayer name (BIGGER, no title label)
           Text(
@@ -269,14 +265,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPrayerStatusLoading(bool isArabic) {
-    return Container(
-      width: double.infinity,
+    return AppleGlassCard(
+      borderRadius: 24,
+      blurSigma: 22,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(20),
-      ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             isArabic ? 'حالة الصلاة' : 'Prayer Status',

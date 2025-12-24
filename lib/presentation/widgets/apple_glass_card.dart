@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// Apple-style liquid glass indicator with blur, vibrancy, and subtle effects
+/// Apple-style liquid glass card with blur, vibrancy, and subtle effects
 ///
 /// Features:
 /// - Strong BackdropFilter blur for glassmorphism
@@ -10,28 +10,35 @@ import 'package:flutter/material.dart';
 /// - Subtle procedural noise texture
 /// - Thin border with highlight
 /// - Optional outer glow
-class AppleGlassIndicator extends StatelessWidget {
-  final double width;
-  final double height;
+/// - Child content rendered crisp on top
+class AppleGlassCard extends StatelessWidget {
+  final double? width;
+  final double? height;
   final double borderRadius;
   final Widget? child;
   final Color? glowColor;
   final double glowOpacity;
   final double blurSigma;
+  final EdgeInsetsGeometry? padding;
+  final Color? borderColor;
 
-  const AppleGlassIndicator({
+  const AppleGlassCard({
     super.key,
-    required this.width,
-    required this.height,
-    this.borderRadius = 16,
+    this.width,
+    this.height,
+    this.borderRadius = 20,
     this.child,
     this.glowColor,
     this.glowOpacity = 0.4,
     this.blurSigma = 20,
+    this.padding,
+    this.borderColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final effectiveBorderColor = borderColor ?? Colors.white.withOpacity(0.15);
+
     return Container(
       width: width,
       height: height,
@@ -74,8 +81,8 @@ class AppleGlassIndicator extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.white.withOpacity(0.15),
-                    Colors.white.withOpacity(0.05),
+                    Colors.white.withOpacity(0.12),
+                    Colors.white.withOpacity(0.04),
                   ],
                 ),
               ),
@@ -90,15 +97,15 @@ class AppleGlassIndicator extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomCenter,
-                  stops: const [0.0, 0.4],
-                  colors: [Colors.white.withOpacity(0.12), Colors.transparent],
+                  stops: const [0.0, 0.5],
+                  colors: [Colors.white.withOpacity(0.10), Colors.transparent],
                 ),
               ),
             ),
 
             // Layer 4: Procedural noise for texture (very subtle)
             CustomPaint(
-              size: Size(width, height),
+              size: Size(width ?? double.infinity, height ?? double.infinity),
               painter: _NoisePainter(borderRadius: borderRadius, opacity: 0.04),
             ),
 
@@ -108,15 +115,18 @@ class AppleGlassIndicator extends StatelessWidget {
               height: height,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(borderRadius),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.15),
-                  width: 0.5,
-                ),
+                border: Border.all(color: effectiveBorderColor, width: 0.5),
               ),
             ),
 
-            // Layer 6: Inner content (optional)
-            if (child != null) child!,
+            // Layer 6: Child content (crisp on top)
+            if (child != null)
+              Positioned.fill(
+                child: Padding(
+                  padding: padding ?? EdgeInsets.zero,
+                  child: child!,
+                ),
+              ),
           ],
         ),
       ),
@@ -128,14 +138,15 @@ class AppleGlassIndicator extends StatelessWidget {
 class _NoisePainter extends CustomPainter {
   final double borderRadius;
   final double opacity;
-  final int seed;
 
   static final Map<int, List<Offset>> _noiseCache = {};
 
-  _NoisePainter({this.borderRadius = 16, this.opacity = 0.04, this.seed = 42});
+  _NoisePainter({this.borderRadius = 16, this.opacity = 0.04});
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+
     // Create a clipping path for rounded rectangle
     final rrect = RRect.fromRectAndRadius(
       Rect.fromLTWH(0, 0, size.width, size.height),
@@ -162,7 +173,7 @@ class _NoisePainter extends CustomPainter {
   }
 
   List<Offset> _generateNoisePoints(Size size) {
-    final random = math.Random(seed);
+    final random = math.Random(42);
     final points = <Offset>[];
 
     // Generate sparse noise (every 3rd pixel in a grid pattern with jitter)
