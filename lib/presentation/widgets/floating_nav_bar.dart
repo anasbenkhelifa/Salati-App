@@ -1,10 +1,15 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
-import 'apple_glass_card.dart';
+import 'liquid_active_indicator.dart';
 
 /// Custom floating glassmorphism bottom navigation bar
-/// Features a single animated Apple liquid glass indicator that slides between icons
+///
+/// Features:
+/// - Frosted glass navbar background (blur + subtle tint)
+/// - Single animated liquid glass indicator that slides between icons
+/// - Uses oc_liquid_glass for real refraction effect on the indicator only
+/// - Falls back to simple blur indicator on unsupported platforms
 class FloatingNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
@@ -22,7 +27,7 @@ class FloatingNavBar extends StatelessWidget {
   static const double _indicatorWidth = 52;
   static const double _indicatorHeight = 46;
 
-  // Icon definitions
+  // Icon definitions (order: Qibla, Home, PrayerTimes, Settings)
   static const List<IconData> _icons = [
     Icons.explore_outlined,
     Icons.home_outlined,
@@ -43,6 +48,7 @@ class FloatingNavBar extends StatelessWidget {
       left: 24,
       right: 24,
       bottom: navBarBottomMargin,
+      // The navbar background uses traditional frosted glass (BackdropFilter blur)
       child: ClipRRect(
         borderRadius: BorderRadius.circular(32),
         child: BackdropFilter(
@@ -65,6 +71,7 @@ class FloatingNavBar extends StatelessWidget {
               ],
             ),
             // Force LTR so icons are always: Qibla, Home, PrayerTimes, Settings
+            // This ensures swipe navigation feels natural in both RTL and LTR languages
             child: Directionality(
               textDirection: TextDirection.ltr,
               child: LayoutBuilder(
@@ -78,22 +85,22 @@ class FloatingNavBar extends StatelessWidget {
                   return Stack(
                     alignment: Alignment.center,
                     children: [
-                      // Layer 1: Animated Apple Glass indicator (slides smoothly)
+                      // Layer 1: Animated Liquid Glass indicator (slides smoothly)
+                      // Uses oc_liquid_glass for real refraction effect
                       AnimatedPositioned(
                         duration: const Duration(milliseconds: 300),
                         curve: Curves.easeOutCubic,
                         left: indicatorLeft,
-                        child: AppleGlassCard(
+                        child: LiquidActiveIndicator(
                           width: _indicatorWidth,
                           height: _indicatorHeight,
                           borderRadius: 16,
                           glowColor: AppTheme.activeGlow,
                           glowOpacity: 0.4,
-                          blurSigma: 22,
                         ),
                       ),
 
-                      // Layer 2: Row of icons (on top)
+                      // Layer 2: Row of icons (on top, always crisp)
                       Row(
                         children: List.generate(_itemCount, (index) {
                           return _buildNavItem(index);

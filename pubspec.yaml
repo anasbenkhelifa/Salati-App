@@ -67,6 +67,9 @@ dependencies:
   
   # Google Fonts for Arabic typography
   google_fonts: ^6.2.1
+  
+  # Liquid glass refraction effect for navbar indicator
+  oc_liquid_glass: ^0.1.5
 
 dev_dependencies:
   flutter_test:
