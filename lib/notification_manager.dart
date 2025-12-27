@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../domain/providers/live_notification_provider.dart';
 import '../data/services/notification_service.dart';
 import '../data/services/prayer_times_cache_service.dart';
+import '../data/services/hijri_date_service.dart';
 import 'core/localization/app_locale_provider.dart';
 
 /// Widget that manages the live notification lifecycle
@@ -70,6 +71,29 @@ class _NotificationManagerState extends State<NotificationManager>
 
     // Load from CACHE ONLY - no GPS, no network
     await _startFromCache();
+
+    // Refresh Hijri cache in background (non-blocking, after UI is visible)
+    _refreshHijriCacheInBackground();
+  }
+
+  /// Refresh Hijri cache from API - runs AFTER app is visible
+  /// This was moved from main() to avoid blocking app startup
+  void _refreshHijriCacheInBackground() {
+    // Fire and forget - don't await
+    Future(() async {
+      try {
+        final hijriService = HijriDateService();
+        final today = DateTime.now();
+        final hijriDate = await hijriService.getHijriDate(today);
+        if (hijriDate != null) {
+          debugPrint(
+            '[NotificationManager] Hijri cache refreshed: ${hijriDate.formatEnglish()}',
+          );
+        }
+      } catch (e) {
+        debugPrint('[NotificationManager] Hijri refresh error (non-fatal): $e');
+      }
+    });
   }
 
   /// Start notification using CACHED data only - NO GPS
