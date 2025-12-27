@@ -235,14 +235,28 @@ class QiblaProvider extends ChangeNotifier {
   }
 
   /// Refresh qibla when location is updated (called by Prayer Times provider)
-  Future<void> refreshFromNewLocation(double latitude, double longitude) async {
+  /// Now accepts qiblaDirection directly to avoid re-fetching from cache
+  void refreshFromNewLocation(
+    double latitude,
+    double longitude,
+    double qiblaDirection,
+  ) {
     debugPrint(
-      '[QiblaProvider] Refreshing from new location: $latitude, $longitude',
+      '[QiblaProvider] Refreshing from new location: $latitude, $longitude, qibla=$qiblaDirection',
     );
     _latitude = latitude;
     _longitude = longitude;
+    _qiblaBearing = qiblaDirection;
     _isFromCache = false;
-    await _fetchQiblaInBackground();
+    _state = _hasCompass ? QiblaDataState.success : QiblaDataState.noCompass;
+    _errorMessage = null;
+
+    // Start compass if not already running
+    if (_hasCompass && _compassSubscription == null) {
+      _startCompassListening();
+    }
+
+    notifyListeners();
   }
 
   /// Start listening to compass events

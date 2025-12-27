@@ -487,10 +487,11 @@ class PrayerTimesApiProvider extends ChangeNotifier {
           '[PrayerTimesApiProvider] Qibla also updated: ${qiblaResponse.direction}',
         );
 
-        // Notify QiblaProvider to refresh its UI immediately
+        // Notify QiblaProvider to refresh its UI immediately with the fetched direction
         QiblaProvider.instance?.refreshFromNewLocation(
           position.latitude,
           position.longitude,
+          qiblaResponse.direction,
         );
       } catch (qiblaError) {
         debugPrint(
@@ -602,7 +603,11 @@ class PrayerTimesApiProvider extends ChangeNotifier {
           longitude: lng,
         );
         await _cacheService.saveQiblaDirection(qiblaResponse.direction);
-        QiblaProvider.instance?.refreshFromNewLocation(lat, lng);
+        QiblaProvider.instance?.refreshFromNewLocation(
+          lat,
+          lng,
+          qiblaResponse.direction,
+        );
       } catch (e) {
         debugPrint('[PrayerTimesApiProvider] Qibla fetch failed: $e');
       }
