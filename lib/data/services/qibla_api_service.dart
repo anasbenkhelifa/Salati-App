@@ -2,13 +2,15 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Response model for AlAdhan Qibla API
+/// Response model for Qibla API
 class QiblaResponse {
   final double direction;
   final double latitude;
   final double longitude;
   final bool isFromCache;
   final String requestUrl;
+  final double? distanceKm;
+  final String? compassBearing;
 
   QiblaResponse({
     required this.direction,
@@ -16,29 +18,35 @@ class QiblaResponse {
     required this.longitude,
     this.isFromCache = false,
     this.requestUrl = '',
+    this.distanceKm,
+    this.compassBearing,
   });
 
-  factory QiblaResponse.fromJson(
+  /// Parse from UmmahAPI response format
+  factory QiblaResponse.fromUmmahApi(
     Map<String, dynamic> json, {
     bool isFromCache = false,
     String requestUrl = '',
     required double lat,
     required double lon,
   }) {
-    final data = json['data'];
+    final data = json['data'] ?? {};
     return QiblaResponse(
-      direction: (data['direction'] ?? 0.0).toDouble(),
+      direction: (data['qibla_direction'] ?? 0.0).toDouble(),
       latitude: lat,
       longitude: lon,
       isFromCache: isFromCache,
       requestUrl: requestUrl,
+      distanceKm: (data['distance_km'] ?? 0.0).toDouble(),
+      compassBearing: data['compass_bearing'] as String?,
     );
   }
 }
 
-/// Service to fetch Qibla direction from AlAdhan API
+/// Service to fetch Qibla direction from UmmahAPI
+/// https://www.ummahapi.com/
 class QiblaApiService {
-  static const String _baseUrl = 'https://api.aladhan.com/v1/qibla';
+  static const String _baseUrl = 'https://www.ummahapi.com/api/qibla';
   static const String _cacheKeyPrefix = 'qibla_cache_';
 
   SharedPreferences? _prefs;
@@ -53,12 +61,13 @@ class QiblaApiService {
     return '${_cacheKeyPrefix}${lat.toStringAsFixed(2)}_${lon.toStringAsFixed(2)}';
   }
 
-  /// Fetch Qibla direction by coordinates
+  /// Fetch Qibla direction by coordinates (uses UmmahAPI)
   Future<QiblaResponse> fetchQiblaDirection({
     required double latitude,
     required double longitude,
   }) async {
-    final requestUrl = '$_baseUrl/$latitude/$longitude';
+    // UmmahAPI format: /api/qibla?lat={lat}&lng={lng}
+    final requestUrl = '$_baseUrl?lat=$latitude&lng=$longitude';
 
     try {
       final response = await http
@@ -67,8 +76,8 @@ class QiblaApiService {
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
-        if (json['code'] == 200 && json['status'] == 'OK') {
-          final qiblaResponse = QiblaResponse.fromJson(
+        if (json['success'] == true && json['data'] != null) {
+          final qiblaResponse = QiblaResponse.fromUmmahApi(
             json,
             requestUrl: requestUrl,
             lat: latitude,
@@ -80,7 +89,7 @@ class QiblaApiService {
 
           return qiblaResponse;
         } else {
-          throw Exception('API error: ${json['status']}');
+          throw Exception('API error: ${json['message'] ?? 'Unknown error'}');
         }
       } else {
         throw Exception('HTTP error: ${response.statusCode}');
