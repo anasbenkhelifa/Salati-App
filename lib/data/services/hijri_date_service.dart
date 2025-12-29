@@ -35,44 +35,21 @@ class HijriDate {
   /// Format for display (English) - LTR, no special handling needed
   String formatEnglish() => '$day $monthNameEn $year AH';
 
-  /// Factory from API response
-  factory HijriDate.fromJson(Map<String, dynamic> json) {
+  /// Factory from UmmahAPI response
+  factory HijriDate.fromUmmahApi(Map<String, dynamic> json) {
     final hijri = json['data']?['hijri'] ?? {};
-    final day =
-        hijri['day'] is String
-            ? int.tryParse(hijri['day']) ?? 1
-            : hijri['day'] ?? 1;
-    final month = hijri['month']?['number'] ?? 1;
-    final year =
-        hijri['year'] is String
-            ? int.tryParse(hijri['year']) ?? 1446
-            : hijri['year'] ?? 1446;
-    final monthNameAr = hijri['month']?['ar'] ?? '';
-    final monthNameEn = hijri['month']?['en'] ?? '';
-    final weekdayAr = hijri['weekday']?['ar'] ?? '';
-    final weekdayEn = hijri['weekday']?['en'] ?? '';
+    final gregorian = json['data']?['gregorian'] ?? {};
 
     return HijriDate(
-      day: day,
-      month: month,
-      year: year,
-      monthNameAr: monthNameAr,
-      monthNameEn: monthNameEn,
-      weekdayAr: weekdayAr,
-      weekdayEn: weekdayEn,
+      day: hijri['day'] ?? 1,
+      month: hijri['month'] ?? 1,
+      year: hijri['year'] ?? 1446,
+      monthNameAr: hijri['month_name_arabic'] ?? '',
+      monthNameEn: hijri['month_name'] ?? '',
+      weekdayAr: '', // UmmahAPI doesn't provide Arabic weekday directly
+      weekdayEn: gregorian['day_of_week'] ?? '',
     );
   }
-
-  /// Convert to JSON for caching
-  Map<String, dynamic> toJson() => {
-    'day': day,
-    'month': month,
-    'year': year,
-    'monthNameAr': monthNameAr,
-    'monthNameEn': monthNameEn,
-    'weekdayAr': weekdayAr,
-    'weekdayEn': weekdayEn,
-  };
 
   /// Factory from cached JSON
   factory HijriDate.fromCacheJson(Map<String, dynamic> json) {
@@ -86,18 +63,29 @@ class HijriDate {
       weekdayEn: json['weekdayEn'] ?? '',
     );
   }
+
+  /// Convert to JSON for caching
+  Map<String, dynamic> toJson() => {
+    'day': day,
+    'month': month,
+    'year': year,
+    'monthNameAr': monthNameAr,
+    'monthNameEn': monthNameEn,
+    'weekdayAr': weekdayAr,
+    'weekdayEn': weekdayEn,
+  };
 }
 
 /// Service to fetch and cache Hijri dates
+/// Uses UmmahAPI: https://www.ummahapi.com/
 class HijriDateService {
-  static const String _baseUrl = 'https://api.aladhan.com/v1/gToH';
+  static const String _baseUrl = 'https://www.ummahapi.com/api/hijri-date';
   static const String _cachePrefix = 'hijri_date_';
 
   /// Fetch Hijri date for a given Gregorian date
   /// Uses cache if available for the same day
   Future<HijriDate?> getHijriDate(DateTime gregorianDate) async {
     final dateKey = DateFormat('yyyy-MM-dd').format(gregorianDate);
-    final dateParam = DateFormat('dd-MM-yyyy').format(gregorianDate);
 
     // Try cache first
     final cached = await _loadFromCache(dateKey);
@@ -108,7 +96,8 @@ class HijriDateService {
 
     // Fetch from API
     try {
-      final url = '$_baseUrl/$dateParam';
+      // UmmahAPI format: /api/hijri-date?date=YYYY-MM-DD
+      final url = '$_baseUrl?date=$dateKey';
       debugPrint('[HijriDateService] Fetching: $url');
 
       final response = await http
@@ -117,17 +106,22 @@ class HijriDateService {
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
-        final hijriDate = HijriDate.fromJson(json);
+        if (json['success'] == true && json['data'] != null) {
+          final hijriDate = HijriDate.fromUmmahApi(json);
 
-        // Cache the result
-        await _saveToCache(dateKey, hijriDate);
-        debugPrint(
-          '[HijriDateService] Fetched and cached: ${hijriDate.formatEnglish()}',
-        );
+          // Cache the result
+          await _saveToCache(dateKey, hijriDate);
+          debugPrint(
+            '[HijriDateService] Fetched and cached: ${hijriDate.formatEnglish()}',
+          );
 
-        return hijriDate;
+          return hijriDate;
+        } else {
+          debugPrint('[HijriDateService] API error: ${json['message']}');
+          return null;
+        }
       } else {
-        debugPrint('[HijriDateService] API error: ${response.statusCode}');
+        debugPrint('[HijriDateService] HTTP error: ${response.statusCode}');
         return null;
       }
     } catch (e) {
@@ -173,20 +167,12 @@ class HijriDateService {
         DateTime.now().millisecondsSinceEpoch,
       );
 
-      // Verify writes by reading back
-      final checkAr = prefs.getString('cached_hijri_display_ar');
-      final checkEn = prefs.getString('cached_hijri_display_en');
-
       debugPrint('[HijriDateService] ========= HIJRI CACHE SAVED =========');
       debugPrint(
         '[HijriDateService] Date: ${date.day} ${date.monthNameEn} ${date.year}',
       );
       debugPrint('[HijriDateService] Display AR saved: "$displayAr"');
       debugPrint('[HijriDateService] Display EN saved: "$displayEn"');
-      debugPrint('[HijriDateService] Verify AR read-back: "$checkAr"');
-      debugPrint('[HijriDateService] Verify EN read-back: "$checkEn"');
-      debugPrint('[HijriDateService] AR match: ${displayAr == checkAr}');
-      debugPrint('[HijriDateService] EN match: ${displayEn == checkEn}');
       debugPrint('[HijriDateService] =====================================');
     } catch (e) {
       debugPrint('[HijriDateService] Cache save error: $e');

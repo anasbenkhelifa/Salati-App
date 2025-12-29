@@ -1,126 +1,178 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Response model for Qibla API
+/// Response model for Qibla direction API
 class QiblaResponse {
   final double direction;
-  final double latitude;
-  final double longitude;
+  final double distanceKm;
+  final String compassBearing;
   final bool isFromCache;
   final String requestUrl;
-  final double? distanceKm;
-  final String? compassBearing;
 
   QiblaResponse({
     required this.direction,
-    required this.latitude,
-    required this.longitude,
+    required this.distanceKm,
+    required this.compassBearing,
     this.isFromCache = false,
     this.requestUrl = '',
-    this.distanceKm,
-    this.compassBearing,
   });
 
-  /// Parse from UmmahAPI response format
-  factory QiblaResponse.fromUmmahApi(
+  /// Parse from IslamicAPI format
+  factory QiblaResponse.fromIslamicApi(
     Map<String, dynamic> json, {
-    bool isFromCache = false,
     String requestUrl = '',
-    required double lat,
-    required double lon,
   }) {
-    final data = json['data'] ?? {};
+    final qibla = json['data']?['qibla'] ?? {};
+    final direction = qibla['direction'] ?? {};
+    final distance = qibla['distance'] ?? {};
+
     return QiblaResponse(
-      direction: (data['qibla_direction'] ?? 0.0).toDouble(),
-      latitude: lat,
-      longitude: lon,
-      isFromCache: isFromCache,
+      direction: (direction['degrees'] ?? 0.0).toDouble(),
+      distanceKm: (distance['value'] ?? 0.0).toDouble(),
+      compassBearing: direction['from'] ?? 'North',
+      isFromCache: false,
       requestUrl: requestUrl,
-      distanceKm: (data['distance_km'] ?? 0.0).toDouble(),
-      compassBearing: data['compass_bearing'] as String?,
+    );
+  }
+
+  /// Parse from cache
+  factory QiblaResponse.fromCache(double direction) {
+    return QiblaResponse(
+      direction: direction,
+      distanceKm: 0,
+      compassBearing: '',
+      isFromCache: true,
     );
   }
 }
 
-/// Service to fetch Qibla direction from UmmahAPI
-/// https://www.ummahapi.com/
+/// Service to fetch Qibla direction from IslamicAPI
+/// https://islamicapi.com/doc/prayer-time/ (includes qibla in response)
 class QiblaApiService {
-  static const String _baseUrl = 'https://www.ummahapi.com/api/qibla';
-  static const String _cacheKeyPrefix = 'qibla_cache_';
+  static const String _baseUrl = 'https://islamicapi.com/api/v1/prayer-time/';
+  static const String _apiKey =
+      '0LXJrCmyBRD1KDXf3R4SaSdJgbIQLr5tSzS0Kj9CW6XQZ0yS';
+  static const Duration _cacheDuration = Duration(days: 30);
 
-  SharedPreferences? _prefs;
-
-  Future<SharedPreferences> get _preferences async {
-    _prefs ??= await SharedPreferences.getInstance();
-    return _prefs!;
-  }
-
-  /// Round lat/lon to 2 decimals for cache key (~1.1km precision)
+  /// Get cache key for coordinates
   String _getCacheKey(double lat, double lon) {
-    return '${_cacheKeyPrefix}${lat.toStringAsFixed(2)}_${lon.toStringAsFixed(2)}';
+    // Round to 2 decimal places to avoid too many cache entries
+    return 'qibla_${lat.toStringAsFixed(2)}_${lon.toStringAsFixed(2)}';
   }
 
-  /// Fetch Qibla direction by coordinates (uses UmmahAPI)
+  /// Fetch Qibla direction by coordinates
   Future<QiblaResponse> fetchQiblaDirection({
     required double latitude,
     required double longitude,
   }) async {
-    // UmmahAPI format: /api/qibla?lat={lat}&lng={lng}
-    final requestUrl = '$_baseUrl?lat=$latitude&lng=$longitude';
+    final cacheKey = _getCacheKey(latitude, longitude);
+
+    // Try cache first
+    final cached = await _loadFromCache(cacheKey);
+    if (cached != null) {
+      debugPrint('[QiblaApiService] Using cached qibla: ${cached.direction}°');
+      return cached;
+    }
+
+    // IslamicAPI prayer-time endpoint includes qibla
+    final uri = Uri.parse(_baseUrl).replace(
+      queryParameters: {
+        'lat': latitude.toString(),
+        'lon': longitude.toString(),
+        'api_key': _apiKey,
+      },
+    );
+
+    final requestUrl = uri.toString();
+    debugPrint('[QiblaApiService] Fetching qibla from: $requestUrl');
 
     try {
-      final response = await http
-          .get(Uri.parse(requestUrl))
-          .timeout(const Duration(seconds: 10));
+      final response = await http.get(uri).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
-        if (json['success'] == true && json['data'] != null) {
-          final qiblaResponse = QiblaResponse.fromUmmahApi(
+        if (json['code'] == 200 && json['status'] == 'success') {
+          final qiblaResponse = QiblaResponse.fromIslamicApi(
             json,
             requestUrl: requestUrl,
-            lat: latitude,
-            lon: longitude,
           );
 
           // Cache the result
-          await _cacheResponse(latitude, longitude, qiblaResponse.direction);
+          await _saveToCache(cacheKey, qiblaResponse.direction);
 
+          debugPrint(
+            '[QiblaApiService] Qibla fetched: ${qiblaResponse.direction}°',
+          );
           return qiblaResponse;
         } else {
-          throw Exception('API error: ${json['message'] ?? 'Unknown error'}');
+          throw Exception('API error: ${json['message']}');
         }
       } else {
         throw Exception('HTTP error: ${response.statusCode}');
       }
     } catch (e) {
-      // Try to load from cache
-      final cached = await _loadCachedDirection(latitude, longitude);
-      if (cached != null) {
-        return QiblaResponse(
-          direction: cached,
-          latitude: latitude,
-          longitude: longitude,
-          isFromCache: true,
-          requestUrl: requestUrl,
-        );
+      debugPrint('[QiblaApiService] Error: $e');
+
+      // Try to return any cached value as fallback
+      final fallback = await _loadAnyCache();
+      if (fallback != null) {
+        debugPrint('[QiblaApiService] Using fallback cache');
+        return fallback;
       }
+
       rethrow;
     }
   }
 
-  /// Cache the Qibla direction
-  Future<void> _cacheResponse(double lat, double lon, double direction) async {
-    final prefs = await _preferences;
-    final key = _getCacheKey(lat, lon);
-    await prefs.setDouble(key, direction);
+  /// Load from cache
+  Future<QiblaResponse?> _loadFromCache(String cacheKey) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final direction = prefs.getDouble(cacheKey);
+      final timestamp = prefs.getInt('${cacheKey}_ts');
+
+      if (direction != null && timestamp != null) {
+        final cachedAt = DateTime.fromMillisecondsSinceEpoch(timestamp);
+        if (DateTime.now().difference(cachedAt) < _cacheDuration) {
+          return QiblaResponse.fromCache(direction);
+        }
+      }
+    } catch (e) {
+      debugPrint('[QiblaApiService] Cache load error: $e');
+    }
+    return null;
   }
 
-  /// Load cached direction
-  Future<double?> _loadCachedDirection(double lat, double lon) async {
-    final prefs = await _preferences;
-    final key = _getCacheKey(lat, lon);
-    return prefs.getDouble(key);
+  /// Load any cached qibla as fallback
+  Future<QiblaResponse?> _loadAnyCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final direction = prefs.getDouble('cached_qibla_direction');
+      if (direction != null) {
+        return QiblaResponse.fromCache(direction);
+      }
+    } catch (e) {
+      debugPrint('[QiblaApiService] Fallback cache error: $e');
+    }
+    return null;
+  }
+
+  /// Save to cache
+  Future<void> _saveToCache(String cacheKey, double direction) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(cacheKey, direction);
+      await prefs.setInt(
+        '${cacheKey}_ts',
+        DateTime.now().millisecondsSinceEpoch,
+      );
+
+      // Also save as global fallback
+      await prefs.setDouble('cached_qibla_direction', direction);
+    } catch (e) {
+      debugPrint('[QiblaApiService] Cache save error: $e');
+    }
   }
 }
