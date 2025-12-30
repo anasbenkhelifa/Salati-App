@@ -99,15 +99,15 @@ class AppOptionTile extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: AppTheme.inactiveBorder,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               icon,
               color:
                   enabled
-                      ? AppTheme.activeGlow
-                      : AppTheme.activeGlow.withOpacity(0.5),
+                      ? AppTheme.currentActiveGlow
+                      : AppTheme.currentActiveGlow.withOpacity(0.5),
               size: 22,
             ),
           ),
@@ -125,8 +125,8 @@ class AppOptionTile extends StatelessWidget {
                           style: TextStyle(
                             color:
                                 enabled
-                                    ? AppTheme.textPrimary
-                                    : AppTheme.textPrimary.withOpacity(0.5),
+                                    ? AppTheme.currentTextPrimary
+                                    : AppTheme.currentTextPrimary.withOpacity(0.5),
                             fontSize: 17,
                             fontWeight: FontWeight.w500,
                           ),
@@ -135,7 +135,7 @@ class AppOptionTile extends StatelessWidget {
                         Text(
                           subtitle!,
                           style: TextStyle(
-                            color: AppTheme.textSecondary.withOpacity(0.6),
+                            color: AppTheme.currentTextSecondary.withOpacity(0.6),
                             fontSize: 13,
                           ),
                         ),
@@ -146,8 +146,8 @@ class AppOptionTile extends StatelessWidget {
                       style: TextStyle(
                         color:
                             enabled
-                                ? AppTheme.textPrimary
-                                : AppTheme.textPrimary.withOpacity(0.5),
+                                ? AppTheme.currentTextPrimary
+                                : AppTheme.currentTextPrimary.withOpacity(0.5),
                         fontSize: 17,
                         fontWeight: FontWeight.w500,
                       ),
@@ -172,14 +172,14 @@ class AppOptionTile extends StatelessWidget {
       case OptionTileTrailing.chevron:
         // Chevron always points right visually (doesn't flip with RTL)
         // But its position moves to the trailing side
-        return Icon(Icons.chevron_right, color: Colors.white.withOpacity(0.4));
+        return Icon(Icons.chevron_right, color: AppTheme.currentTextSecondary);
 
       case OptionTileTrailing.switchControl:
         return Switch(
           value: switchValue ?? false,
           onChanged: enabled ? onSwitchChanged : null,
-          activeColor: AppTheme.activeGlow,
-          activeTrackColor: AppTheme.activeGlow.withOpacity(0.3),
+          activeColor: AppTheme.currentActiveGlow,
+          activeTrackColor: AppTheme.currentActiveGlow.withOpacity(0.3),
           inactiveThumbColor: Colors.white.withOpacity(0.6),
           inactiveTrackColor: Colors.white.withOpacity(0.2),
         );

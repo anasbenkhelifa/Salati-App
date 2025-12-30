@@ -27,6 +27,16 @@ class BootReceiver : BroadcastReceiver() {
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_TIMEZONE_CHANGED,
             "android.intent.action.TIME_SET" -> {
+                Log.d(TAG, "Rescheduling alarms after $action")
+                
+                // Reschedule Adhan alarms from cached prayer times
+                try {
+                    AdhanAlarmScheduler.rescheduleFromCache(context)
+                    Log.d(TAG, "Alarms rescheduled successfully")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to reschedule alarms: ${e.message}")
+                }
+                
                 // Check if live notification was enabled
                 val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 val isEnabled = prefs.getBoolean(KEY_ENABLED, false)

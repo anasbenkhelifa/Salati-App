@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_theme_provider.dart';
 import '../../core/localization/strings.dart';
 import '../../core/localization/app_locale_provider.dart';
 import '../../domain/providers/qibla_provider.dart';
+import '../../data/services/adhan_alarm_service.dart';
 import '../widgets/app_option_tile.dart';
 
 /// Controls screen with full-screen notification, compass haptics, and theme settings
@@ -24,11 +27,13 @@ class _ControlsScreenState extends State<ControlsScreen> {
     _loadSettings();
     // Listen to provider changes
     QiblaProvider.instance?.addListener(_onProviderChange);
+    AppThemeProvider.instance.addListener(_onThemeChange);
   }
 
   @override
   void dispose() {
     QiblaProvider.instance?.removeListener(_onProviderChange);
+    AppThemeProvider.instance.removeListener(_onThemeChange);
     super.dispose();
   }
 
@@ -53,6 +58,10 @@ class _ControlsScreenState extends State<ControlsScreen> {
     }
   }
 
+  void _onThemeChange() {
+    if (mounted) setState(() {});
+  }
+
   void _setCompassHaptics(bool enabled) {
     // Update local state immediately for responsive UI
     setState(() {
@@ -67,6 +76,15 @@ class _ControlsScreenState extends State<ControlsScreen> {
     }
   }
 
+  void _showThemeSelector() {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _ThemeSelectorSheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final localeController = AppLocaleProvider.of(context);
@@ -77,12 +95,8 @@ class _ControlsScreenState extends State<ControlsScreen> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF0D1B2A), Color(0xFF1B263B)],
-            ),
+          decoration: BoxDecoration(
+            gradient: AppTheme.currentBackgroundGradient,
           ),
           child: SafeArea(
             child: Column(
@@ -118,8 +132,27 @@ class _ControlsScreenState extends State<ControlsScreen> {
                         AppOptionTile.navigation(
                           icon: Icons.palette_outlined,
                           title: t(context, 'chooseTheme'),
-                          onTap: () {
-                            // TODO: Open theme picker
+                          subtitle:
+                              AppTheme.isLightMode
+                                  ? t(context, 'lightMode')
+                                  : t(context, 'nightMode'),
+                          onTap: _showThemeSelector,
+                        ),
+                        const SizedBox(height: 12),
+                        // Battery optimization for Adhan reliability
+                        AppOptionTile.navigation(
+                          icon: Icons.battery_saver,
+                          title:
+                              isArabic
+                                  ? 'تحسين البطارية'
+                                  : 'Battery Optimization',
+                          subtitle:
+                              isArabic
+                                  ? 'اختر "بدون قيود" لموثوقية الأذان'
+                                  : 'Set to "Unrestricted" for Adhan reliability',
+                          onTap: () async {
+                            HapticFeedback.lightImpact();
+                            await AdhanAlarmService.openBatterySettings();
                           },
                         ),
                       ],
@@ -144,7 +177,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
             onPressed: () => Navigator.of(context).pop(),
             icon: Icon(
               isArabic ? Icons.arrow_forward_ios : Icons.arrow_back_ios,
-              color: AppTheme.textPrimary,
+              color: AppTheme.currentTextPrimary,
             ),
           ),
           // Title
@@ -152,8 +185,8 @@ class _ControlsScreenState extends State<ControlsScreen> {
             child: Center(
               child: Text(
                 t(context, 'controlsTitle'),
-                style: const TextStyle(
-                  color: AppTheme.textPrimary,
+                style: TextStyle(
+                  color: AppTheme.currentTextPrimary,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -163,6 +196,167 @@ class _ControlsScreenState extends State<ControlsScreen> {
           // Spacer to balance the back button
           const SizedBox(width: 48),
         ],
+      ),
+    );
+  }
+}
+
+/// Theme selector bottom sheet with Apple-style cards
+class _ThemeSelectorSheet extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final isArabic = AppLocaleProvider.of(context).isArabic;
+    final currentMode = AppThemeProvider.instance.mode;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.isLightMode ? Colors.white : const Color(0xFF1B263B),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppTheme.currentTextSecondary.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Title
+          Text(
+            t(context, 'chooseTheme'),
+            style: TextStyle(
+              color: AppTheme.currentTextPrimary,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Theme cards
+          Row(
+            children: [
+              // Night Mode
+              Expanded(
+                child: _ThemeCard(
+                  title: t(context, 'nightMode'),
+                  icon: Icons.dark_mode_rounded,
+                  isSelected: currentMode == AppThemeMode.night,
+                  previewGradient: AppTheme.nightBackgroundGradient,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    AppThemeProvider.instance.setTheme(AppThemeMode.night);
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Light Mode
+              Expanded(
+                child: _ThemeCard(
+                  title: t(context, 'lightMode'),
+                  icon: Icons.light_mode_rounded,
+                  isSelected: currentMode == AppThemeMode.light,
+                  previewGradient: AppTheme.lightBackgroundGradient,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    AppThemeProvider.instance.setTheme(AppThemeMode.light);
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
+/// Individual theme selection card
+class _ThemeCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final bool isSelected;
+  final LinearGradient previewGradient;
+  final VoidCallback onTap;
+
+  const _ThemeCard({
+    required this.title,
+    required this.icon,
+    required this.isSelected,
+    required this.previewGradient,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: previewGradient,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppTheme.currentActiveGlow : Colors.transparent,
+            width: 2,
+          ),
+          boxShadow:
+              isSelected
+                  ? [
+                    BoxShadow(
+                      color: AppTheme.currentActiveGlow.withOpacity(0.3),
+                      blurRadius: 12,
+                      spreadRadius: 2,
+                    ),
+                  ]
+                  : null,
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: 48,
+              color:
+                  previewGradient == AppTheme.lightBackgroundGradient
+                      ? AppTheme.lightTextPrimary
+                      : AppTheme.nightTextPrimary,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: TextStyle(
+                color:
+                    previewGradient == AppTheme.lightBackgroundGradient
+                        ? AppTheme.lightTextPrimary
+                        : AppTheme.nightTextPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Checkmark
+            AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: isSelected ? 1.0 : 0.0,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppTheme.currentActiveGlow,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check, size: 16, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

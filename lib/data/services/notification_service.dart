@@ -60,6 +60,33 @@ class NotificationService {
     return _hasPermission;
   }
 
+  /// Initialize WITHOUT requesting permission (just setup plugin and channel)
+  Future<void> initializePluginOnly() async {
+    if (_isInitialized) return;
+
+    debugPrint('[NotificationService] Initializing plugin only...');
+
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+
+    await _notifications.initialize(initSettings);
+    await _createChannel();
+    _isInitialized = true;
+    debugPrint(
+      '[NotificationService] Plugin initialized (no permission request)',
+    );
+  }
+
   /// Create the notification channel
   Future<void> _createChannel() async {
     const androidChannel = AndroidNotificationChannel(

@@ -121,9 +121,9 @@ class _PrayerAlertModeButtonState extends State<PrayerAlertModeButton>
   Color _getIconColor() {
     switch (widget.mode) {
       case AlertMode.sound:
-        return AppTheme.activeGlow;
+        return AppTheme.currentActiveGlow;
       case AlertMode.vibrate:
-        return AppTheme.activeGlow.withOpacity(0.8);
+        return AppTheme.currentActiveGlow.withOpacity(0.8);
       case AlertMode.silent:
         return Colors.white.withOpacity(0.4);
     }
@@ -132,9 +132,9 @@ class _PrayerAlertModeButtonState extends State<PrayerAlertModeButton>
   Color _getBackgroundColor() {
     switch (widget.mode) {
       case AlertMode.sound:
-        return AppTheme.activeGlow.withOpacity(0.15);
+        return AppTheme.currentActiveGlow.withOpacity(0.15);
       case AlertMode.vibrate:
-        return AppTheme.activeGlow.withOpacity(0.10);
+        return AppTheme.currentActiveGlow.withOpacity(0.10);
       case AlertMode.silent:
         return Colors.white.withOpacity(0.05);
     }
@@ -145,7 +145,7 @@ class _PrayerAlertModeButtonState extends State<PrayerAlertModeButton>
 
     return [
       BoxShadow(
-        color: AppTheme.activeGlow.withOpacity(
+        color: AppTheme.currentActiveGlow.withOpacity(
           widget.mode == AlertMode.sound ? 0.3 : 0.15,
         ),
         blurRadius: widget.mode == AlertMode.sound ? 12 : 8,

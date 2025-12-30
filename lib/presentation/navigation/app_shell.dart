@@ -5,6 +5,7 @@ import '../screens/prayer_times_screen.dart';
 import '../screens/settings_screen.dart';
 import '../widgets/floating_nav_bar.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_theme_provider.dart';
 import '../../domain/providers/qibla_provider.dart';
 
 /// Main app shell with floating bottom navigation and swipe navigation
@@ -31,12 +32,19 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentIndex);
+    // Listen to theme changes
+    AppThemeProvider.instance.addListener(_onThemeChange);
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    AppThemeProvider.instance.removeListener(_onThemeChange);
     super.dispose();
+  }
+
+  void _onThemeChange() {
+    if (mounted) setState(() {});
   }
 
   /// Animate to page when bottom nav is tapped
@@ -66,7 +74,7 @@ class _AppShellState extends State<AppShell> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
+        decoration: BoxDecoration(gradient: AppTheme.currentBackgroundGradient),
         child: Stack(
           children: [
             // PageView for swipe navigation with state preservation

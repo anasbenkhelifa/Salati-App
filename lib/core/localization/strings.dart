@@ -38,6 +38,9 @@ const Map<String, Map<String, String>> _strings = {
     'confirm': 'تأكيد',
     'cancel': 'إلغاء',
     'searchRequiresInternet': 'البحث يحتاج إنترنت',
+    // Theme
+    'nightMode': 'الوضع الداكن',
+    'lightMode': 'الوضع الفاتح',
   },
   'en': {
     'qibla': 'Qibla',
@@ -74,6 +77,9 @@ const Map<String, Map<String, String>> _strings = {
     'confirm': 'Confirm',
     'cancel': 'Cancel',
     'searchRequiresInternet': 'Search requires internet',
+    // Theme
+    'nightMode': 'Night Mode',
+    'lightMode': 'Light Mode',
   },
 };
 

@@ -11,6 +11,7 @@ class MainActivity : FlutterActivity() {
     companion object {
         const val CHANNEL = "com.example.adhan_app/foreground_service"
         const val ADHAN_CHANNEL = "com.example.adhan_app/adhan"
+        const val ALARM_CHANNEL = "com.example.adhan_app/alarm"
         const val PREFS_NAME = "adhan_live_prefs"
         const val KEY_ENABLED = "live_notification_enabled"
     }
@@ -26,6 +27,8 @@ class MainActivity : FlutterActivity() {
                     val body = call.argument<String>("body") ?: "Prayer times"
                     startForegroundService(title, body)
                     setEnabled(true)
+                    // Also schedule alarms when service starts
+                    AdhanAlarmScheduler.scheduleAllTodayAlarms(this)
                     result.success(true)
                 }
                 "stopService" -> {
@@ -83,6 +86,42 @@ class MainActivity : FlutterActivity() {
                 "isAdhanPlaying" -> {
                     val service = AdhanForegroundService.getInstance()
                     result.success(service != null && service.isAdhanPlaying)
+                }
+                else -> result.notImplemented()
+            }
+        }
+        
+        // Alarm scheduling channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ALARM_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "scheduleAllAlarms" -> {
+                    AdhanAlarmScheduler.scheduleAllTodayAlarms(this)
+                    result.success(true)
+                }
+                "cancelAllAlarms" -> {
+                    AdhanAlarmScheduler.cancelAllAlarms(this)
+                    result.success(true)
+                }
+                "rescheduleFromCache" -> {
+                    AdhanAlarmScheduler.rescheduleFromCache(this)
+                    result.success(true)
+                }
+                "isExactAlarmAllowed" -> {
+                    result.success(AdhanAlarmScheduler.isExactAlarmAllowed(this))
+                }
+                "openExactAlarmSettings" -> {
+                    val intent = AdhanAlarmScheduler.getExactAlarmSettingsIntent(this)
+                    if (intent != null) {
+                        startActivity(intent)
+                        result.success(true)
+                    } else {
+                        result.success(false) // Not needed on older Android
+                    }
+                }
+                "openBatterySettings" -> {
+                    val intent = AdhanAlarmScheduler.getBatteryOptimizationIntent(this)
+                    startActivity(intent)
+                    result.success(true)
                 }
                 else -> result.notImplemented()
             }

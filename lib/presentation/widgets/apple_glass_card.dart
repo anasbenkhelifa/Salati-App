@@ -1,20 +1,12 @@
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../core/theme/app_theme.dart';
 
 /// Apple-style liquid glass card with blur, vibrancy, and subtle effects
 ///
-/// Features:
-/// - Strong BackdropFilter blur for glassmorphism
-/// - Vibrancy effect (saturation boost) via color overlay
-/// - Subtle procedural noise texture
-/// - Thin border with highlight
-/// - Optional outer glow
-/// - Child content rendered crisp on top
-///
-/// Sizing behavior:
-/// - If width/height provided: uses fixed sizing
-/// - If width/height null: sizes to fit child content (using IntrinsicHeight/Width)
+/// In dark mode: Full liquid glass effect with blur, vibrancy, noise
+/// In light mode: Clean solid white card with subtle shadow (no glass)
 class AppleGlassCard extends StatelessWidget {
   final double? width;
   final double? height;
@@ -41,13 +33,56 @@ class AppleGlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = AppTheme.isLightMode;
+
+    // Light mode: Clean solid design (no glass effects - looks better)
+    if (isLight) {
+      return Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(borderRadius),
+          color: Colors.white,
+          border: Border.all(
+            color: borderColor ?? AppTheme.lightDivider,
+            width: 1,
+          ),
+          boxShadow:
+              glowColor != null
+                  ? [
+                    // Subtle colored shadow for glow effect
+                    BoxShadow(
+                      color: glowColor!.withOpacity(0.15),
+                      blurRadius: 8,
+                      spreadRadius: 0,
+                    ),
+                    // Soft drop shadow for depth
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                  : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+        ),
+        padding: padding,
+        child: child,
+      );
+    }
+
+    // Dark mode: Full liquid glass effect
     final effectiveBorderColor = borderColor ?? Colors.white.withOpacity(0.15);
 
-    // Build the glass effect stack
     Widget glassStack = Stack(
       fit: StackFit.passthrough,
       children: [
-        // Layer 1: Backdrop blur (strong glassmorphism)
+        // Layer 1: Backdrop blur
         Positioned.fill(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
@@ -55,7 +90,7 @@ class AppleGlassCard extends StatelessWidget {
           ),
         ),
 
-        // Layer 2: Vibrancy effect (saturation boost via color overlay)
+        // Layer 2: Vibrancy overlay
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
@@ -72,7 +107,7 @@ class AppleGlassCard extends StatelessWidget {
           ),
         ),
 
-        // Layer 3: Soft highlight gradient (top-left shine)
+        // Layer 3: Soft highlight gradient
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
@@ -87,7 +122,7 @@ class AppleGlassCard extends StatelessWidget {
           ),
         ),
 
-        // Layer 4: Procedural noise for texture (very subtle)
+        // Layer 4: Procedural noise
         Positioned.fill(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -102,7 +137,7 @@ class AppleGlassCard extends StatelessWidget {
           ),
         ),
 
-        // Layer 5: Thin border for definition
+        // Layer 5: Thin border
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
@@ -112,19 +147,17 @@ class AppleGlassCard extends StatelessWidget {
           ),
         ),
 
-        // Layer 6: Child content (crisp on top)
+        // Layer 6: Child content
         if (child != null)
           Padding(padding: padding ?? EdgeInsets.zero, child: child!),
       ],
     );
 
-    // Wrap with ClipRRect for rounded corners on blur
     Widget clippedGlass = ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: glassStack,
     );
 
-    // Apply outer container with optional glow
     return Container(
       width: width,
       height: height,
@@ -146,7 +179,7 @@ class AppleGlassCard extends StatelessWidget {
   }
 }
 
-/// Custom painter for subtle procedural noise
+/// Custom painter for subtle procedural noise (dark mode only)
 class _NoisePainter extends CustomPainter {
   final double borderRadius;
   final double opacity;
@@ -163,14 +196,12 @@ class _NoisePainter extends CustomPainter {
         size.height.isInfinite)
       return;
 
-    // Create a clipping path for rounded rectangle
     final rrect = RRect.fromRectAndRadius(
       Rect.fromLTWH(0, 0, size.width, size.height),
       Radius.circular(borderRadius),
     );
     canvas.clipRRect(rrect);
 
-    // Use cached noise points or generate new ones
     final cacheKey = (size.width.toInt() << 16) | size.height.toInt();
     if (!_noiseCache.containsKey(cacheKey)) {
       _noiseCache[cacheKey] = _generateNoisePoints(size);
@@ -182,7 +213,6 @@ class _NoisePainter extends CustomPainter {
           ..color = Colors.white.withOpacity(opacity)
           ..strokeWidth = 1;
 
-    // Draw noise as small dots
     for (final point in points) {
       canvas.drawCircle(point, 0.5, paint);
     }
@@ -192,7 +222,6 @@ class _NoisePainter extends CustomPainter {
     final random = math.Random(42);
     final points = <Offset>[];
 
-    // Generate sparse noise (every 3rd pixel in a grid pattern with jitter)
     const gridSize = 3;
     for (double x = 0; x < size.width; x += gridSize) {
       for (double y = 0; y < size.height; y += gridSize) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import '../domain/providers/live_notification_provider.dart';
 import '../data/services/notification_service.dart';
 import '../data/services/prayer_times_cache_service.dart';
@@ -16,6 +17,9 @@ class NotificationManager extends StatefulWidget {
   static _NotificationManagerState? of(BuildContext context) {
     return context.findAncestorStateOfType<_NotificationManagerState>();
   }
+
+  /// Static instance for global access (set when state is created)
+  static _NotificationManagerState? instance;
 
   @override
   State<NotificationManager> createState() => _NotificationManagerState();
@@ -38,12 +42,14 @@ class _NotificationManagerState extends State<NotificationManager>
   @override
   void initState() {
     super.initState();
+    NotificationManager.instance = this;
     WidgetsBinding.instance.addObserver(this);
     _initializeNotification();
   }
 
   @override
   void dispose() {
+    NotificationManager.instance = null;
     WidgetsBinding.instance.removeObserver(this);
     _notificationProvider.dispose();
     super.dispose();
@@ -61,19 +67,61 @@ class _NotificationManagerState extends State<NotificationManager>
   }
 
   Future<void> _initializeNotification() async {
-    // Initialize notification service and check permission
-    _hasPermission = await _notificationService.initialize();
+    debugPrint('[NotificationManager] Starting initialization...');
 
-    if (!_hasPermission) {
-      debugPrint('[NotificationManager] No notification permission');
-      return;
-    }
+    // STEP 1: Initialize notification plugin ONLY (creates channels, no permission request)
+    await _notificationService.initializePluginOnly();
+    debugPrint('[NotificationManager] Notification service initialized');
+
+    // STEP 2: Request BOTH permissions explicitly at startup
+    await _requestAllPermissions();
+
+    // STEP 3: Check if we have notification permission now
+    _hasPermission = await _notificationService.areNotificationsEnabled();
+    debugPrint(
+      '[NotificationManager] Notification permission: $_hasPermission',
+    );
 
     // Load from CACHE ONLY - no GPS, no network
     await _startFromCache();
 
     // Refresh Hijri cache in background (non-blocking, after UI is visible)
     _refreshHijriCacheInBackground();
+  }
+
+  /// Request both notification and location permissions at startup
+  Future<void> _requestAllPermissions() async {
+    debugPrint('[NotificationManager] Requesting permissions at startup...');
+
+    // 1. Request location permission first
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (serviceEnabled) {
+        var permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          debugPrint('[NotificationManager] Requesting location permission...');
+          permission = await Geolocator.requestPermission();
+          debugPrint(
+            '[NotificationManager] Location permission result: $permission',
+          );
+        } else {
+          debugPrint(
+            '[NotificationManager] Location already granted: $permission',
+          );
+        }
+      } else {
+        debugPrint('[NotificationManager] Location services disabled');
+      }
+    } catch (e) {
+      debugPrint('[NotificationManager] Location permission error: $e');
+    }
+
+    // 2. Request notification permission (Android 13+)
+    debugPrint('[NotificationManager] Requesting notification permission...');
+    final notifResult = await _notificationService.requestPermission();
+    debugPrint(
+      '[NotificationManager] Notification permission result: $notifResult',
+    );
   }
 
   /// Refresh Hijri cache from API - runs AFTER app is visible

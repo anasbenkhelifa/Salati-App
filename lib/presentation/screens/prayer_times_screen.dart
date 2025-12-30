@@ -89,8 +89,8 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
               Center(
                 child: Text(
                   t(context, 'prayerTimes'),
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
+                  style: TextStyle(
+                    color: AppTheme.currentTextPrimary,
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                   ),
@@ -123,15 +123,15 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   }
 
   Widget _buildLoadingState() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(color: AppTheme.activeGlow),
+          CircularProgressIndicator(color: AppTheme.currentActiveGlow),
           SizedBox(height: 16),
           Text(
             'Getting location...',
-            style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+            style: TextStyle(color: AppTheme.currentTextSecondary, fontSize: 14),
           ),
         ],
       ),
@@ -148,13 +148,13 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
             Icon(
               Icons.location_off,
               size: 64,
-              color: Colors.white.withOpacity(0.5),
+              color: AppTheme.iconSecondary,
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Location Permission Required',
               style: TextStyle(
-                color: AppTheme.textPrimary,
+                color: AppTheme.currentTextPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -164,7 +164,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
               'We need your location to calculate accurate prayer times for your area.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.textSecondary.withOpacity(0.7),
+                color: AppTheme.currentTextSecondary.withOpacity(0.7),
                 fontSize: 14,
               ),
             ),
@@ -178,7 +178,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                     if (mounted) setState(() {});
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.activeGlow,
+                    backgroundColor: AppTheme.currentActiveGlow,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
@@ -188,7 +188,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: const Text('Grant Permission'),
+                  child: Text('Grant Permission'),
                 ),
                 const SizedBox(width: 12),
                 OutlinedButton(
@@ -206,7 +206,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: const Text('Open Settings'),
+                  child: Text('Open Settings'),
                 ),
               ],
             ),
@@ -223,12 +223,12 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.gps_off, size: 64, color: Colors.white.withOpacity(0.5)),
+            Icon(Icons.gps_off, size: 64, color: AppTheme.iconSecondary),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Location Services Disabled',
               style: TextStyle(
-                color: AppTheme.textPrimary,
+                color: AppTheme.currentTextPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -238,7 +238,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
               'Please enable GPS to get accurate prayer times.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.textSecondary.withOpacity(0.7),
+                color: AppTheme.currentTextSecondary.withOpacity(0.7),
                 fontSize: 14,
               ),
             ),
@@ -251,7 +251,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                     await _provider.openLocationSettings();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.activeGlow,
+                    backgroundColor: AppTheme.currentActiveGlow,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
@@ -261,7 +261,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: const Text('Enable GPS'),
+                  child: Text('Enable GPS'),
                 ),
                 const SizedBox(width: 12),
                 OutlinedButton(
@@ -280,7 +280,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: const Text('Retry'),
+                  child: Text('Retry'),
                 ),
               ],
             ),
@@ -300,13 +300,13 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
             Icon(
               Icons.cloud_off,
               size: 64,
-              color: Colors.white.withOpacity(0.5),
+              color: AppTheme.iconSecondary,
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Unable to load prayer times',
               style: TextStyle(
-                color: AppTheme.textPrimary,
+                color: AppTheme.currentTextPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -316,7 +316,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
               _provider.errorMessage ?? 'Please check your internet connection',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.textSecondary.withOpacity(0.7),
+                color: AppTheme.currentTextSecondary.withOpacity(0.7),
                 fontSize: 14,
               ),
             ),
@@ -327,7 +327,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                 if (mounted) setState(() {});
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.activeGlow,
+                backgroundColor: AppTheme.currentActiveGlow,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 32,
@@ -337,7 +337,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              child: const Text('Retry'),
+              child: Text('Retry'),
             ),
           ],
         ),
@@ -399,7 +399,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                   children: [
                     Icon(
                       Icons.location_on,
-                      color: AppTheme.activeGlow,
+                      color: AppTheme.currentActiveGlow,
                       size: 24,
                     ),
                     const SizedBox(width: 12),
@@ -409,8 +409,8 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                         children: [
                           Text(
                             locationName,
-                            style: const TextStyle(
-                              color: AppTheme.textPrimary,
+                            style: TextStyle(
+                              color: AppTheme.currentTextPrimary,
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
@@ -443,7 +443,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                           alignment: Alignment.center,
                           child: Icon(
                             Icons.edit_location_alt,
-                            color: AppTheme.activeGlow,
+                            color: AppTheme.currentActiveGlow,
                             size: 22,
                           ),
                         ),
@@ -463,7 +463,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                           alignment: Alignment.center,
                           child: Icon(
                             Icons.my_location,
-                            color: Colors.white.withOpacity(0.5),
+                            color: AppTheme.iconSecondary,
                             size: 22,
                           ),
                         ),
@@ -490,7 +490,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                   const SizedBox(width: 6),
                   Text(
                     isArabic ? 'وضع عدم الاتصال' : 'Offline - using saved data',
-                    style: const TextStyle(color: Colors.orange, fontSize: 12),
+                    style: TextStyle(color: Colors.orange, fontSize: 12),
                   ),
                 ],
               ),
@@ -511,7 +511,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
           isArabic ? 'جاري تحديث الموقع...' : 'Updating location...',
         ),
         duration: const Duration(seconds: 1),
-        backgroundColor: AppTheme.activeGlow,
+        backgroundColor: AppTheme.currentActiveGlow,
       ),
     );
 
@@ -596,15 +596,15 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
         border: Border.all(
           color:
               isNext
-                  ? AppTheme.activeGlow.withOpacity(0.3)
-                  : Colors.white.withOpacity(0.1),
+                  ? AppTheme.currentActiveGlow.withOpacity(0.3)
+                  : AppTheme.inactiveBorder,
           width: isNext ? 1.5 : 1,
         ),
         boxShadow:
             isNext
                 ? [
                   BoxShadow(
-                    color: AppTheme.activeGlow.withOpacity(0.15),
+                    color: AppTheme.currentActiveGlow.withOpacity(0.15),
                     blurRadius: 20,
                     spreadRadius: 2,
                   ),
@@ -623,7 +623,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
           Text(
             name,
             style: TextStyle(
-              color: AppTheme.textPrimary,
+              color: AppTheme.currentTextPrimary,
               fontSize: 20,
               fontWeight: isNext ? FontWeight.bold : FontWeight.w500,
             ),
@@ -637,7 +637,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                 Text(
                   timeStr,
                   style: TextStyle(
-                    color: AppTheme.textSecondary.withOpacity(0.7),
+                    color: AppTheme.currentTextSecondary.withOpacity(0.7),
                     fontSize: 14,
                   ),
                 ),
@@ -651,7 +651,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                     Text(
                       countdownParts.sign,
                       style: TextStyle(
-                        color: AppTheme.activeGlow.withOpacity(0.7),
+                        color: AppTheme.currentActiveGlow.withOpacity(0.7),
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -660,7 +660,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                     Text(
                       countdownParts.time,
                       style: TextStyle(
-                        color: AppTheme.activeGlow,
+                        color: AppTheme.currentActiveGlow,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -672,8 +672,8 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
           ] else ...[
             Text(
               timeStr,
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
+              style: TextStyle(
+                color: AppTheme.currentTextPrimary,
                 fontSize: 20,
                 fontWeight: FontWeight.w500,
               ),

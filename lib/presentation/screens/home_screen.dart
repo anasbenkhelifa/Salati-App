@@ -45,12 +45,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _initProviders() async {
-    // Initialize in background - don't block UI rendering
-    // Providers will notifyListeners when cache is loaded
-    _hijriProvider.initialize();
+    // Add listeners FIRST to catch all notifyListeners calls
     _hijriProvider.addListener(_onUpdate);
-    _prayerProvider.initialize();
     _prayerProvider.addListener(_onUpdate);
+
+    // Then initialize - providers will notifyListeners when data is loaded
+    _hijriProvider.initialize();
+    _prayerProvider.initialize();
   }
 
   void _onUpdate() {
@@ -74,8 +75,8 @@ class _HomeScreenState extends State<HomeScreen> {
           // Title
           Text(
             t(context, 'home'),
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
+            style: TextStyle(
+              color: AppTheme.currentTextPrimary,
               fontSize: 28,
               fontWeight: FontWeight.bold,
             ),
@@ -110,81 +111,105 @@ class _HomeScreenState extends State<HomeScreen> {
     final hijriDate = _hijriProvider.getFormattedDate(isArabic);
     final dateStr = westernDigits(hijriDate);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-      decoration: AppTheme.glassDecoration(opacity: 0.08, borderRadius: 28),
-      child: Column(
-        children: [
-          // ===== TOP SECTION: Clock + Digital Time + Date =====
-          // Analog clock
-          _buildAnalogClock(),
-          const SizedBox(height: 16),
-          // Digital time - HH:MM centered, AM/PM positioned beside (true centering)
-          Builder(
-            builder: (context) {
-              // Define time style once for measurement and rendering
-              const timeStyle = TextStyle(
-                color: AppTheme.textPrimary,
-                fontSize: 56,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              );
-              final timeText = '$hourStr:$minuteStr';
+    return Column(
+      children: [
+        // ===== BOX 1: Clock + Digital Time + Date =====
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+          decoration: AppTheme.glassDecoration(opacity: 0.08, borderRadius: 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Analog clock
+              _buildAnalogClock(),
+              const SizedBox(height: 20),
+              // Digital time - HH:MM centered, AM/PM positioned beside
+              Builder(
+                builder: (context) {
+                  final timeStyle = TextStyle(
+                    color: AppTheme.currentTextPrimary,
+                    fontSize: 48,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  );
+                  final timeText = '$hourStr:$minuteStr';
 
-              // Measure the actual width of the time text
-              final textPainter = TextPainter(
-                text: TextSpan(text: timeText, style: timeStyle),
-                textDirection: TextDirection.ltr,
-              )..layout();
+                  final textPainter = TextPainter(
+                    text: TextSpan(text: timeText, style: timeStyle),
+                    textDirection: TextDirection.ltr,
+                  )..layout();
 
-              // Gap between time and AM/PM
-              const gap = 8.0;
-              final amPmOffset = (textPainter.width / 2) + gap;
+                  const gap = 8.0;
+                  final amPmOffset = (textPainter.width / 2) + gap;
 
-              return SizedBox(
-                width: double.infinity,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Centered HH:MM (anchor)
-                    Text(timeText, style: timeStyle),
-                    // AM/PM positioned right after the time text
-                    Transform.translate(
-                      offset: Offset(amPmOffset, 0),
-                      child: Text(
-                        period,
-                        style: TextStyle(
-                          color: AppTheme.textPrimary.withOpacity(0.7),
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
+                  return SizedBox(
+                    width: double.infinity,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Text(timeText, style: timeStyle),
+                        Transform.translate(
+                          offset: Offset(amPmOffset, 0),
+                          child: Text(
+                            period,
+                            style: TextStyle(
+                              color: AppTheme.currentTextPrimary.withOpacity(
+                                0.6,
+                              ),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              // Hijri Date in pill-shaped badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      AppTheme.isLightMode
+                          ? AppTheme.currentActiveGlow.withOpacity(0.08)
+                          : AppTheme.currentActiveGlow.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppTheme.currentActiveGlow.withOpacity(0.2),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.currentActiveGlow.withOpacity(0.15),
+                      blurRadius: 8,
+                      spreadRadius: 0,
                     ),
                   ],
                 ),
-              );
-            },
+                child: Text(
+                  dateStr,
+                  style: TextStyle(
+                    color: AppTheme.currentActiveGlow,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          // Hijri Date
-          Text(
-            dateStr,
-            style: TextStyle(
-              color: AppTheme.textSecondary.withOpacity(0.6),
-              fontSize: 14,
-            ),
-          ),
+        ),
 
-          // ===== SPACER =====
-          const Spacer(),
+        const SizedBox(height: 16),
 
-          // ===== BOTTOM SECTION: Prayer Status =====
-          _buildPrayerStatus(context, isArabic),
-
-          const SizedBox(height: 8),
-        ],
-      ),
+        // ===== BOX 2: Prayer Status =====
+        _buildPrayerStatus(context, isArabic),
+      ],
     );
   }
 
@@ -201,15 +226,16 @@ class _HomeScreenState extends State<HomeScreen> {
       borderRadius: 24,
       blurSigma: 22,
       borderColor: prayerStatus.color.withOpacity(0.3),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Prayer name (BIGGER, no title label)
           Text(
             prayerStatus.prayerName,
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
+            style: TextStyle(
+              color: AppTheme.currentTextPrimary,
               fontSize: 28,
               fontWeight: FontWeight.bold,
             ),
@@ -219,7 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             prayerStatus.prayerTime,
             style: TextStyle(
-              color: AppTheme.textSecondary.withOpacity(0.7),
+              color: AppTheme.currentTextSecondary.withOpacity(0.7),
               fontSize: 20,
               fontWeight: FontWeight.w500,
             ),
@@ -275,7 +301,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             isArabic ? 'حالة الصلاة' : 'Prayer Status',
             style: TextStyle(
-              color: AppTheme.textSecondary.withOpacity(0.7),
+              color: AppTheme.currentTextSecondary.withOpacity(0.7),
               fontSize: 13,
             ),
           ),
@@ -283,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             isArabic ? 'جاري التحميل...' : 'Loading...',
             style: TextStyle(
-              color: AppTheme.textSecondary.withOpacity(0.5),
+              color: AppTheme.currentTextSecondary.withOpacity(0.5),
               fontSize: 16,
             ),
           ),
@@ -363,7 +389,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (remaining.inMinutes < _warningMinutes) {
         color = const Color(0xFFE57373); // Calm red
       } else {
-        color = AppTheme.activeGlow; // Normal accent color
+        color = AppTheme.currentActiveGlow; // Normal accent color
       }
     }
 
@@ -427,7 +453,10 @@ class _HomeScreenState extends State<HomeScreen> {
       height: 200,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withOpacity(0.2), width: 3),
+        border: Border.all(
+          color: AppTheme.currentTextSecondary.withOpacity(0.3),
+          width: 3,
+        ),
       ),
       child: Stack(
         alignment: Alignment.center,
@@ -443,7 +472,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   margin: const EdgeInsets.only(top: 6),
                   width: 2,
                   height: 10,
-                  color: Colors.white.withOpacity(0.6),
+                  color: AppTheme.currentTextSecondary,
                 ),
               ),
             );
@@ -458,7 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 5,
                 height: 50,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.currentTextPrimary,
                   borderRadius: BorderRadius.circular(2.5),
                 ),
               ),
@@ -474,7 +503,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 3,
                 height: 70,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
+                  color: AppTheme.currentTextPrimary.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(1.5),
                 ),
               ),
@@ -490,7 +519,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 1.5,
                 height: 65,
                 decoration: BoxDecoration(
-                  color: AppTheme.activeGlow,
+                  color: AppTheme.currentActiveGlow,
                   borderRadius: BorderRadius.circular(1),
                 ),
               ),
@@ -500,8 +529,8 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             width: 10,
             height: 10,
-            decoration: const BoxDecoration(
-              color: AppTheme.activeGlow,
+            decoration: BoxDecoration(
+              color: AppTheme.currentActiveGlow,
               shape: BoxShape.circle,
             ),
           ),

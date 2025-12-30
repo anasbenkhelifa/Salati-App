@@ -65,8 +65,8 @@ class _QiblaScreenState extends State<QiblaScreen>
           const SizedBox(height: 24),
           Text(
             t(context, 'qibla'),
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
+            style: TextStyle(
+              color: AppTheme.currentTextPrimary,
               fontSize: 28,
               fontWeight: FontWeight.bold,
             ),
@@ -75,7 +75,7 @@ class _QiblaScreenState extends State<QiblaScreen>
           Text(
             isArabic ? 'اتجاه القبلة' : 'Qibla Direction',
             style: TextStyle(
-              color: AppTheme.textSecondary.withOpacity(0.7),
+              color: AppTheme.currentTextSecondary.withOpacity(0.7),
               fontSize: 14,
             ),
           ),
@@ -106,11 +106,14 @@ class _QiblaScreenState extends State<QiblaScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(color: AppTheme.activeGlow),
+          CircularProgressIndicator(color: AppTheme.currentActiveGlow),
           const SizedBox(height: 16),
           Text(
             isArabic ? 'جاري التحميل...' : 'Loading...',
-            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+            style: TextStyle(
+              color: AppTheme.currentTextSecondary,
+              fontSize: 14,
+            ),
           ),
         ],
       ),
@@ -125,16 +128,12 @@ class _QiblaScreenState extends State<QiblaScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.location_off,
-              size: 64,
-              color: Colors.white.withOpacity(0.5),
-            ),
+            Icon(Icons.location_off, size: 64, color: AppTheme.iconSecondary),
             const SizedBox(height: 16),
             Text(
               isArabic ? 'لم يتم تحديد الموقع' : 'Location Not Set',
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
+              style: TextStyle(
+                color: AppTheme.currentTextPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -146,7 +145,7 @@ class _QiblaScreenState extends State<QiblaScreen>
                   : 'Go to Prayer Times and tap "Update Location"',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.textSecondary.withOpacity(0.7),
+                color: AppTheme.currentTextSecondary.withOpacity(0.7),
                 fontSize: 14,
               ),
             ),
@@ -164,16 +163,12 @@ class _QiblaScreenState extends State<QiblaScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.wifi_off,
-              size: 64,
-              color: Colors.white.withOpacity(0.5),
-            ),
+            Icon(Icons.wifi_off, size: 64, color: AppTheme.iconSecondary),
             const SizedBox(height: 16),
             Text(
               isArabic ? 'لا يوجد اتصال' : 'No Connection',
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
+              style: TextStyle(
+                color: AppTheme.currentTextPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -185,7 +180,7 @@ class _QiblaScreenState extends State<QiblaScreen>
                   : 'Connect to internet and tap "Update Location" in Prayer Times',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.textSecondary.withOpacity(0.7),
+                color: AppTheme.currentTextSecondary.withOpacity(0.7),
                 fontSize: 14,
               ),
             ),
@@ -202,18 +197,14 @@ class _QiblaScreenState extends State<QiblaScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.white.withOpacity(0.5),
-            ),
+            Icon(Icons.error_outline, size: 64, color: AppTheme.iconSecondary),
             const SizedBox(height: 16),
             Text(
               isArabic
                   ? 'تعذر تحديد اتجاه القبلة'
                   : 'Unable to get Qibla direction',
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
+              style: TextStyle(
+                color: AppTheme.currentTextPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -224,7 +215,7 @@ class _QiblaScreenState extends State<QiblaScreen>
                   (isArabic ? 'حاول لاحقاً' : 'Try again later'),
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.textSecondary.withOpacity(0.7),
+                color: AppTheme.currentTextSecondary.withOpacity(0.7),
                 fontSize: 14,
               ),
             ),
@@ -256,7 +247,7 @@ class _QiblaScreenState extends State<QiblaScreen>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.info_outline,
                           color: Colors.orange,
                           size: 20,
@@ -267,7 +258,7 @@ class _QiblaScreenState extends State<QiblaScreen>
                             isArabic
                                 ? 'البوصلة غير متوفرة. الاتجاه المعروض ثابت.'
                                 : 'Compass not available. Showing static bearing.',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.orange,
                               fontSize: 12,
                             ),
@@ -282,7 +273,7 @@ class _QiblaScreenState extends State<QiblaScreen>
                         ? 'حرّك الهاتف بشكل ∞ للمعايرة'
                         : 'Move phone in figure-8 to calibrate',
                     style: TextStyle(
-                      color: AppTheme.textSecondary.withOpacity(0.5),
+                      color: AppTheme.currentTextSecondary.withOpacity(0.5),
                       fontSize: 12,
                     ),
                   ),
@@ -299,8 +290,8 @@ class _QiblaScreenState extends State<QiblaScreen>
               _showDebug ? Icons.bug_report : Icons.bug_report_outlined,
               color:
                   _showDebug
-                      ? AppTheme.activeGlow
-                      : Colors.white.withOpacity(0.3),
+                      ? AppTheme.currentActiveGlow
+                      : AppTheme.currentTextSecondary.withOpacity(0.5),
             ),
             onPressed: () => setState(() => _showDebug = !_showDebug),
           ),
@@ -330,12 +321,12 @@ class _QiblaScreenState extends State<QiblaScreen>
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.activeGlow.withOpacity(0.4),
+                    color: AppTheme.currentActiveGlow.withOpacity(0.4),
                     blurRadius: 40,
                     spreadRadius: 15,
                   ),
                   BoxShadow(
-                    color: AppTheme.activeGlow.withOpacity(0.2),
+                    color: AppTheme.currentActiveGlow.withOpacity(0.2),
                     blurRadius: 60,
                     spreadRadius: 25,
                   ),
@@ -368,14 +359,17 @@ class _QiblaScreenState extends State<QiblaScreen>
               shape: BoxShape.circle,
               color:
                   isAligned
-                      ? AppTheme.activeGlow.withOpacity(0.15)
+                      ? AppTheme.currentActiveGlow.withOpacity(0.15)
                       : Colors.transparent,
             ),
             child: Builder(
               builder: (context) {
                 // Define degree style once for measurement and rendering
                 final degreeStyle = TextStyle(
-                  color: isAligned ? AppTheme.activeGlow : AppTheme.textPrimary,
+                  color:
+                      isAligned
+                          ? AppTheme.currentActiveGlow
+                          : AppTheme.currentTextPrimary,
                   fontSize: 42,
                   fontWeight: FontWeight.bold,
                 );
@@ -403,8 +397,8 @@ class _QiblaScreenState extends State<QiblaScreen>
                         '°',
                         style: TextStyle(
                           color: (isAligned
-                                  ? AppTheme.activeGlow
-                                  : AppTheme.textPrimary)
+                                  ? AppTheme.currentActiveGlow
+                                  : AppTheme.currentTextPrimary)
                               .withOpacity(0.7),
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -427,12 +421,12 @@ class _QiblaScreenState extends State<QiblaScreen>
       height: 280,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white.withOpacity(0.08),
+        color: AppTheme.inactiveBackground,
         border: Border.all(
           color:
               isAligned
-                  ? AppTheme.activeGlow.withOpacity(0.5)
-                  : Colors.white.withOpacity(0.15),
+                  ? AppTheme.currentActiveGlow.withOpacity(0.5)
+                  : AppTheme.inactiveBorder,
           width: isAligned ? 3 : 2,
         ),
         boxShadow: [
@@ -459,9 +453,12 @@ class _QiblaScreenState extends State<QiblaScreen>
                   margin: const EdgeInsets.only(top: 12),
                   width: isCardinal ? 3 : (isMajor ? 2 : 1),
                   height: isCardinal ? 20 : (isMajor ? 16 : 8),
-                  color: Colors.white.withOpacity(
-                    isCardinal ? 1.0 : (isMajor ? 0.8 : 0.3),
-                  ),
+                  color:
+                      isCardinal
+                          ? AppTheme.currentTextPrimary
+                          : (isMajor
+                              ? AppTheme.currentTextPrimary.withOpacity(0.8)
+                              : AppTheme.currentTextSecondary.withOpacity(0.4)),
                 ),
               ),
             );
@@ -488,17 +485,17 @@ class _QiblaScreenState extends State<QiblaScreen>
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
-                  color: AppTheme.activeGlow,
+                  color: AppTheme.currentActiveGlow,
                   borderRadius: BorderRadius.circular(6),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.activeGlow.withOpacity(0.5),
+                      color: AppTheme.currentActiveGlow.withOpacity(0.5),
                       blurRadius: 10,
                       spreadRadius: 2,
                     ),
                   ],
                 ),
-                child: const Icon(Icons.mosque, color: Colors.white, size: 18),
+                child: Icon(Icons.mosque, color: Colors.white, size: 18),
               ),
             ),
           ),
@@ -522,9 +519,9 @@ class _QiblaScreenState extends State<QiblaScreen>
         children: [
           Row(
             children: [
-              const Icon(Icons.bug_report, color: Colors.orange, size: 16),
+              Icon(Icons.bug_report, color: Colors.orange, size: 16),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'DEBUG',
                 style: TextStyle(
                   color: Colors.orange,
@@ -570,10 +567,7 @@ class _QiblaScreenState extends State<QiblaScreen>
             width: 60,
             child: Text(
               '$label:',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
-                fontSize: 10,
-              ),
+              style: TextStyle(color: AppTheme.iconSecondary, fontSize: 10),
             ),
           ),
           Text(
@@ -599,7 +593,7 @@ class _TrianglePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint =
         Paint()
-          ..color = isAligned ? AppTheme.activeGlow : Colors.red
+          ..color = isAligned ? AppTheme.currentActiveGlow : Colors.red
           ..style = PaintingStyle.fill;
 
     final path =
@@ -615,7 +609,7 @@ class _TrianglePainter extends CustomPainter {
     if (isAligned) {
       final glowPaint =
           Paint()
-            ..color = AppTheme.activeGlow.withOpacity(0.5)
+            ..color = AppTheme.currentActiveGlow.withOpacity(0.5)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
       canvas.drawPath(path, glowPaint);
     }

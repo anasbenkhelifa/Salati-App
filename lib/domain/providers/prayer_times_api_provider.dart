@@ -5,6 +5,8 @@ import '../../data/services/prayer_times_api_service.dart';
 import '../../data/services/prayer_times_cache_service.dart';
 import '../../data/services/bilingual_location_service.dart';
 import '../../data/services/qibla_api_service.dart';
+import '../../data/services/adhan_alarm_service.dart';
+import '../../notification_manager.dart';
 import 'qibla_provider.dart';
 
 /// State for the prayer times data
@@ -173,8 +175,13 @@ class PrayerTimesApiProvider extends ChangeNotifier {
   bool _initialized = false;
 
   Future<void> initialize() async {
+    debugPrint('[PrayerTimesApiProvider] initialize() called');
+
     // Guard against multiple initializations
-    if (_initialized) return;
+    if (_initialized) {
+      debugPrint('[PrayerTimesApiProvider] Already initialized, skipping');
+      return;
+    }
     _initialized = true;
 
     _deviceTimezone = DateTime.now().timeZoneName;
@@ -185,6 +192,7 @@ class PrayerTimesApiProvider extends ChangeNotifier {
 
     // Check if setup was already done
     final setupDone = await _cacheService.isSetupDone();
+    debugPrint('[PrayerTimesApiProvider] setupDone=$setupDone');
 
     if (setupDone) {
       // PHASE A: Load cache immediately and notify UI
@@ -193,6 +201,9 @@ class PrayerTimesApiProvider extends ChangeNotifier {
       _refreshIfNeeded();
     } else {
       // FIRST RUN: Need GPS + network (loading state is fine here)
+      debugPrint(
+        '[PrayerTimesApiProvider] FIRST RUN - requesting permissions...',
+      );
       _state = PrayerDataState.loading;
       notifyListeners();
       await _firstTimeSetup();
@@ -230,6 +241,9 @@ class PrayerTimesApiProvider extends ChangeNotifier {
     // NOTIFY UI IMMEDIATELY - Home can now render with cached data
     notifyListeners();
     debugPrint('[PrayerTimesApiProvider] UI notified with cached data');
+
+    // Schedule Adhan alarms from cached prayer times
+    AdhanAlarmService.scheduleAllAlarms();
   }
 
   /// Phase B: Background refresh if cache is stale (unawaited, non-blocking)
@@ -302,7 +316,11 @@ class PrayerTimesApiProvider extends ChangeNotifier {
     debugPrint('[PrayerTimesApiProvider] First time setup...');
 
     // Check location services
+    debugPrint('[PrayerTimesApiProvider] Checking location services...');
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    debugPrint(
+      '[PrayerTimesApiProvider] Location services enabled: $serviceEnabled',
+    );
     if (!serviceEnabled) {
       _state = PrayerDataState.locationDisabled;
       _errorMessage = 'Location services are disabled';
@@ -311,9 +329,15 @@ class PrayerTimesApiProvider extends ChangeNotifier {
     }
 
     // Check permission
+    debugPrint('[PrayerTimesApiProvider] Checking location permission...');
     var permission = await Geolocator.checkPermission();
+    debugPrint('[PrayerTimesApiProvider] Current permission: $permission');
     if (permission == LocationPermission.denied) {
+      debugPrint('[PrayerTimesApiProvider] Requesting permission...');
       permission = await Geolocator.requestPermission();
+      debugPrint(
+        '[PrayerTimesApiProvider] Permission after request: $permission',
+      );
       if (permission == LocationPermission.denied) {
         _state = PrayerDataState.permissionDenied;
         _errorMessage = 'Location permission denied';
@@ -329,48 +353,82 @@ class PrayerTimesApiProvider extends ChangeNotifier {
       return;
     }
 
-    // Get GPS location
+    // Get GPS location - OPTIMIZED: try last known first, then fresh
     try {
-      final position = await Geolocator.getCurrentPosition(
+      debugPrint('[PrayerTimesApiProvider] Getting location...');
+
+      Position? position;
+
+      // Try last known position first for instant result
+      try {
+        position = await Geolocator.getLastKnownPosition();
+        if (position != null) {
+          debugPrint(
+            '[PrayerTimesApiProvider] Using last known position instantly',
+          );
+        }
+      } catch (e) {
+        debugPrint('[PrayerTimesApiProvider] No last known position: $e');
+      }
+
+      // If no last known, get fresh position (reduced timeout: 8s instead of 15s)
+      position ??= await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
+          accuracy: LocationAccuracy.medium, // Medium is faster than high
+          timeLimit: Duration(seconds: 8),
         ),
       );
 
       _latitude = position.latitude;
       _longitude = position.longitude;
-
-      // Reverse geocode
-      final location = await _locationService.getLocationNames(
-        position.latitude,
-        position.longitude,
+      debugPrint(
+        '[PrayerTimesApiProvider] Got position: $_latitude, $_longitude',
       );
+
+      // OPTIMIZATION: Run all API calls in parallel
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+      debugPrint('[PrayerTimesApiProvider] Fetching data in parallel...');
+      final results = await Future.wait([
+        // 1. Reverse geocode
+        _locationService.getLocationNames(
+          position.latitude,
+          position.longitude,
+        ),
+        // 2. Prayer times
+        _apiService.fetchPrayerTimesByCoordinates(
+          latitude: position.latitude,
+          longitude: position.longitude,
+          method: _method,
+          madhab: _madhab,
+          date: DateTime.now(),
+        ),
+        // 3. Qibla (from IslamicAPI - included in prayer times response but fetch separately for reliability)
+        _qiblaApiService.fetchQiblaDirection(
+          latitude: position.latitude,
+          longitude: position.longitude,
+        ),
+      ], eagerError: false);
+
+      // Process results
+      final location = results[0];
+      final response = results[1] as AlAdhanResponse;
+      final qiblaResponse = results[2];
 
       if (location != null) {
-        _cityEn = location.cityEn;
-        _cityAr = location.cityAr;
-        _countryEn = location.countryEn;
-        _countryAr = location.countryAr;
+        _cityEn = (location as dynamic).cityEn ?? '';
+        _cityAr = (location as dynamic).cityAr ?? '';
+        _countryEn = (location as dynamic).countryEn ?? '';
+        _countryAr = (location as dynamic).countryAr ?? '';
       }
-
-      // Fetch prayer times
-      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final response = await _apiService.fetchPrayerTimesByCoordinates(
-        latitude: position.latitude,
-        longitude: position.longitude,
-        method: _method,
-        madhab: _madhab,
-        date: DateTime.now(),
-      );
 
       _response = response;
       _requestUrl = response.requestUrl;
       _isFromCache = false;
       _lastUpdatedAt = DateTime.now();
 
-      // Save to cache
-      await _cacheService.saveAppState(
+      // Save to cache (don't await - run in background)
+      _cacheService.saveAppState(
         latitude: position.latitude,
         longitude: position.longitude,
         cityEn: _cityEn,
@@ -383,8 +441,24 @@ class PrayerTimesApiProvider extends ChangeNotifier {
         madhab: _madhab,
       );
 
+      // Save qibla direction
+      if (qiblaResponse != null) {
+        _cacheService.saveQiblaDirection(
+          (qiblaResponse as dynamic).direction ?? 0.0,
+        );
+      }
+
       _state = PrayerDataState.success;
-      debugPrint('[PrayerTimesApiProvider] First time setup complete');
+
+      // CRITICAL: Mark setup as done so NotificationManager will start
+      await _cacheService.markSetupDone();
+
+      // Start live notification now that setup is complete
+      await NotificationManager.instance?.refreshFromCache();
+
+      debugPrint(
+        '[PrayerTimesApiProvider] First time setup complete (optimized)',
+      );
     } catch (e) {
       _state = PrayerDataState.error;
       _errorMessage = 'Setup failed: $e';
@@ -419,39 +493,52 @@ class PrayerTimesApiProvider extends ChangeNotifier {
         throw Exception('Location permission denied');
       }
 
-      // Get fresh GPS location
+      // Get fresh GPS location (reduced timeout: 8s)
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
+          accuracy: LocationAccuracy.medium, // Medium is faster
+          timeLimit: Duration(seconds: 8),
         ),
       );
 
       _latitude = position.latitude;
       _longitude = position.longitude;
 
-      // Reverse geocode
-      final location = await _locationService.getLocationNames(
-        position.latitude,
-        position.longitude,
-      );
+      // OPTIMIZATION: Run all API calls in parallel
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+      final results = await Future.wait([
+        // 1. Reverse geocode
+        _locationService.getLocationNames(
+          position.latitude,
+          position.longitude,
+        ),
+        // 2. Prayer times
+        _apiService.fetchPrayerTimesByCoordinates(
+          latitude: position.latitude,
+          longitude: position.longitude,
+          method: _method,
+          madhab: _madhab,
+          date: DateTime.now(),
+        ),
+        // 3. Qibla
+        _qiblaApiService.fetchQiblaDirection(
+          latitude: position.latitude,
+          longitude: position.longitude,
+        ),
+      ], eagerError: false);
+
+      // Process results
+      final location = results[0];
+      final response = results[1] as AlAdhanResponse;
+      final qiblaResponse = results[2];
 
       if (location != null) {
-        _cityEn = location.cityEn;
-        _cityAr = location.cityAr;
-        _countryEn = location.countryEn;
-        _countryAr = location.countryAr;
+        _cityEn = (location as dynamic).cityEn ?? '';
+        _cityAr = (location as dynamic).cityAr ?? '';
+        _countryEn = (location as dynamic).countryEn ?? '';
+        _countryAr = (location as dynamic).countryAr ?? '';
       }
-
-      // Fetch fresh prayer times
-      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final response = await _apiService.fetchPrayerTimesByCoordinates(
-        latitude: position.latitude,
-        longitude: position.longitude,
-        method: _method,
-        madhab: _madhab,
-        date: DateTime.now(),
-      );
 
       _response = response;
       _requestUrl = response.requestUrl;
@@ -459,8 +546,8 @@ class PrayerTimesApiProvider extends ChangeNotifier {
       _isOfflineMode = false;
       _lastUpdatedAt = DateTime.now();
 
-      // Save to cache
-      await _cacheService.saveAppState(
+      // Save to cache (don't await)
+      _cacheService.saveAppState(
         latitude: position.latitude,
         longitude: position.longitude,
         cityEn: _cityEn,
@@ -476,30 +563,21 @@ class PrayerTimesApiProvider extends ChangeNotifier {
       _state = PrayerDataState.success;
       notifyListeners();
 
-      // Also fetch and cache Qibla direction
-      try {
-        final qiblaResponse = await _qiblaApiService.fetchQiblaDirection(
-          latitude: position.latitude,
-          longitude: position.longitude,
+      // Update Qibla provider
+      if (qiblaResponse != null) {
+        _cacheService.saveQiblaDirection(
+          (qiblaResponse as dynamic).direction ?? 0.0,
         );
-        await _cacheService.saveQiblaDirection(qiblaResponse.direction);
-        debugPrint(
-          '[PrayerTimesApiProvider] Qibla also updated: ${qiblaResponse.direction}',
-        );
-
-        // Notify QiblaProvider to refresh its UI immediately with the fetched direction
         QiblaProvider.instance?.refreshFromNewLocation(
           position.latitude,
           position.longitude,
-          qiblaResponse.direction,
-        );
-      } catch (qiblaError) {
-        debugPrint(
-          '[PrayerTimesApiProvider] Qibla update failed (non-blocking): $qiblaError',
+          (qiblaResponse as dynamic).direction ?? 0.0,
         );
       }
 
-      debugPrint('[PrayerTimesApiProvider] Location refresh complete');
+      debugPrint(
+        '[PrayerTimesApiProvider] Location refresh complete (optimized)',
+      );
       return true;
     } catch (e) {
       debugPrint('[PrayerTimesApiProvider] Location refresh failed: $e');

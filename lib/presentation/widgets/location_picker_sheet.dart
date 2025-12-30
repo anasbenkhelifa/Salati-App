@@ -157,15 +157,15 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
           Expanded(
             child: Text(
               t(context, 'selectLocation'),
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
+              style: TextStyle(
+                color: AppTheme.currentTextPrimary,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, color: AppTheme.textSecondary),
+            icon: Icon(Icons.close, color: AppTheme.currentTextSecondary),
             onPressed: _cancel,
           ),
         ],
@@ -180,25 +180,27 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
         controller: _searchController,
         textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
         onChanged: (query) => _onSearchChanged(query, isArabic),
-        style: const TextStyle(color: AppTheme.textPrimary),
+        style: TextStyle(color: AppTheme.currentTextPrimary),
         decoration: InputDecoration(
           hintText: t(context, 'searchPlaceholder'),
-          hintStyle: TextStyle(color: AppTheme.textSecondary.withOpacity(0.5)),
+          hintStyle: TextStyle(
+            color: AppTheme.currentTextSecondary.withOpacity(0.5),
+          ),
           prefixIcon: Icon(
             Icons.search,
-            color: AppTheme.textSecondary.withOpacity(0.5),
+            color: AppTheme.currentTextSecondary.withOpacity(0.5),
           ),
           suffixIcon:
               _isLoading
-                  ? const Padding(
-                    padding: EdgeInsets.all(12),
+                  ? Padding(
+                    padding: const EdgeInsets.all(12),
                     child: SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          AppTheme.activeGlow,
+                          AppTheme.currentActiveGlow,
                         ),
                       ),
                     ),
@@ -227,7 +229,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
               ? ''
               : t(context, 'searchRequiresInternet'),
           style: TextStyle(
-            color: AppTheme.textSecondary.withOpacity(0.5),
+            color: AppTheme.currentTextSecondary.withOpacity(0.5),
             fontSize: 14,
           ),
         ),
@@ -239,7 +241,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
         child: Text(
           t(context, 'noResults'),
           style: TextStyle(
-            color: AppTheme.textSecondary.withOpacity(0.5),
+            color: AppTheme.currentTextSecondary.withOpacity(0.5),
             fontSize: 14,
           ),
         ),
@@ -258,13 +260,13 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
           decoration: BoxDecoration(
             color:
                 isSelected
-                    ? AppTheme.activeGlow.withOpacity(0.15)
+                    ? AppTheme.currentActiveGlow.withOpacity(0.15)
                     : Colors.white.withOpacity(0.05),
             borderRadius: BorderRadius.circular(12),
             border:
                 isSelected
                     ? Border.all(
-                      color: AppTheme.activeGlow.withOpacity(0.5),
+                      color: AppTheme.currentActiveGlow.withOpacity(0.5),
                       width: 1,
                     )
                     : null,
@@ -276,14 +278,20 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
             ),
             leading: Icon(
               Icons.location_on_outlined,
-              color: isSelected ? AppTheme.activeGlow : AppTheme.textSecondary,
+              color:
+                  isSelected
+                      ? AppTheme.currentActiveGlow
+                      : AppTheme.currentTextSecondary,
             ),
             title: Text(
               place.cityName.isNotEmpty
                   ? place.cityName
                   : place.displayLabel.split(',').first,
               style: TextStyle(
-                color: isSelected ? AppTheme.activeGlow : AppTheme.textPrimary,
+                color:
+                    isSelected
+                        ? AppTheme.currentActiveGlow
+                        : AppTheme.currentTextPrimary,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
               maxLines: 1,
@@ -294,7 +302,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                     ? Text(
                       place.countryName,
                       style: TextStyle(
-                        color: AppTheme.textSecondary.withOpacity(0.6),
+                        color: AppTheme.currentTextSecondary.withOpacity(0.6),
                         fontSize: 12,
                       ),
                       maxLines: 1,
@@ -303,7 +311,10 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                     : null,
             trailing:
                 isSelected
-                    ? const Icon(Icons.check_circle, color: AppTheme.activeGlow)
+                    ? Icon(
+                      Icons.check_circle,
+                      color: AppTheme.currentActiveGlow,
+                    )
                     : null,
             onTap: () => _selectPlace(place),
           ),
@@ -324,7 +335,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
             child: OutlinedButton(
               onPressed: _cancel,
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.textSecondary,
+                foregroundColor: AppTheme.currentTextSecondary,
                 side: BorderSide(color: Colors.white.withOpacity(0.2)),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
@@ -339,7 +350,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
             child: ElevatedButton(
               onPressed: _selectedPlace != null ? _confirm : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.activeGlow,
+                backgroundColor: AppTheme.currentActiveGlow,
                 foregroundColor: Colors.white,
                 disabledBackgroundColor: Colors.grey.withOpacity(0.3),
                 disabledForegroundColor: Colors.white.withOpacity(0.5),

@@ -127,8 +127,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Center(
                 child: Text(
                   t(context, 'settings'),
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
+                  style: TextStyle(
+                    color: AppTheme.currentTextPrimary,
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                   ),
@@ -204,18 +204,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppTheme.activeGlow.withValues(alpha: 0.15),
-              AppTheme.activeGlow.withValues(alpha: 0.05),
+              AppTheme.currentActiveGlow.withValues(alpha: 0.15),
+              AppTheme.currentActiveGlow.withValues(alpha: 0.05),
             ],
           ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: AppTheme.activeGlow.withValues(alpha: 0.3),
+            color: AppTheme.currentActiveGlow.withValues(alpha: 0.3),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.activeGlow.withValues(alpha: 0.1),
+              color: AppTheme.currentActiveGlow.withValues(alpha: 0.1),
               blurRadius: 20,
               spreadRadius: 2,
             ),
@@ -231,20 +231,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: AppTheme.activeGlow.withValues(alpha: 0.2),
+                    color: AppTheme.currentActiveGlow.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.mosque_rounded,
-                    color: AppTheme.activeGlow,
+                    color: AppTheme.currentActiveGlow,
                     size: 20,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Text(
                   isArabic ? 'اختبار الأذان' : 'Adhan Debug',
-                  style: const TextStyle(
-                    color: AppTheme.activeGlow,
+                  style: TextStyle(
+                    color: AppTheme.currentActiveGlow,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -278,20 +278,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             strokeWidth: 2,
                           ),
                         )
-                        : const Icon(Icons.play_arrow_rounded, size: 20),
+                        : Icon(Icons.play_arrow_rounded, size: 20),
                 label: Text(
                   _isAdhanTesting
                       ? (isArabic ? 'جاري التشغيل...' : 'Playing...')
                       : (isArabic ? 'تشغيل اختبار الأذان' : 'Test Adhan'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.activeGlow,
+                  backgroundColor: AppTheme.currentActiveGlow,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: AppTheme.activeGlow.withValues(
+                  disabledBackgroundColor: AppTheme.currentActiveGlow.withValues(
                     alpha: 0.5,
                   ),
                   disabledForegroundColor: Colors.white70,
@@ -324,20 +324,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: AppTheme.inactiveBorder,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   Icons.language,
-                  color: AppTheme.activeGlow,
+                  color: AppTheme.currentActiveGlow,
                   size: 22,
                 ),
               ),
               const SizedBox(width: 16),
               Text(
                 t(context, 'language'),
-                style: const TextStyle(
-                  color: AppTheme.textPrimary,
+                style: TextStyle(
+                  color: AppTheme.currentTextPrimary,
                   fontSize: 17,
                   fontWeight: FontWeight.w500,
                 ),
@@ -356,14 +356,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     decoration: BoxDecoration(
                       color:
                           isArabic
-                              ? AppTheme.activeGlow.withOpacity(0.2)
-                              : Colors.white.withOpacity(0.05),
+                              ? AppTheme.currentActiveGlow.withOpacity(0.2)
+                              : AppTheme.inactiveBackground,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color:
                             isArabic
-                                ? AppTheme.activeGlow.withOpacity(0.5)
-                                : Colors.white.withOpacity(0.1),
+                                ? AppTheme.currentActiveGlow.withOpacity(0.5)
+                                : AppTheme.inactiveBorder,
                         width: 1.5,
                       ),
                     ),
@@ -373,8 +373,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: TextStyle(
                           color:
                               isArabic
-                                  ? AppTheme.activeGlow
-                                  : AppTheme.textSecondary,
+                                  ? AppTheme.currentActiveGlow
+                                  : AppTheme.currentTextSecondary,
                           fontSize: 16,
                           fontWeight:
                               isArabic ? FontWeight.bold : FontWeight.normal,
@@ -393,14 +393,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     decoration: BoxDecoration(
                       color:
                           !isArabic
-                              ? AppTheme.activeGlow.withOpacity(0.2)
-                              : Colors.white.withOpacity(0.05),
+                              ? AppTheme.currentActiveGlow.withOpacity(0.2)
+                              : AppTheme.inactiveBackground,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color:
                             !isArabic
-                                ? AppTheme.activeGlow.withOpacity(0.5)
-                                : Colors.white.withOpacity(0.1),
+                                ? AppTheme.currentActiveGlow.withOpacity(0.5)
+                                : AppTheme.inactiveBorder,
                         width: 1.5,
                       ),
                     ),
@@ -410,8 +410,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: TextStyle(
                           color:
                               !isArabic
-                                  ? AppTheme.activeGlow
-                                  : AppTheme.textSecondary,
+                                  ? AppTheme.currentActiveGlow
+                                  : AppTheme.currentTextSecondary,
                           fontSize: 16,
                           fontWeight:
                               !isArabic ? FontWeight.bold : FontWeight.normal,
@@ -437,7 +437,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Text(
             isArabic ? 'تصميم وتطوير' : 'Designed & Developed by',
             style: TextStyle(
-              color: AppTheme.textSecondary.withOpacity(0.4),
+              color: AppTheme.currentTextSecondary.withOpacity(0.4),
               fontSize: 12,
             ),
           ),
@@ -489,7 +489,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Text(
                         'Anas',
                         style: TextStyle(
-                          color: AppTheme.textSecondary.withOpacity(0.6),
+                          color: AppTheme.currentTextSecondary.withOpacity(0.6),
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/app_theme_provider.dart';
 import 'core/localization/app_locale_controller.dart';
 import 'core/localization/app_locale_provider.dart';
 import 'presentation/navigation/app_shell.dart';
@@ -10,10 +11,11 @@ import 'notification_manager.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize date formatting in parallel (not sequentially)
+  // Initialize date formatting and theme in parallel
   await Future.wait([
     initializeDateFormatting('ar'),
     initializeDateFormatting('en'),
+    AppThemeProvider.instance.initialize(),
   ]);
 
   // NOTE: Hijri cache refresh moved to NotificationManager (non-blocking)
@@ -33,9 +35,21 @@ class _AdhanAppState extends State<AdhanApp> {
   final AppLocaleController _localeController = AppLocaleController();
 
   @override
+  void initState() {
+    super.initState();
+    // Listen to theme changes
+    AppThemeProvider.instance.addListener(_onThemeChange);
+  }
+
+  @override
   void dispose() {
+    AppThemeProvider.instance.removeListener(_onThemeChange);
     _localeController.dispose();
     super.dispose();
+  }
+
+  void _onThemeChange() {
+    setState(() {});
   }
 
   @override
@@ -68,8 +82,8 @@ class _AdhanAppState extends State<AdhanApp> {
               );
             },
 
-            // Theme
-            theme: AppTheme.darkTheme,
+            // Theme - uses current mode
+            theme: AppTheme.currentTheme,
 
             // Home with notification manager
             home: const NotificationManager(child: AppShell()),

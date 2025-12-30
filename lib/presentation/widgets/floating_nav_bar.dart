@@ -39,6 +39,8 @@ class FloatingNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLightMode = AppTheme.isLightMode;
+
     return Positioned(
       left: 24,
       right: 24,
@@ -50,15 +52,24 @@ class FloatingNavBar extends StatelessWidget {
           child: Container(
             height: navBarHeight,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color:
+                  isLightMode
+                      ? Colors.white.withOpacity(0.9)
+                      : Colors.white.withOpacity(0.1),
               borderRadius: BorderRadius.circular(32),
               border: Border.all(
-                color: Colors.white.withOpacity(0.15),
+                color:
+                    isLightMode
+                        ? AppTheme.lightDivider
+                        : Colors.white.withOpacity(0.15),
                 width: 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color:
+                      isLightMode
+                          ? Colors.black.withOpacity(0.08)
+                          : Colors.black.withOpacity(0.2),
                   blurRadius: 24,
                   offset: const Offset(0, 8),
                 ),
@@ -87,16 +98,16 @@ class FloatingNavBar extends StatelessWidget {
                           width: _indicatorWidth,
                           height: _indicatorHeight,
                           borderRadius: 16,
-                          glowColor: AppTheme.activeGlow,
-                          glowOpacity: 0.4,
-                          blurSigma: 22,
+                          glowColor: AppTheme.currentActiveGlow,
+                          glowOpacity: isLightMode ? 0.25 : 0.4,
+                          blurSigma: isLightMode ? 12 : 22,
                         ),
                       ),
 
                       // Layer 2: Row of icons (on top)
                       Row(
                         children: List.generate(_itemCount, (index) {
-                          return _buildNavItem(index);
+                          return _buildNavItem(index, isLightMode);
                         }),
                       ),
                     ],
@@ -111,8 +122,14 @@ class FloatingNavBar extends StatelessWidget {
   }
 
   /// Individual nav item (icon only, no glow - glow is handled by indicator)
-  Widget _buildNavItem(int index) {
+  Widget _buildNavItem(int index, bool isLightMode) {
     final isActive = currentIndex == index;
+
+    // Define inactive color based on theme
+    final inactiveColor =
+        isLightMode
+            ? AppTheme.lightTextSecondary
+            : Colors.white.withOpacity(0.6);
 
     return Expanded(
       child: InkWell(
@@ -127,10 +144,7 @@ class FloatingNavBar extends StatelessWidget {
               child: Icon(
                 isActive ? _activeIcons[index] : _icons[index],
                 key: ValueKey(isActive),
-                color:
-                    isActive
-                        ? AppTheme.activeGlow
-                        : Colors.white.withOpacity(0.6),
+                color: isActive ? AppTheme.currentActiveGlow : inactiveColor,
                 size: 26,
               ),
             ),
