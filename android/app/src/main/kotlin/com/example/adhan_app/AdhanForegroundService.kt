@@ -54,6 +54,8 @@ class AdhanForegroundService : Service() {
         const val EXTRA_PRAYER_TIME = "prayer_time"
         const val EXTRA_IS_ARABIC = "is_arabic"
         const val EXTRA_OCCURRENCE_KEY = "occurrence_key"
+        const val EXTRA_ADHAN_PATH = "adhan_path"
+        const val EXTRA_IS_ASSET = "is_asset"
         
         // Grace window: 30 minutes after prayer
         const val GRACE_WINDOW_MINUTES = 30
@@ -147,7 +149,9 @@ class AdhanForegroundService : Service() {
                 val prayerTime = intent.getStringExtra(EXTRA_PRAYER_TIME) ?: ""
                 val isArabic = intent.getBooleanExtra(EXTRA_IS_ARABIC, false)
                 val occurrenceKey = intent.getStringExtra(EXTRA_OCCURRENCE_KEY) ?: ""
-                startAdhanPlayback(prayerName, prayerTime, isArabic, occurrenceKey)
+                val adhanPath = intent.getStringExtra(EXTRA_ADHAN_PATH) ?: "assets/audio/adhan.mp3"
+                val isAsset = intent.getBooleanExtra(EXTRA_IS_ASSET, true)
+                startAdhanPlayback(prayerName, prayerTime, isArabic, occurrenceKey, adhanPath, isAsset)
             }
             else -> {
                 // Start or restart service - load from cache immediately
@@ -238,8 +242,8 @@ class AdhanForegroundService : Service() {
     /**
      * Start Adhan playback with notification
      */
-    fun startAdhanPlayback(prayerName: String, prayerTime: String, isArabic: Boolean, occurrenceKey: String) {
-        Log.d(TAG, "startAdhanPlayback: $prayerName at $prayerTime, key=$occurrenceKey")
+    fun startAdhanPlayback(prayerName: String, prayerTime: String, isArabic: Boolean, occurrenceKey: String, adhanPath: String = "assets/audio/adhan.mp3", isAsset: Boolean = true) {
+        Log.d(TAG, "startAdhanPlayback: $prayerName at $prayerTime, key=$occurrenceKey, path=$adhanPath, isAsset=$isAsset")
         
         // Check if this occurrence is muted
         if (isOccurrenceMuted(occurrenceKey)) {
@@ -261,9 +265,22 @@ class AdhanForegroundService : Service() {
         try {
             mediaPlayer?.release()
             mediaPlayer = MediaPlayer().apply {
-                val afd: AssetFileDescriptor = assets.openFd("flutter_assets/assets/audio/adhan.mp3")
-                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-                afd.close()
+                if (isAsset) {
+                    // Asset file - use flutter_assets path
+                    val assetPath = if (adhanPath.startsWith("assets/")) {
+                        "flutter_assets/$adhanPath"
+                    } else {
+                        "flutter_assets/assets/audio/adhan.mp3"
+                    }
+                    Log.d(TAG, "Playing asset: $assetPath")
+                    val afd: AssetFileDescriptor = assets.openFd(assetPath)
+                    setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                    afd.close()
+                } else {
+                    // Custom file from app storage
+                    Log.d(TAG, "Playing file: $adhanPath")
+                    setDataSource(adhanPath)
+                }
                 
                 setAudioAttributes(AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_ALARM)

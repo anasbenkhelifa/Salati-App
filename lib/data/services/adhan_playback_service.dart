@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:vibration/vibration.dart';
 import 'alert_mode_service.dart';
+import 'adhan_selection_service.dart';
 
 /// Service responsible for playing Adhan audio and triggering vibration
 /// based on the per-prayer AlertMode setting.
@@ -75,10 +76,16 @@ class AdhanPlaybackService {
 
     switch (mode) {
       case AlertMode.sound:
+        // Get the selected adhan for this prayer
+        final selectedAdhan = AdhanSelectionService.instance.getSelectedAdhan(
+          prayerKey,
+        );
         await _playAdhanNative(
           prayerName: prayerName ?? _getPrayerName(prayerKey, isArabic),
           prayerTime: prayerTimeFormatted ?? '',
           isArabic: isArabic,
+          adhanPath: selectedAdhan.filePath,
+          isAsset: selectedAdhan.isAsset,
         );
         return true;
       case AlertMode.vibrate:
@@ -108,14 +115,20 @@ class AdhanPlaybackService {
     required String prayerName,
     required String prayerTime,
     required bool isArabic,
+    required String adhanPath,
+    required bool isAsset,
   }) async {
     try {
       await _channel.invokeMethod('playAdhan', {
         'prayerName': prayerName,
         'prayerTime': prayerTime,
         'isArabic': isArabic,
+        'adhanPath': adhanPath,
+        'isAsset': isAsset,
       });
-      debugPrint('[AdhanPlaybackService] Native playAdhan called');
+      debugPrint(
+        '[AdhanPlaybackService] Native playAdhan called with path: $adhanPath',
+      );
     } catch (e) {
       debugPrint('[AdhanPlaybackService] Error calling native playAdhan: $e');
     }

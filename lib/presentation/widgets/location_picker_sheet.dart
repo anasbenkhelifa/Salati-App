@@ -111,38 +111,59 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
         type: MaterialType.transparency,
         child: Container(
           height: MediaQuery.of(context).size.height * 0.75,
-          decoration: const BoxDecoration(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            // App's blue gradient background
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF1B263B), // Lighter navy at top
-                Color(0xFF0D1B2A), // Darker navy at bottom
-              ],
-            ),
+          decoration: BoxDecoration(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            // Theme-aware background
+            color: AppTheme.isLightMode ? Colors.white : null,
+            gradient:
+                AppTheme.isLightMode
+                    ? null
+                    : const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0xFF1B263B), // Lighter navy at top
+                        Color(0xFF0D1B2A), // Darker navy at bottom
+                      ],
+                    ),
           ),
           child: ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Column(
-                children: [
-                  // Header
-                  _buildHeader(context, isArabic),
+            child:
+                AppTheme.isLightMode
+                    ? Column(
+                      children: [
+                        // Header
+                        _buildHeader(context, isArabic),
 
-                  // Search field
-                  _buildSearchField(context, isArabic),
+                        // Search field
+                        _buildSearchField(context, isArabic),
 
-                  // Results list
-                  Expanded(child: _buildResultsList(context, isArabic)),
+                        // Results list
+                        Expanded(child: _buildResultsList(context, isArabic)),
 
-                  // Footer buttons
-                  _buildFooter(context, isArabic),
-                ],
-              ),
-            ),
+                        // Footer buttons
+                        _buildFooter(context, isArabic),
+                      ],
+                    )
+                    : BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                      child: Column(
+                        children: [
+                          // Header
+                          _buildHeader(context, isArabic),
+
+                          // Search field
+                          _buildSearchField(context, isArabic),
+
+                          // Results list
+                          Expanded(child: _buildResultsList(context, isArabic)),
+
+                          // Footer buttons
+                          _buildFooter(context, isArabic),
+                        ],
+                      ),
+                    ),
           ),
         ),
       ),
@@ -207,7 +228,10 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                   )
                   : null,
           filled: true,
-          fillColor: Colors.white.withOpacity(0.08),
+          fillColor:
+              AppTheme.isLightMode
+                  ? Colors.grey.shade100
+                  : Colors.white.withOpacity(0.08),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
@@ -327,7 +351,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+        border: Border(top: BorderSide(color: AppTheme.currentDivider)),
       ),
       child: Row(
         children: [
@@ -336,7 +360,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
               onPressed: _cancel,
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.currentTextSecondary,
-                side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                side: BorderSide(color: AppTheme.currentDivider),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),

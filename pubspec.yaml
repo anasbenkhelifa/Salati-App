@@ -70,6 +70,12 @@ dependencies:
   
   # URL launcher for external links
   url_launcher: ^6.2.5
+  
+  # File picker for custom adhans
+  file_picker: ^8.0.0
+  
+  # Path provider for app storage
+  path_provider: ^2.1.0
 
 dev_dependencies:
   flutter_test:

@@ -64,12 +64,16 @@ class MainActivity : FlutterActivity() {
                     val prayerName = call.argument<String>("prayerName") ?: ""
                     val prayerTime = call.argument<String>("prayerTime") ?: ""
                     val isArabic = call.argument<Boolean>("isArabic") ?: false
+                    val adhanPath = call.argument<String>("adhanPath") ?: "assets/audio/adhan.mp3"
+                    val isAsset = call.argument<Boolean>("isAsset") ?: true
                     
                     val intent = Intent(this, AdhanForegroundService::class.java).apply {
                         action = AdhanForegroundService.ACTION_START_ADHAN
                         putExtra(AdhanForegroundService.EXTRA_PRAYER_NAME, prayerName)
                         putExtra(AdhanForegroundService.EXTRA_PRAYER_TIME, prayerTime)
                         putExtra(AdhanForegroundService.EXTRA_IS_ARABIC, isArabic)
+                        putExtra(AdhanForegroundService.EXTRA_ADHAN_PATH, adhanPath)
+                        putExtra(AdhanForegroundService.EXTRA_IS_ASSET, isAsset)
                     }
                     
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

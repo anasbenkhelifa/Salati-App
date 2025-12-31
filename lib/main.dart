@@ -7,6 +7,7 @@ import 'core/localization/app_locale_controller.dart';
 import 'core/localization/app_locale_provider.dart';
 import 'presentation/navigation/app_shell.dart';
 import 'notification_manager.dart';
+import 'data/services/adhan_selection_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +17,7 @@ void main() async {
     initializeDateFormatting('ar'),
     initializeDateFormatting('en'),
     AppThemeProvider.instance.initialize(),
+    AdhanSelectionService.instance.initialize(),
   ]);
 
   // NOTE: Hijri cache refresh moved to NotificationManager (non-blocking)

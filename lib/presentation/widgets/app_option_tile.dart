@@ -126,7 +126,9 @@ class AppOptionTile extends StatelessWidget {
                             color:
                                 enabled
                                     ? AppTheme.currentTextPrimary
-                                    : AppTheme.currentTextPrimary.withOpacity(0.5),
+                                    : AppTheme.currentTextPrimary.withOpacity(
+                                      0.5,
+                                    ),
                             fontSize: 17,
                             fontWeight: FontWeight.w500,
                           ),
@@ -135,7 +137,9 @@ class AppOptionTile extends StatelessWidget {
                         Text(
                           subtitle!,
                           style: TextStyle(
-                            color: AppTheme.currentTextSecondary.withOpacity(0.6),
+                            color: AppTheme.currentTextSecondary.withOpacity(
+                              0.6,
+                            ),
                             fontSize: 13,
                           ),
                         ),
@@ -180,8 +184,14 @@ class AppOptionTile extends StatelessWidget {
           onChanged: enabled ? onSwitchChanged : null,
           activeColor: AppTheme.currentActiveGlow,
           activeTrackColor: AppTheme.currentActiveGlow.withOpacity(0.3),
-          inactiveThumbColor: Colors.white.withOpacity(0.6),
-          inactiveTrackColor: Colors.white.withOpacity(0.2),
+          inactiveThumbColor:
+              AppTheme.isLightMode
+                  ? Colors.grey.shade400
+                  : Colors.white.withOpacity(0.6),
+          inactiveTrackColor:
+              AppTheme.isLightMode
+                  ? Colors.grey.shade300
+                  : Colors.white.withOpacity(0.2),
         );
 
       case OptionTileTrailing.custom:

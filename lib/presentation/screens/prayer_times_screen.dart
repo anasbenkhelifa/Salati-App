@@ -9,6 +9,8 @@ import '../../data/services/prayer_times_api_service.dart';
 import '../../data/services/alert_mode_service.dart';
 import '../widgets/prayer_alert_mode_button.dart';
 import '../widgets/location_picker_sheet.dart';
+import '../widgets/adhan_selection_sheet.dart';
+import '../../data/services/adhan_selection_service.dart';
 
 /// Prayer times screen with AlAdhan API + GPS integration
 class PrayerTimesScreen extends StatefulWidget {
@@ -131,7 +133,10 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
           SizedBox(height: 16),
           Text(
             'Getting location...',
-            style: TextStyle(color: AppTheme.currentTextSecondary, fontSize: 14),
+            style: TextStyle(
+              color: AppTheme.currentTextSecondary,
+              fontSize: 14,
+            ),
           ),
         ],
       ),
@@ -145,11 +150,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.location_off,
-              size: 64,
-              color: AppTheme.iconSecondary,
-            ),
+            Icon(Icons.location_off, size: 64, color: AppTheme.iconSecondary),
             const SizedBox(height: 16),
             Text(
               'Location Permission Required',
@@ -297,11 +298,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.cloud_off,
-              size: 64,
-              color: AppTheme.iconSecondary,
-            ),
+            Icon(Icons.cloud_off, size: 64, color: AppTheme.iconSecondary),
             const SizedBox(height: 16),
             Text(
               'Unable to load prayer times',
@@ -588,99 +585,127 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       countdownParts = formatCountdownParts(_countdown, sign: '-');
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(isNext ? 0.15 : 0.08),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
+    return GestureDetector(
+      onTap: () => _showAdhanSelection(context, index, name),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        decoration: BoxDecoration(
           color:
+              AppTheme.isLightMode
+                  ? (isNext
+                      ? AppTheme.currentActiveGlow.withOpacity(0.08)
+                      : Colors.white)
+                  : Colors.white.withOpacity(isNext ? 0.15 : 0.08),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color:
+                isNext
+                    ? AppTheme.currentActiveGlow.withOpacity(0.3)
+                    : AppTheme.isLightMode
+                    ? AppTheme.lightDivider
+                    : AppTheme.inactiveBorder,
+            width: isNext ? 1.5 : 1,
+          ),
+          boxShadow:
               isNext
-                  ? AppTheme.currentActiveGlow.withOpacity(0.3)
-                  : AppTheme.inactiveBorder,
-          width: isNext ? 1.5 : 1,
+                  ? [
+                    BoxShadow(
+                      color: AppTheme.currentActiveGlow.withOpacity(0.15),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ]
+                  : AppTheme.isLightMode
+                  ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                  : null,
         ),
-        boxShadow:
-            isNext
-                ? [
-                  BoxShadow(
-                    color: AppTheme.currentActiveGlow.withOpacity(0.15),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                  ),
-                ]
-                : null,
-      ),
-      child: Row(
-        children: [
-          // Alert mode toggle button
-          PrayerAlertModeButton(
-            mode: _alertModes[_prayerKeys[index]] ?? AlertMode.sound,
-            onTap: () => _toggleAlertMode(index),
-          ),
-          const SizedBox(width: 16),
-          // Prayer name
-          Text(
-            name,
-            style: TextStyle(
-              color: AppTheme.currentTextPrimary,
-              fontSize: 20,
-              fontWeight: isNext ? FontWeight.bold : FontWeight.w500,
+        child: Row(
+          children: [
+            // Alert mode toggle button
+            PrayerAlertModeButton(
+              mode: _alertModes[_prayerKeys[index]] ?? AlertMode.sound,
+              onTap: () => _toggleAlertMode(index),
             ),
-          ),
-          const Spacer(),
-          // Time or countdown
-          if (isNext && countdownParts != null) ...[
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  timeStr,
-                  style: TextStyle(
-                    color: AppTheme.currentTextSecondary.withOpacity(0.7),
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                // Countdown with separate sign and time for visual balance
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      countdownParts.sign,
-                      style: TextStyle(
-                        color: AppTheme.currentActiveGlow.withOpacity(0.7),
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      countdownParts.time,
-                      style: TextStyle(
-                        color: AppTheme.currentActiveGlow,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ] else ...[
+            const SizedBox(width: 16),
+            // Prayer name
             Text(
-              timeStr,
+              name,
               style: TextStyle(
                 color: AppTheme.currentTextPrimary,
                 fontSize: 20,
-                fontWeight: FontWeight.w500,
+                fontWeight: isNext ? FontWeight.bold : FontWeight.w500,
               ),
             ),
+            const Spacer(),
+            // Time or countdown
+            if (isNext && countdownParts != null) ...[
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    timeStr,
+                    style: TextStyle(
+                      color: AppTheme.currentTextSecondary.withOpacity(0.7),
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  // Countdown with separate sign and time for visual balance
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        countdownParts.sign,
+                        style: TextStyle(
+                          color: AppTheme.currentActiveGlow.withOpacity(0.7),
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        countdownParts.time,
+                        style: TextStyle(
+                          color: AppTheme.currentActiveGlow,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ] else ...[
+              Text(
+                timeStr,
+                style: TextStyle(
+                  color: AppTheme.currentTextPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
+    );
+  }
+
+  void _showAdhanSelection(BuildContext context, int index, String prayerName) {
+    final prayerKey = _prayerKeys[index];
+    AdhanSelectionSheet.show(
+      context,
+      prayerKey: prayerKey,
+      prayerName: prayerName,
+      onChanged: () => setState(() {}),
     );
   }
 

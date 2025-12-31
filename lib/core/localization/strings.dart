@@ -41,6 +41,17 @@ const Map<String, Map<String, String>> _strings = {
     // Theme
     'nightMode': 'الوضع الداكن',
     'lightMode': 'الوضع الفاتح',
+    // Adhan selection
+    'selectAdhan': 'اختيار الأذان',
+    'defaultAdhan': 'الأذان الافتراضي',
+    'customAdhans': 'أذاناتي',
+    'addCustomAdhan': 'إضافة أذان خاص',
+    'applyToAllPrayers': 'تطبيق على كل الصلوات',
+    'deleteAdhan': 'حذف الأذان',
+    'fileTooLong': 'الملف طويل جداً (5 دقائق كحد أقصى)',
+    'invalidFormat': 'صيغة غير مدعومة',
+    'adhanAdded': 'تم إضافة الأذان',
+    'adhanDeleted': 'تم حذف الأذان',
   },
   'en': {
     'qibla': 'Qibla',
@@ -80,6 +91,17 @@ const Map<String, Map<String, String>> _strings = {
     // Theme
     'nightMode': 'Night Mode',
     'lightMode': 'Light Mode',
+    // Adhan selection
+    'selectAdhan': 'Select Adhan',
+    'defaultAdhan': 'Default Adhan',
+    'customAdhans': 'My Adhans',
+    'addCustomAdhan': 'Add Custom Adhan',
+    'applyToAllPrayers': 'Apply to All Prayers',
+    'deleteAdhan': 'Delete Adhan',
+    'fileTooLong': 'File too long (5 minutes max)',
+    'invalidFormat': 'Unsupported format',
+    'adhanAdded': 'Adhan added',
+    'adhanDeleted': 'Adhan deleted',
   },
 };
 
