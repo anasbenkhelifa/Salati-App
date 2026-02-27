@@ -41,6 +41,17 @@ class AdhanAlarmService {
     }
   }
 
+  /// Cancel all alarms and reschedule them (for when settings like pre-adhan change).
+  static Future<void> rescheduleAllAlarms() async {
+    try {
+      await cancelAllAlarms();
+      await scheduleAllAlarms();
+      debugPrint('[AdhanAlarmService] All alarms rescheduled');
+    } catch (e) {
+      debugPrint('[AdhanAlarmService] Error rescheduling all: $e');
+    }
+  }
+
   /// Check if exact alarms are allowed (Android 12+ requires permission).
   static Future<bool> isExactAlarmAllowed() async {
     try {

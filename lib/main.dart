@@ -39,6 +39,8 @@ class _AdhanAppState extends State<AdhanApp> {
   @override
   void initState() {
     super.initState();
+    // Initialize locale from saved preference (ensures native code gets correct language)
+    _localeController.initialize();
     // Listen to theme changes
     AppThemeProvider.instance.addListener(_onThemeChange);
   }

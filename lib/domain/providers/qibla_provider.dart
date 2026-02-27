@@ -348,11 +348,18 @@ class QiblaProvider extends ChangeNotifier {
   void setActive(bool active) {
     if (_isQiblaActive == active) return;
     _isQiblaActive = active;
-    debugPrint('[QiblaProvider] setActive($active)');
+    debugPrint('[QiblaProvider] setActive($active), currentState=$_state');
 
     if (active) {
-      // Resuming - start compass if we have bearing
-      if (_hasCompass && _qiblaBearing != null) {
+      // If we're in an error state, try to reinitialize
+      // This handles the case where location cache wasn't ready on first load
+      if (_state == QiblaDataState.noLocationCached ||
+          _state == QiblaDataState.error ||
+          _state == QiblaDataState.loading) {
+        debugPrint('[QiblaProvider] Reinitializing due to state: $_state');
+        initialize();
+      } else if (_hasCompass && _qiblaBearing != null) {
+        // Resuming - start compass if we have bearing
         _startCompassListening();
       }
     } else {

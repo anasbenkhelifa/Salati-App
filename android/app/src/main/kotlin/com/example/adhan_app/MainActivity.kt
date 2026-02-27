@@ -53,6 +53,16 @@ class MainActivity : FlutterActivity() {
                     setEnabled(enabled)
                     result.success(true)
                 }
+                "refreshNotification" -> {
+                    // Re-read cached data and update notification
+                    val service = AdhanForegroundService.getInstance()
+                    if (service != null) {
+                        service.refreshPrayerNotification()
+                        result.success(true)
+                    } else {
+                        result.success(false)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
@@ -125,6 +135,14 @@ class MainActivity : FlutterActivity() {
                 "openBatterySettings" -> {
                     val intent = AdhanAlarmScheduler.getBatteryOptimizationIntent(this)
                     startActivity(intent)
+                    result.success(true)
+                }
+                "scheduleTestAdhan" -> {
+                    // Schedule a test adhan alarm to fire in 5 seconds
+                    val prayerIndex = call.argument<Int>("prayerIndex") ?: 0
+                    val prayerName = call.argument<String>("prayerName") ?: "Fajr"
+                    val prayerTime = call.argument<String>("prayerTime") ?: ""
+                    AdhanAlarmScheduler.scheduleTestAlarm(this, prayerIndex, prayerName, prayerTime, 5000L)
                     result.success(true)
                 }
                 else -> result.notImplemented()

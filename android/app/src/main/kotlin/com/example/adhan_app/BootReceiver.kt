@@ -32,6 +32,13 @@ class BootReceiver : BroadcastReceiver() {
                 // Reschedule Adhan alarms from cached prayer times
                 try {
                     AdhanAlarmScheduler.rescheduleFromCache(context)
+                    
+                    // Schedule midnight refresh alarm for daily rescheduling
+                    MidnightRefreshReceiver.scheduleMidnightAlarm(context)
+                    
+                    // Schedule tomorrow's Fajr as backup
+                    AdhanAlarmScheduler.scheduleTomorrowFajr(context)
+                    
                     Log.d(TAG, "Alarms rescheduled successfully")
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to reschedule alarms: ${e.message}")

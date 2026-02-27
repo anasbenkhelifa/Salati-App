@@ -125,7 +125,10 @@ class _PrayerAlertModeButtonState extends State<PrayerAlertModeButton>
       case AlertMode.vibrate:
         return AppTheme.currentActiveGlow.withOpacity(0.8);
       case AlertMode.silent:
-        return Colors.white.withOpacity(0.4);
+        // Use gray that's visible in both light and dark modes
+        return AppTheme.isLightMode
+            ? Colors.grey.shade500
+            : Colors.white.withOpacity(0.4);
     }
   }
 
@@ -136,7 +139,10 @@ class _PrayerAlertModeButtonState extends State<PrayerAlertModeButton>
       case AlertMode.vibrate:
         return AppTheme.currentActiveGlow.withOpacity(0.10);
       case AlertMode.silent:
-        return Colors.white.withOpacity(0.05);
+        // Use gray background visible in both light and dark modes
+        return AppTheme.isLightMode
+            ? Colors.grey.shade200
+            : Colors.white.withOpacity(0.05);
     }
   }
 

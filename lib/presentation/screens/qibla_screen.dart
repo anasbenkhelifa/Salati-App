@@ -17,7 +17,6 @@ class QiblaScreen extends StatefulWidget {
 class _QiblaScreenState extends State<QiblaScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final QiblaProvider _provider = QiblaProvider();
-  bool _showDebug = false;
   double _currentDialTurns = 0;
 
   @override
@@ -30,6 +29,20 @@ class _QiblaScreenState extends State<QiblaScreen>
   Future<void> _initializeQibla() async {
     await _provider.initialize();
     _provider.addListener(_onProviderUpdate);
+
+    // If no location was cached on first try, the Prayer Times provider might
+    // still be loading. Retry after a short delay.
+    if (_provider.state == QiblaDataState.noLocationCached ||
+        _provider.state == QiblaDataState.loading) {
+      await Future.delayed(const Duration(milliseconds: 1500));
+      if (mounted &&
+          (_provider.state == QiblaDataState.noLocationCached ||
+              _provider.state == QiblaDataState.loading)) {
+        debugPrint('[QiblaScreen] Retrying initialization...');
+        await _provider.initialize();
+        if (mounted) setState(() {});
+      }
+    }
   }
 
   void _onProviderUpdate() {
@@ -282,20 +295,6 @@ class _QiblaScreenState extends State<QiblaScreen>
             ),
           ),
         ),
-        if (_showDebug) _buildDebugPanel(context),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 100),
-          child: IconButton(
-            icon: Icon(
-              _showDebug ? Icons.bug_report : Icons.bug_report_outlined,
-              color:
-                  _showDebug
-                      ? AppTheme.currentActiveGlow
-                      : AppTheme.currentTextSecondary.withOpacity(0.5),
-            ),
-            onPressed: () => setState(() => _showDebug = !_showDebug),
-          ),
-        ),
       ],
     );
   }
@@ -497,85 +496,6 @@ class _QiblaScreenState extends State<QiblaScreen>
                 ),
                 child: Icon(Icons.mosque, color: Colors.white, size: 18),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDebugPanel(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.withOpacity(0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.bug_report, color: Colors.orange, size: 16),
-              const SizedBox(width: 6),
-              Text(
-                'DEBUG',
-                style: TextStyle(
-                  color: Colors.orange,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const Divider(color: Colors.orange, height: 12),
-          _debugRow('Source', _provider.isFromCache ? 'CACHE' : 'NETWORK'),
-          if (_provider.latitude != null && _provider.longitude != null) ...[
-            _debugRow(
-              'Lat',
-              westernDigits(_provider.latitude!.toStringAsFixed(4)),
-            ),
-            _debugRow(
-              'Lon',
-              westernDigits(_provider.longitude!.toStringAsFixed(4)),
-            ),
-          ],
-          _debugRow(
-            'Qibla',
-            westernDigits('${_provider.qiblaBearing?.toStringAsFixed(1)}°'),
-          ),
-          _debugRow(
-            'Heading',
-            westernDigits('${_provider.smoothedHeading.toStringAsFixed(1)}°'),
-          ),
-          _debugRow('Aligned', _provider.isAligned ? 'YES ✓' : 'NO'),
-          _debugRow('Compass', _provider.hasCompass ? 'YES' : 'NO'),
-        ],
-      ),
-    );
-  }
-
-  Widget _debugRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 1),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 60,
-            child: Text(
-              '$label:',
-              style: TextStyle(color: AppTheme.iconSecondary, fontSize: 10),
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 10,
-              fontFamily: 'monospace',
             ),
           ),
         ],

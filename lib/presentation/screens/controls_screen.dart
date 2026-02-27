@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_theme_provider.dart';
 import '../../core/localization/strings.dart';
@@ -17,8 +18,9 @@ class ControlsScreen extends StatefulWidget {
 }
 
 class _ControlsScreenState extends State<ControlsScreen> {
-  bool _fullScreenNotification = true;
   bool _compassHapticsEnabled = true;
+  bool _maxVolumeOverrideEnabled = false;
+  bool _preAdhanEnabled = false;
 
   @override
   void initState() {
@@ -37,11 +39,21 @@ class _ControlsScreenState extends State<ControlsScreen> {
     super.dispose();
   }
 
-  void _loadSettings() {
+  void _loadSettings() async {
     // Load compass haptics from provider (or default to true)
     final provider = QiblaProvider.instance;
     if (provider != null) {
       _compassHapticsEnabled = provider.compassHapticsEnabled;
+    }
+
+    // Load max volume override setting
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _maxVolumeOverrideEnabled =
+            prefs.getBool('max_volume_override') ?? false;
+        _preAdhanEnabled = prefs.getBool('pre_adhan_enabled') ?? false;
+      });
     }
   }
 
@@ -110,22 +122,50 @@ class _ControlsScreenState extends State<ControlsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: ListView(
                       children: [
-                        // Full screen notification toggle
-                        AppOptionTile.toggle(
-                          icon: Icons.fullscreen,
-                          title: t(context, 'fullScreenNotification'),
-                          value: _fullScreenNotification,
-                          onChanged: (val) {
-                            setState(() => _fullScreenNotification = val);
-                          },
-                        ),
-                        const SizedBox(height: 12),
                         // Compass haptics toggle
                         AppOptionTile.toggle(
                           icon: Icons.vibration,
                           title: t(context, 'compassHaptics'),
                           value: _compassHapticsEnabled,
                           onChanged: _setCompassHaptics,
+                        ),
+                        const SizedBox(height: 12),
+                        // Max volume override toggle
+                        AppOptionTile.toggle(
+                          icon: Icons.volume_up,
+                          title:
+                              isArabic ? 'أقصى صوت للأذان' : 'Max Volume Adhan',
+                          subtitle:
+                              isArabic
+                                  ? 'يشغل الأذان بأعلى صوت مهما كان مستوى الصوت'
+                                  : 'Play adhan at max volume regardless of system volume',
+                          value: _maxVolumeOverrideEnabled,
+                          onChanged: (val) async {
+                            setState(() => _maxVolumeOverrideEnabled = val);
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setBool('max_volume_override', val);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        // Pre-adhan reminder toggle
+                        AppOptionTile.toggle(
+                          icon: Icons.notifications_active,
+                          title:
+                              isArabic
+                                  ? 'تذكير قبل الأذان'
+                                  : 'Pre-Adhan Reminder',
+                          subtitle:
+                              isArabic
+                                  ? 'تنبيه قبل 15 دقيقة من وقت الصلاة'
+                                  : 'Get notified 15 minutes before prayer',
+                          value: _preAdhanEnabled,
+                          onChanged: (val) async {
+                            setState(() => _preAdhanEnabled = val);
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setBool('pre_adhan_enabled', val);
+                            // Reschedule all alarms to add/remove pre-adhan reminders
+                            await AdhanAlarmService.rescheduleAllAlarms();
+                          },
                         ),
                         const SizedBox(height: 12),
                         // Theme picker

@@ -246,6 +246,16 @@ class PrayerTimesApiProvider extends ChangeNotifier {
     AdhanAlarmService.scheduleAllAlarms();
   }
 
+  /// Force reload from cache - skips initialization guard
+  /// Used by HomeScreen when it needs to retry loading after Prayer Times tab populated cache
+  Future<void> reloadFromCache() async {
+    debugPrint('[PrayerTimesApiProvider] reloadFromCache called');
+    final setupDone = await _cacheService.isSetupDone();
+    if (setupDone) {
+      await _loadFromCacheInstant();
+    }
+  }
+
   /// Phase B: Background refresh if cache is stale (unawaited, non-blocking)
   void _refreshIfNeeded() {
     // Check if prayer times need refresh (not for today)
@@ -447,6 +457,9 @@ class PrayerTimesApiProvider extends ChangeNotifier {
           (qiblaResponse as dynamic).direction ?? 0.0,
         );
       }
+
+      // Reinitialize Qibla so it picks up the new location/direction
+      QiblaProvider.instance?.initialize();
 
       _state = PrayerDataState.success;
 

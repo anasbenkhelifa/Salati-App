@@ -1,11 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_theme_provider.dart';
 import '../../core/localization/strings.dart';
 import '../../core/localization/app_locale_provider.dart';
 import '../../data/services/adhan_playback_service.dart';
-import '../../data/services/alert_mode_service.dart';
 import '../../domain/providers/qibla_provider.dart';
 import '../widgets/app_option_tile.dart';
 import 'controls_screen.dart';
@@ -22,6 +23,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Adhan debug state
   final AdhanPlaybackService _adhanService = AdhanPlaybackService();
   bool _isAdhanTesting = false;
+  int _selectedPrayerIndex = 0; // 0=Fajr, 1=Dhuhr, 2=Asr, 3=Maghrib, 4=Isha
 
   @override
   void initState() {
@@ -29,6 +31,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _adhanService.initialize();
     // Initialize QiblaProvider if not already
     QiblaProvider.instance?.initialize();
+    // Listen to theme changes to rebuild when theme switches
+    AppThemeProvider.instance.addListener(_onThemeChange);
+  }
+
+  @override
+  void dispose() {
+    AppThemeProvider.instance.removeListener(_onThemeChange);
+    super.dispose();
+  }
+
+  void _onThemeChange() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _testAdhan() async {
@@ -37,72 +51,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isAdhanTesting = true);
     HapticFeedback.mediumImpact();
 
-    // Reset the trigger guard so we can test multiple times
-    _adhanService.resetTriggerGuard();
-
-    // Use 'fajr' as the test prayer (will respect its alert mode)
-    final testPrayerKey = 'fajr';
-    final testTime = DateTime.now();
     final isArabic = AppLocaleProvider.of(context).isArabic;
 
-    // Get the current mode for display
-    final alertModeService = AlertModeService();
-    final mode = await alertModeService.getAlertMode(testPrayerKey);
-
-    // Trigger the Adhan with localized names
-    final prayerName = isArabic ? 'الفجر' : 'Fajr';
+    // Get prayer info
+    final prayerNamesEn = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+    final prayerNamesAr = ['الفجر', 'الظهر', 'العصر', 'المغرب', 'العشاء'];
+    final prayerName =
+        isArabic
+            ? prayerNamesAr[_selectedPrayerIndex]
+            : prayerNamesEn[_selectedPrayerIndex];
+    final now = DateTime.now();
     final prayerTimeStr =
-        '${testTime.hour.toString().padLeft(2, '0')}:${testTime.minute.toString().padLeft(2, '0')}';
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
 
-    await _adhanService.triggerForPrayer(
-      testPrayerKey,
-      testTime,
-      prayerName: prayerName,
-      prayerTimeFormatted: prayerTimeStr,
-      isArabic: isArabic,
-    );
-
-    // Determine the result message
-    String message;
-    Color bgColor;
-
-    switch (mode) {
-      case AlertMode.sound:
-        message =
-            isArabic
-                ? 'تم تشغيل اختبار الأذان (صوت + اهتزاز)'
-                : 'Adhan debug triggered (Sound + Vibration)';
-        bgColor = Colors.green;
-        break;
-      case AlertMode.vibrate:
-        message =
-            isArabic
-                ? 'تم تشغيل اختبار الأذان (اهتزاز فقط)'
-                : 'Adhan debug triggered (Vibration only)';
-        bgColor = Colors.orange;
-        break;
-      case AlertMode.silent:
-        message =
-            isArabic
-                ? 'الوضع الصامت: لم يتم تشغيل شيء'
-                : 'Silent mode: nothing played';
-        bgColor = Colors.grey;
-        break;
-    }
-
+    // Show countdown snackbar
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message),
-          backgroundColor: bgColor,
-          duration: const Duration(seconds: 3),
+          content: Text(
+            isArabic
+                ? 'سيبدأ الأذان خلال 5 ثوان...'
+                : 'Adhan will start in 5 seconds...',
+          ),
+          backgroundColor: AppTheme.currentActiveGlow,
+          duration: const Duration(seconds: 5),
         ),
       );
     }
 
-    // Auto-reset after 5 seconds so repeated testing works
-    await Future.delayed(const Duration(seconds: 5));
-    _adhanService.resetTriggerGuard();
+    // Schedule test via native AlarmManager (works even if app is closed)
+    const channel = MethodChannel('com.example.adhan_app/alarm');
+    try {
+      await channel.invokeMethod('scheduleTestAdhan', {
+        'prayerIndex': _selectedPrayerIndex,
+        'prayerName': prayerName,
+        'prayerTime': prayerTimeStr,
+      });
+    } catch (e) {
+      debugPrint('Error scheduling test adhan: $e');
+    }
+
+    // Auto-reset after 10 seconds so repeated testing works
+    await Future.delayed(const Duration(seconds: 10));
 
     if (mounted) {
       setState(() => _isAdhanTesting = false);
@@ -139,9 +129,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Expanded(
                 child: ListView(
                   children: [
-                    // Adhan Debug Section
-                    _buildAdhanDebugSection(),
-                    const SizedBox(height: 20),
+                    // Adhan Debug Section (only in debug mode)
+                    if (kDebugMode) _buildAdhanDebugSection(),
+                    if (kDebugMode) const SizedBox(height: 20),
                     // Language switcher
                     _buildLanguageSwitcher(context, localeController),
                     const SizedBox(height: 12),
@@ -176,7 +166,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     AppOptionTile.navigation(
                       icon: Icons.info_outline,
                       title: t(context, 'aboutApp'),
-                      onTap: () {},
+                      onTap: () => _showAboutDialog(context),
                     ),
                     const SizedBox(height: 40),
                     // Footer
@@ -252,14 +242,75 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
             const SizedBox(height: 12),
+            // Prayer selection dropdown
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color:
+                    AppTheme.isLightMode
+                        ? Colors.grey.shade100
+                        : Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.currentDivider),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<int>(
+                  value: _selectedPrayerIndex,
+                  isExpanded: true,
+                  dropdownColor:
+                      AppTheme.isLightMode
+                          ? Colors.white
+                          : AppTheme.nightPrimaryNavy,
+                  icon: Icon(
+                    Icons.arrow_drop_down,
+                    color: AppTheme.currentTextSecondary,
+                  ),
+                  items: List.generate(5, (index) {
+                    final prayerNamesEn = [
+                      'Fajr',
+                      'Dhuhr',
+                      'Asr',
+                      'Maghrib',
+                      'Isha',
+                    ];
+                    final prayerNamesAr = [
+                      'الفجر',
+                      'الظهر',
+                      'العصر',
+                      'المغرب',
+                      'العشاء',
+                    ];
+                    return DropdownMenuItem<int>(
+                      value: index,
+                      child: Text(
+                        isArabic ? prayerNamesAr[index] : prayerNamesEn[index],
+                        style: TextStyle(
+                          color: AppTheme.currentTextPrimary,
+                          fontSize: 15,
+                        ),
+                      ),
+                    );
+                  }),
+                  onChanged:
+                      _isAdhanTesting
+                          ? null
+                          : (value) {
+                            if (value != null) {
+                              setState(() => _selectedPrayerIndex = value);
+                            }
+                          },
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
             // Description
             Text(
               isArabic
-                  ? 'اضغط لاختبار تشغيل الأذان باستخدام إعدادات صلاة الفجر'
-                  : 'Tap to test Adhan playback using Fajr prayer settings',
+                  ? 'اضغط للاختبار كأن وقت الصلاة قد حان'
+                  : 'Tap to simulate as if prayer time has arrived',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 13,
+                color: AppTheme.currentTextSecondary.withOpacity(0.7),
+                fontSize: 12,
               ),
             ),
             const SizedBox(height: 16),
@@ -283,17 +334,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _isAdhanTesting
                       ? (isArabic ? 'جاري التشغيل...' : 'Playing...')
                       : (isArabic ? 'تشغيل اختبار الأذان' : 'Test Adhan'),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.currentActiveGlow,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: AppTheme.currentActiveGlow.withValues(
-                    alpha: 0.5,
-                  ),
+                  disabledBackgroundColor: AppTheme.currentActiveGlow
+                      .withValues(alpha: 0.5),
                   disabledForegroundColor: Colors.white70,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -502,6 +549,247 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    final isArabic = AppLocaleProvider.of(context).isArabic;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder:
+          (context) => Container(
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color:
+                  AppTheme.isLightMode ? Colors.white : const Color(0xFF1E1E2E),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 20,
+                  spreadRadius: 5,
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // App icon placeholder
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppTheme.currentActiveGlow,
+                          AppTheme.currentActiveGlow.withOpacity(0.7),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.currentActiveGlow.withOpacity(0.4),
+                          blurRadius: 15,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.mosque_rounded,
+                      size: 48,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // App name
+                  Text(
+                    isArabic ? 'صلاتي' : 'Salati',
+                    style: TextStyle(
+                      color: AppTheme.currentTextPrimary,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Version
+                  Text(
+                    isArabic ? 'الإصدار 1.0.0' : 'Version 1.0.0',
+                    style: TextStyle(
+                      color: AppTheme.currentTextSecondary.withOpacity(0.6),
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Description
+                  Text(
+                    isArabic
+                        ? 'تطبيق إسلامي شامل لمواقيت الصلاة واتجاه القبلة والأذان'
+                        : 'A beautiful Islamic app for prayer times, Qibla direction, and Adhan',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppTheme.currentTextSecondary,
+                      fontSize: 15,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Features
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.currentActiveGlow.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      children: [
+                        _aboutFeatureRow(
+                          Icons.access_time,
+                          isArabic
+                              ? 'مواقيت الصلاة الدقيقة'
+                              : 'Accurate Prayer Times',
+                        ),
+                        const SizedBox(height: 8),
+                        _aboutFeatureRow(
+                          Icons.explore,
+                          isArabic ? 'بوصلة القبلة' : 'Qibla Compass',
+                        ),
+                        const SizedBox(height: 8),
+                        _aboutFeatureRow(
+                          Icons.notifications_active,
+                          isArabic ? 'أذان وتذكيرات' : 'Adhan & Reminders',
+                        ),
+                        const SizedBox(height: 8),
+                        _aboutFeatureRow(
+                          Icons.calendar_month,
+                          isArabic ? 'التقويم الهجري' : 'Hijri Calendar',
+                        ),
+                        const SizedBox(height: 8),
+                        _aboutFeatureRow(
+                          Icons.dark_mode,
+                          isArabic ? 'الوضع الليلي' : 'Dark Mode',
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Divider
+                  Container(
+                    height: 1,
+                    color: AppTheme.currentTextSecondary.withOpacity(0.1),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Developer credit
+                  Text(
+                    isArabic ? 'تطوير بواسطة' : 'Developed with ❤️ by',
+                    style: TextStyle(
+                      color: AppTheme.currentTextSecondary.withOpacity(0.5),
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Clickable developer credit with Telegram link
+                  GestureDetector(
+                    onTap: () async {
+                      HapticFeedback.lightImpact();
+                      final url = Uri.parse('https://t.me/anassbkk');
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(
+                          url,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.currentActiveGlow.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppTheme.currentActiveGlow.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Telegram icon
+                          SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: Image.asset(
+                              'assets/icons/telegram.png',
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Anas Benkhelifa',
+                            style: TextStyle(
+                              color: AppTheme.currentTextPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Close button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.currentActiveGlow,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        isArabic ? 'حسناً' : 'Got it',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
+  }
+
+  Widget _aboutFeatureRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: AppTheme.currentActiveGlow),
+        const SizedBox(width: 12),
+        Text(
+          text,
+          style: TextStyle(color: AppTheme.currentTextPrimary, fontSize: 14),
+        ),
+      ],
     );
   }
 }

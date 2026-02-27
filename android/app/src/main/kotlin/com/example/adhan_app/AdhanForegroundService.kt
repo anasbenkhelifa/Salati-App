@@ -98,6 +98,10 @@ class AdhanForegroundService : Service() {
     private var mediaSession: MediaSessionCompat? = null
     private var audioFocusRequest: AudioFocusRequest? = null
     
+    // Max volume override
+    private var maxVolumeOverrideEnabled = false
+    private var savedAlarmVolume: Int = -1  // To restore after playback
+    
     // Prayer names
     private val prayerNamesEn = arrayOf("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha")
     private val prayerNamesAr = arrayOf("الفجر", "الظهر", "العصر", "المغرب", "العشاء")
@@ -130,6 +134,12 @@ class AdhanForegroundService : Service() {
         Log.d(TAG, "Service created")
         createNotificationChannel()
         createAdhanPlayingChannel()
+        
+        // Schedule midnight refresh alarm for daily prayer time rescheduling
+        MidnightRefreshReceiver.scheduleMidnightAlarm(this)
+        
+        // Schedule tomorrow's Fajr as fallback for overnight reliability
+        AdhanAlarmScheduler.scheduleTomorrowFajr(this)
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -258,6 +268,17 @@ class AdhanForegroundService : Service() {
         currentPrayerTime = prayerTime
         currentIsArabic = isArabic
         
+        // Check max volume override setting
+        maxVolumeOverrideEnabled = prefs.getBoolean("flutter.max_volume_override", false)
+        if (maxVolumeOverrideEnabled) {
+            // Save current alarm volume and set to max
+            val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            savedAlarmVolume = am.getStreamVolume(AudioManager.STREAM_ALARM)
+            val maxVolume = am.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+            am.setStreamVolume(AudioManager.STREAM_ALARM, maxVolume, 0)
+            Log.d(TAG, "Max volume override enabled: saved=$savedAlarmVolume, set to max=$maxVolume")
+        }
+        
         // Vibrate first
         vibrateForAdhan()
         
@@ -340,6 +361,18 @@ class AdhanForegroundService : Service() {
         currentOccurrenceKey = null
         currentPrayerName = null
         currentPrayerTime = null
+        
+        // Restore volume if max override was enabled
+        if (maxVolumeOverrideEnabled && savedAlarmVolume >= 0) {
+            try {
+                val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                am.setStreamVolume(AudioManager.STREAM_ALARM, savedAlarmVolume, 0)
+                Log.d(TAG, "Restored alarm volume to $savedAlarmVolume")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error restoring volume: ${e.message}")
+            }
+            savedAlarmVolume = -1
+        }
         
         // Cancel the playing notification
         val manager = getSystemService(NotificationManager::class.java)
@@ -424,7 +457,8 @@ class AdhanForegroundService : Service() {
         // Initialize MediaSession (callback only, no VolumeProvider)
         initMediaSession()
         
-        // Register screen off receiver (power button proxy)
+        // Register screen off receiver (power button detection)
+        // Note: This also fires for tap-to-sleep gestures on some phones
         screenOffReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == Intent.ACTION_SCREEN_OFF && isAdhanPlaying) {
@@ -443,6 +477,7 @@ class AdhanForegroundService : Service() {
         
         // Register robust multi-stream volume observer
         // This observes Settings.System for ANY volume change (Music, Alarm, Ring)
+        // Only stops adhan when volume VALUES actually change (button press)
         volumeObserver = object : ContentObserver(handler) {
             override fun onChange(selfChange: Boolean) {
                 if (!isAdhanPlaying) return
@@ -456,11 +491,12 @@ class AdhanForegroundService : Service() {
                 val alarmChanged = currentAlarm != baselineAlarmVolume
                 val ringChanged = currentRing != baselineRingVolume
                 
+                // Only stop if actual volume value changed (not just observer triggered)
                 if (musicChanged || alarmChanged || ringChanged) {
                     val changeInfo = buildString {
                         if (musicChanged) append("Music: $baselineMusicVolume→$currentMusic ")
                         if (alarmChanged) append("Alarm: $baselineAlarmVolume→$currentAlarm ")
-                        if (ringChanged) append("Ring: $baselineRingVolume→$currentRing")
+                        if (ringChanged) append("Ring: $baselineRingVolume→$currentRing ")
                     }
                     Log.d(TAG, "Volume change detected: $changeInfo")
                     
@@ -602,20 +638,39 @@ class AdhanForegroundService : Service() {
     }
     
     /**
-     * Update notification to "Adhan is playing" mode with STOP action only
-     * Uses startForeground to make it a proper ongoing foreground notification
-     * Uses BigTextStyle to ensure action button is visible without expanding
+     * Update notification to "Adhan is playing" mode with premium UX
+     * Features:
+     * - Full-screen intent for lock screen visibility
+     * - MediaStyle for prominent action buttons
+     * - Colored notification for visual distinction
+     * - Large icon with mosque imagery
+     * - Prominent STOP button
      */
     private fun updateToPlayingNotification() {
-        val title = if (currentIsArabic) "يتم تشغيل الأذان" else "Adhan is playing"
-        val body = if (currentIsArabic) {
-            // Arabic: use bidi isolate marks for proper formatting
-            "\u2067$currentPrayerName\u2069 - \u2067$currentPrayerTime\u2069"
-        } else {
-            "$currentPrayerName - $currentPrayerTime"
+        val prayerEmoji = when (currentPrayerName?.lowercase()) {
+            "fajr", "الفجر" -> "🌅"
+            "dhuhr", "الظهر" -> "☀️"
+            "asr", "العصر" -> "🌤️"
+            "maghrib", "المغرب" -> "🌇"
+            "isha", "العشاء" -> "🌙"
+            else -> "🕌"
         }
         
-        // Create STOP action
+        val title = if (currentIsArabic) {
+            "$prayerEmoji حان وقت صلاة $currentPrayerName"
+        } else {
+            "$prayerEmoji Time for $currentPrayerName Prayer"
+        }
+        
+        val body = if (currentIsArabic) {
+            "⁧$currentPrayerTime⁩"
+        } else {
+            "$currentPrayerTime"
+        }
+        
+        val subText = if (currentIsArabic) "اضغط لإيقاف الأذان" else "Tap to stop Adhan"
+        
+        // Create STOP action with more visible icon
         val stopIntent = Intent(this, AdhanActionReceiver::class.java).apply {
             action = AdhanActionReceiver.ACTION_STOP_ADHAN
         }
@@ -623,7 +678,7 @@ class AdhanForegroundService : Service() {
             this, 200, stopIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val stopLabel = if (currentIsArabic) "إيقاف" else "Stop"
+        val stopLabel = if (currentIsArabic) "⏹ إيقاف" else "⏹ Stop"
         
         // Open app intent
         val openAppIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
@@ -634,16 +689,27 @@ class AdhanForegroundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
-        // Use BigTextStyle to increase chance of showing action in collapsed view
+        // Full-screen intent for lock screen - shows notification in full-screen mode
+        val fullScreenPendingIntent = PendingIntent.getActivity(
+            this, 100, openAppIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        // Use BigTextStyle for expanded view
         val bigTextStyle = NotificationCompat.BigTextStyle()
             .setBigContentTitle(title)
             .bigText(body)
+            .setSummaryText(subText)
         
+        // Build enhanced notification
         val notification = NotificationCompat.Builder(this, CHANNEL_ID_PLAYING)
             .setContentTitle(title)
             .setContentText(body)
+            .setSubText(subText)
             .setStyle(bigTextStyle)
             .setSmallIcon(R.mipmap.ic_launcher)
+            .setColor(0xFF1565C0.toInt()) // Blue color for notification accent
+            .setColorized(true) // Enable colored notification background
             .setOngoing(true)
             .setAutoCancel(false)
             .setOnlyAlertOnce(true)
@@ -652,13 +718,16 @@ class AdhanForegroundService : Service() {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setContentIntent(openAppPendingIntent)
-            .addAction(android.R.drawable.ic_media_pause, stopLabel, stopPendingIntent)
+            .setFullScreenIntent(fullScreenPendingIntent, true) // Full-screen intent for lock screen
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, stopLabel, stopPendingIntent)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setDeleteIntent(stopPendingIntent) // Stop when notification dismissed
+            .setTimeoutAfter(10 * 60 * 1000) // Auto-dismiss after 10 minutes as safety
             .build()
         
         // Use startForeground to make this an ongoing foreground notification
         startForeground(NOTIFICATION_ID_PLAYING, notification)
-        Log.d(TAG, "Playing foreground notification started: $title | $body")
+        Log.d(TAG, "Enhanced playing notification started: $title | $body")
     }
     
     private fun startForegroundWithCachedData() {
@@ -685,6 +754,15 @@ class AdhanForegroundService : Service() {
     }
     
     /**
+     * Public method to refresh notification after Hijri date cache is updated
+     * Called from Flutter via MethodChannel when date changes
+     */
+    fun refreshPrayerNotification() {
+        Log.d(TAG, "refreshPrayerNotification called - re-reading cache")
+        updateNotificationFromCache()
+    }
+    
+    /**
      * Compute notification content from SharedPreferences cache
      * Returns Pair(title, body)
      */
@@ -692,7 +770,7 @@ class AdhanForegroundService : Service() {
         // Read cache
         val prayerTimesJson = prefs.getString("flutter.cached_prayer_times_json", null)
         val cachedDate = prefs.getString("flutter.cached_prayer_times_date", null)
-        val isArabic = prefs.getString("flutter.app_language", "en") == "ar"
+        val isArabic = prefs.getString("flutter.app_language", "ar") == "ar"
         val cityAr = prefs.getString("flutter.cached_city_ar", "") ?: ""
         val cityEn = prefs.getString("flutter.cached_city_en", "") ?: ""
         
@@ -762,35 +840,48 @@ class AdhanForegroundService : Service() {
      * Falls back to cached components, then approximation if no cache
      */
     private fun getHijriDateString(isArabic: Boolean): String {
-        // First try: cached display strings from Flutter
-        val displayKey = if (isArabic) "flutter.cached_hijri_display_ar" else "flutter.cached_hijri_display_en"
-        val cachedDisplay = prefs.getString(displayKey, null)
-        if (!cachedDisplay.isNullOrBlank()) {
-            return cachedDisplay
+        // Check if cache is from today (within last 36 hours to handle timezone edge cases)
+        val cachedTimestamp = prefs.getLong("flutter.cached_hijri_updated_at", 0L)
+        val now = System.currentTimeMillis()
+        val cacheAgeMs = now - cachedTimestamp
+        val maxCacheAgeMs = 36 * 60 * 60 * 1000L // 36 hours
+        
+        // Only use cached display if it's recent enough
+        if (cacheAgeMs < maxCacheAgeMs && cachedTimestamp > 0) {
+            val displayKey = if (isArabic) "flutter.cached_hijri_display_ar" else "flutter.cached_hijri_display_en"
+            val cachedDisplay = prefs.getString(displayKey, null)
+            if (!cachedDisplay.isNullOrBlank()) {
+                Log.d(TAG, "Using cached Hijri display (age: ${cacheAgeMs / 1000}s)")
+                return cachedDisplay
+            }
+        } else if (cachedTimestamp > 0) {
+            Log.d(TAG, "Cached Hijri date is stale (age: ${cacheAgeMs / 1000}s), using approximation")
         }
         
-        // Second try: cached components
-        val cachedHijriDay = prefs.getInt("flutter.cached_hijri_day", 0)
-        val cachedHijriMonth = prefs.getInt("flutter.cached_hijri_month", 0)
-        val cachedHijriYear = prefs.getInt("flutter.cached_hijri_year", 0)
-        
-        if (cachedHijriDay > 0 && cachedHijriMonth > 0 && cachedHijriYear > 0) {
-            val monthName = if (isArabic) {
-                hijriMonthsAr.getOrElse(cachedHijriMonth - 1) { "رجب" }
-            } else {
-                hijriMonthsEn.getOrElse(cachedHijriMonth - 1) { "Rajab" }
-            }
-            return if (isArabic) {
-                "\u200F$cachedHijriDay $monthName $cachedHijriYear\u200F"
-            } else {
-                "$cachedHijriDay $monthName $cachedHijriYear AH"
+        // Second try: cached components (also check timestamp)
+        if (cacheAgeMs < maxCacheAgeMs && cachedTimestamp > 0) {
+            val cachedHijriDay = prefs.getInt("flutter.cached_hijri_day", 0)
+            val cachedHijriMonth = prefs.getInt("flutter.cached_hijri_month", 0)
+            val cachedHijriYear = prefs.getInt("flutter.cached_hijri_year", 0)
+            
+            if (cachedHijriDay > 0 && cachedHijriMonth > 0 && cachedHijriYear > 0) {
+                val monthName = if (isArabic) {
+                    hijriMonthsAr.getOrElse(cachedHijriMonth - 1) { "رجب" }
+                } else {
+                    hijriMonthsEn.getOrElse(cachedHijriMonth - 1) { "Rajab" }
+                }
+                return if (isArabic) {
+                    "\u200F$cachedHijriDay $monthName $cachedHijriYear\u200F"
+                } else {
+                    "$cachedHijriDay $monthName $cachedHijriYear AH"
+                }
             }
         }
         
         // Fallback: approximate from Gregorian
-        val now = Calendar.getInstance()
-        val gregorianYear = now.get(Calendar.YEAR)
-        val gregorianDay = now.get(Calendar.DAY_OF_MONTH)
+        val calendar = Calendar.getInstance()
+        val gregorianYear = calendar.get(Calendar.YEAR)
+        val gregorianDay = calendar.get(Calendar.DAY_OF_MONTH)
         val hijriYear = ((gregorianYear - 622) * 33 / 32)
         val monthName = if (isArabic) hijriMonthsAr[6] else hijriMonthsEn[6]
         

@@ -5,8 +5,11 @@ import '../../core/localization/strings.dart';
 import '../../core/localization/western_digits.dart';
 import '../../core/localization/app_locale_provider.dart';
 import '../../domain/providers/prayer_times_api_provider.dart';
+import '../../domain/providers/hijri_date_provider.dart';
+import '../../data/services/hijri_date_service.dart'; // for HijriDate class
 import '../../data/services/prayer_times_api_service.dart';
 import '../../data/services/alert_mode_service.dart';
+import '../../data/services/islamic_event_service.dart';
 import '../widgets/prayer_alert_mode_button.dart';
 import '../widgets/location_picker_sheet.dart';
 import '../widgets/adhan_selection_sheet.dart';
@@ -22,6 +25,7 @@ class PrayerTimesScreen extends StatefulWidget {
 
 class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   final PrayerTimesApiProvider _provider = PrayerTimesApiProvider();
+  final HijriDateProvider _hijriProvider = HijriDateProvider();
   final AlertModeService _alertModeService = AlertModeService();
   Timer? _countdownTimer;
   Duration _countdown = Duration.zero;
@@ -38,6 +42,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
 
   Future<void> _initializePrayerTimes() async {
     await _provider.initialize();
+    await _hijriProvider.initialize();
     await _loadAlertModes();
     _startCountdownTimer();
     if (mounted) setState(() {});
@@ -345,12 +350,17 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   Widget _buildSuccessState(BuildContext context) {
     final localeController = AppLocaleProvider.of(context);
     final isArabic = localeController.isArabic;
+    final hijriDate = _hijriProvider.hijriDate;
 
     return ListView(
       children: [
+        // Islamic event banner (Ramadan, Eid, etc.)
+        if (hijriDate != null)
+          _buildIslamicEventBanner(context, isArabic, hijriDate),
+
         // Location header
         _buildLocationHeader(context, isArabic, rootContext: context),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
 
         // Prayer cards
         ...List.generate(5, (index) {
@@ -361,10 +371,102 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
               context: context,
               index: index,
               isNext: isNext,
+              hijriDate: hijriDate,
             ),
           );
         }),
       ],
+    );
+  }
+
+  /// Build Islamic event banner (Ramadan mode, Eid, special days)
+  Widget _buildIslamicEventBanner(
+    BuildContext context,
+    bool isArabic,
+    HijriDate hijriDate,
+  ) {
+    final isRamadan = IslamicEventService.isRamadan(hijriDate);
+    final isEid = IslamicEventService.isEid(hijriDate);
+    final currentEvent = IslamicEventService.getCurrentEvent(hijriDate);
+
+    // No banner if no special day
+    if (!isRamadan && !isEid && currentEvent == null) {
+      return const SizedBox.shrink();
+    }
+
+    // Determine banner content
+    String title;
+    String subtitle;
+    String emoji;
+    Color bannerColor;
+
+    if (isEid) {
+      title = IslamicEventService.getEidGreeting(hijriDate, isArabic: isArabic);
+      subtitle =
+          isArabic ? 'تقبل الله منا ومنكم' : 'May Allah accept from us and you';
+      emoji = IslamicEventService.isEidAlFitr(hijriDate) ? '🎉' : '🐑';
+      bannerColor = Colors.amber;
+    } else if (isRamadan) {
+      title = isArabic ? 'رمضان كريم 🌙' : 'Ramadan Kareem 🌙';
+      subtitle = IslamicEventService.getRamadanStatus(
+        hijriDate,
+        isArabic: isArabic,
+      );
+      emoji = '🌙';
+      bannerColor = Colors.purple;
+    } else if (currentEvent != null) {
+      title =
+          '${currentEvent.emoji} ${isArabic ? currentEvent.nameAr : currentEvent.nameEn}';
+      subtitle = _hijriProvider.getFormattedDate(isArabic);
+      emoji = currentEvent.emoji;
+      bannerColor = Colors.teal;
+    } else {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [bannerColor.withOpacity(0.3), bannerColor.withOpacity(0.1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: bannerColor.withOpacity(0.4), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 32)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title.replaceAll(emoji, '').trim(),
+                  style: TextStyle(
+                    color: AppTheme.currentTextPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: AppTheme.currentTextSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -376,123 +478,134 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     final locationName = _provider.getLocationName(isArabic);
 
     // Uses the Directionality from parent context - properly flips in RTL
-    return Container(
-      padding: const EdgeInsetsDirectional.symmetric(
-        horizontal: 20,
-        vertical: 16,
-      ),
-      decoration: AppTheme.glassDecoration(opacity: 0.06, borderRadius: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            alignment: AlignmentDirectional.centerStart,
-            children: [
-              // 1. Content Layer (Icon + Text)
-              // Padding on trailing side to prevent text from going under buttons
-              Padding(
-                padding: const EdgeInsetsDirectional.only(end: 84),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.location_on,
-                      color: AppTheme.currentActiveGlow,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            locationName,
-                            style: TextStyle(
-                              color: AppTheme.currentTextPrimary,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+    // Entire location box is clickable to open location picker
+    return GestureDetector(
+      onTap: () => _openLocationPicker(rootContext, isArabic),
+      child: Container(
+        padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ),
+        decoration: AppTheme.glassDecoration(opacity: 0.06, borderRadius: 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              alignment: AlignmentDirectional.centerStart,
+              children: [
+                // 1. Content Layer (Icon + Text)
+                // Padding on trailing side to prevent text from going under buttons
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 84),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.location_on,
+                        color: AppTheme.currentActiveGlow,
+                        size: 24,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              locationName,
+                              style: TextStyle(
+                                color: AppTheme.currentTextPrimary,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
 
-              // 2. Interaction Layer (Buttons) - Positioned at End (trailing side)
-              // Using PositionedDirectional for RTL support
-              PositionedDirectional(
-                end: 0,
+                // 2. Interaction Layer (Buttons) - Positioned at End (trailing side)
+                // Using PositionedDirectional for RTL support
+                PositionedDirectional(
+                  end: 0,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Change Location Button
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(50),
+                          onTap:
+                              () => _openLocationPicker(rootContext, isArabic),
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            alignment: Alignment.center,
+                            child: Icon(
+                              Icons.edit_location_alt,
+                              color: AppTheme.currentActiveGlow,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      // Update Location Button
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(50),
+                          onTap:
+                              () =>
+                                  _handleUpdateLocation(rootContext, isArabic),
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            alignment: Alignment.center,
+                            child: Icon(
+                              Icons.my_location,
+                              color: AppTheme.iconSecondary,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            // Offline mode banner
+            if (_provider.isOfflineMode)
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Change Location Button
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(50),
-                        onTap: () => _openLocationPicker(rootContext, isArabic),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          alignment: Alignment.center,
-                          child: Icon(
-                            Icons.edit_location_alt,
-                            color: AppTheme.currentActiveGlow,
-                            size: 22,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    // Update Location Button
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(50),
-                        onTap:
-                            () => _handleUpdateLocation(rootContext, isArabic),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          alignment: Alignment.center,
-                          child: Icon(
-                            Icons.my_location,
-                            color: AppTheme.iconSecondary,
-                            size: 22,
-                          ),
-                        ),
-                      ),
+                    Icon(Icons.cloud_off, color: Colors.orange, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      isArabic
+                          ? 'وضع عدم الاتصال'
+                          : 'Offline - using saved data',
+                      style: TextStyle(color: Colors.orange, fontSize: 12),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-          // Offline mode banner
-          if (_provider.isOfflineMode)
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.cloud_off, color: Colors.orange, size: 14),
-                  const SizedBox(width: 6),
-                  Text(
-                    isArabic ? 'وضع عدم الاتصال' : 'Offline - using saved data',
-                    style: TextStyle(color: Colors.orange, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -569,13 +682,27 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     required BuildContext context,
     required int index,
     bool isNext = false,
+    HijriDate? hijriDate,
   }) {
     final response = _provider.response;
     if (response == null) return const SizedBox();
 
+    final localeController = AppLocaleProvider.of(context);
+    final isArabic = localeController.isArabic;
     final timings = response.timings;
     final timeStr = westernDigits(_getTimeByIndex(timings, index));
     final name = getPrayerName(context, index);
+
+    // Get Ramadan label (Suhoor/Iftar) if applicable
+    String? ramadanLabel;
+    if (hijriDate != null) {
+      final prayerKey = _prayerKeys[index]; // fajr, dhuhr, asr, maghrib, isha
+      ramadanLabel = IslamicEventService.getRamadanPrayerLabel(
+        prayerKey,
+        hijriDate,
+        isArabic: isArabic,
+      );
+    }
 
     // Format countdown using shared formatter (matches notification logic)
     // Normal countdown to next prayer: MINUS sign "- MM:SS" or "- HH:MM:SS"
@@ -633,16 +760,45 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
               onTap: () => _toggleAlertMode(index),
             ),
             const SizedBox(width: 16),
-            // Prayer name
-            Text(
-              name,
-              style: TextStyle(
-                color: AppTheme.currentTextPrimary,
-                fontSize: 20,
-                fontWeight: isNext ? FontWeight.bold : FontWeight.w500,
+            // Prayer name + Ramadan label
+            Expanded(
+              child: Row(
+                children: [
+                  Text(
+                    name,
+                    style: TextStyle(
+                      color: AppTheme.currentTextPrimary,
+                      fontSize: 20,
+                      fontWeight: isNext ? FontWeight.bold : FontWeight.w500,
+                    ),
+                  ),
+                  if (ramadanLabel != null) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.purple.withOpacity(0.4),
+                        ),
+                      ),
+                      child: Text(
+                        ramadanLabel,
+                        style: TextStyle(
+                          color: Colors.purple.shade300,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-            const Spacer(),
             // Time or countdown
             if (isNext && countdownParts != null) ...[
               Column(

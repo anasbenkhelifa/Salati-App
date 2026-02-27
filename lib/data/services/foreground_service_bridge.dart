@@ -89,4 +89,17 @@ class ForegroundServiceBridge {
       return false;
     }
   }
+
+  /// Refresh the notification (re-reads cached data and updates display)
+  /// Call this after updating Hijri date cache
+  static Future<bool> refreshNotification() async {
+    try {
+      final result = await _channel.invokeMethod('refreshNotification');
+      debugPrint('[ForegroundServiceBridge] refreshNotification: $result');
+      return result == true;
+    } catch (e) {
+      debugPrint('[ForegroundServiceBridge] refreshNotification error: $e');
+      return false;
+    }
+  }
 }

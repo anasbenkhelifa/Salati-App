@@ -51,7 +51,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Then initialize - providers will notifyListeners when data is loaded
     _hijriProvider.initialize();
-    _prayerProvider.initialize();
+    await _prayerProvider.initialize();
+
+    // If prayer data is still null after first init, the cache might not have been ready.
+    // Wait a bit and try again (handles first start timing issue)
+    if (_prayerProvider.response == null && mounted) {
+      debugPrint('[HomeScreen] Prayer response null, retrying in 2s...');
+      await Future.delayed(const Duration(seconds: 2));
+      if (_prayerProvider.response == null && mounted) {
+        debugPrint('[HomeScreen] Still null, reloading from cache...');
+        await _prayerProvider.reloadFromCache();
+        if (mounted) setState(() {});
+      }
+    }
   }
 
   void _onUpdate() {
