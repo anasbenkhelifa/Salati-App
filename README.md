@@ -1,4 +1,4 @@
-    # أذان - Adhan App
+# Salati App - أذان
 
 > A beautiful, premium Islamic prayer times app built with Flutter
 
