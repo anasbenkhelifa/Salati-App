@@ -50,7 +50,7 @@ class _AppShellState extends State<AppShell> {
     
     // This triggers shader compilation silently
     final blurPaint = Paint()
-      ..imageFilter = ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3); // Matching our global sigma 3
+      ..imageFilter = ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5); // Matching our global sigma 5
     image.dispose();
   }
 
@@ -102,7 +102,7 @@ class _AppShellState extends State<AppShell> {
             Positioned.fill(
               child: RepaintBoundary(
                 child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+                  filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                   child: Container(color: Colors.transparent),
                 ),
               ),
