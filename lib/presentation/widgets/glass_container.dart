@@ -28,18 +28,20 @@ class GlassContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget blurredBackground = BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-      child: Container(
-        width: width,
-        height: height,
-        padding: padding,
-        decoration: AppTheme.glassDecoration(
-          opacity: customOpacity ?? (AppTheme.isLightMode ? 0.9 : 0.08),
-          borderRadius: shape == BoxShape.circle ? 0 : borderRadius,
-          shape: shape,
+    Widget blurredBackground = RepaintBoundary(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+        child: Container(
+          width: width,
+          height: height,
+          padding: padding,
+          decoration: AppTheme.glassDecoration(
+            opacity: customOpacity ?? (AppTheme.isLightMode ? 0.9 : 0.08),
+            borderRadius: shape == BoxShape.circle ? 0 : borderRadius,
+            shape: shape,
+          ),
+          child: child,
         ),
-        child: child,
       ),
     );
 

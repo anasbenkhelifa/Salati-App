@@ -112,224 +112,167 @@ class _HomeScreenState extends State<HomeScreen> {
     final localeController = AppLocaleProvider.of(context);
     final isArabic = localeController.locale.languageCode == 'ar';
 
-    // Calculate time components (HH:MM only, no seconds)
-    final hour12 =
-        _now.hour > 12 ? _now.hour - 12 : (_now.hour == 0 ? 12 : _now.hour);
+    // Calculate time components for the header (digital clock)
+    final hour12 = _now.hour > 12 ? _now.hour - 12 : (_now.hour == 0 ? 12 : _now.hour);
     final hourStr = westernDigits(hour12.toString());
     final minuteStr = westernDigits(_now.minute.toString().padLeft(2, '0'));
-    final period =
-        _now.hour >= 12 ? (isArabic ? 'م' : 'PM') : (isArabic ? 'ص' : 'AM');
+    final period = _now.hour >= 12 ? (isArabic ? 'م' : 'PM') : (isArabic ? 'ص' : 'AM');
 
-    // Get Hijri date - ALWAYS western digits
     final hijriDate = _hijriProvider.getFormattedDate(isArabic);
     final dateStr = westernDigits(hijriDate);
 
-    return Column(
-      children: [
-        // ===== BOX 1: Clock + Digital Time + Date =====
-        GlassContainer(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-          borderRadius: 28,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    return GlassContainer(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      borderRadius: 32,
+      child: Column(
+        children: [
+          // Row 1: Digital Time and Hijri Date at the top of the dashboard
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Analog clock
-              _buildAnalogClock(),
-              const SizedBox(height: 20),
-              // Digital time - HH:MM centered, AM/PM positioned beside
-              Builder(
-                builder: (context) {
-                  final timeStyle = TextStyle(
-                    color: AppTheme.currentTextPrimary,
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                  );
-                  final timeText = '$hourStr:$minuteStr';
-
-                  final textPainter = TextPainter(
-                    text: TextSpan(text: timeText, style: timeStyle),
-                    textDirection: TextDirection.ltr,
-                  )..layout();
-
-                  const gap = 8.0;
-                  final amPmOffset = (textPainter.width / 2) + gap;
-
-                  return SizedBox(
-                    width: double.infinity,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Text(timeText, style: timeStyle),
-                        Transform.translate(
-                          offset: Offset(amPmOffset, 0),
-                          child: Text(
-                            period,
-                            style: TextStyle(
-                              color: AppTheme.currentTextPrimary.withOpacity(
-                                0.6,
-                              ),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
+              // Digital Time
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    '$hourStr:$minuteStr',
+                    style: TextStyle(
+                      color: AppTheme.currentTextPrimary,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
                     ),
-                  );
-                },
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    period,
+                    style: TextStyle(
+                      color: AppTheme.currentTextPrimary.withOpacity(0.6),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              // Hijri Date in pill-shaped badge
+              // Hijri Date
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color:
-                      AppTheme.isLightMode
-                          ? AppTheme.currentActiveGlow.withOpacity(0.08)
-                          : AppTheme.currentActiveGlow.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(20),
+                  color: AppTheme.isLightMode
+                      ? AppTheme.currentActiveGlow.withOpacity(0.08)
+                      : AppTheme.currentActiveGlow.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: AppTheme.currentActiveGlow.withOpacity(0.2),
-                    width: 1,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.currentActiveGlow.withOpacity(0.15),
-                      blurRadius: 8,
-                      spreadRadius: 0,
-                    ),
-                  ],
                 ),
                 child: Text(
                   dateStr,
                   style: TextStyle(
                     color: AppTheme.currentActiveGlow,
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
           ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // ===== BOX 2: Prayer Status =====
-        _buildPrayerStatus(context, isArabic),
-      ],
+          
+          const Spacer(),
+          
+          // Row 2: Premium Analog Clock Centerpiece
+          _buildPremiumAnalogClock(),
+          
+          const Spacer(),
+          
+          // Row 3: Prayer Status
+          _buildPrayerDashboardSection(context, isArabic),
+        ],
+      ),
     );
   }
 
-  Widget _buildPrayerStatus(BuildContext context, bool isArabic) {
+  Widget _buildPrayerDashboardSection(BuildContext context, bool isArabic) {
     final response = _prayerProvider.response;
     if (response == null) {
-      return _buildPrayerStatusLoading(isArabic);
+      return const SizedBox(
+         height: 100, 
+         child: Center(child: CircularProgressIndicator()),
+      );
     }
 
-    // Calculate prayer status using same logic as notification
     final prayerStatus = _calculatePrayerStatus(response.timings, isArabic);
 
-    return AppleGlassCard(
-      borderRadius: 24,
-      blurSigma: 22,
-      borderColor: prayerStatus.color.withOpacity(0.3),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: AppTheme.currentTextPrimary.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+           color: AppTheme.currentTextSecondary.withOpacity(0.1),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Prayer name (BIGGER, no title label)
-          Text(
-            prayerStatus.prayerName,
-            style: TextStyle(
-              color: AppTheme.currentTextPrimary,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 6),
-          // Prayer time (BIGGER)
-          Text(
-            prayerStatus.prayerTime,
-            style: TextStyle(
-              color: AppTheme.currentTextSecondary.withOpacity(0.7),
-              fontSize: 20,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 14),
-          // Live countdown with color (true centering)
-          SizedBox(
-            width: double.infinity,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Centered time (anchor)
-                Text(
-                  prayerStatus.countdownTime,
-                  style: TextStyle(
-                    color: prayerStatus.color,
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
+          // Left side: Next Prayer Name and Time
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                prayerStatus.prayerName,
+                style: TextStyle(
+                  color: AppTheme.currentTextPrimary,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
                 ),
-                // Sign positioned to the left of center
-                Transform.translate(
-                  offset: Offset(
-                    prayerStatus.countdownTime.length > 5 ? -85 : -55,
-                    0,
-                  ),
-                  child: Text(
-                    prayerStatus.countdownSign,
-                    style: TextStyle(
-                      color: prayerStatus.color.withOpacity(0.7),
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                prayerStatus.prayerTime,
+                style: TextStyle(
+                  color: AppTheme.currentTextSecondary.withOpacity(0.7),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
+          
+          // Right side: Countdown
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                prayerStatus.countdownSign,
+                style: TextStyle(
+                  color: prayerStatus.color.withOpacity(0.7),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                prayerStatus.countdownTime,
+                style: TextStyle(
+                  color: prayerStatus.color,
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPrayerStatusLoading(bool isArabic) {
-    return AppleGlassCard(
-      borderRadius: 24,
-      blurSigma: 22,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            isArabic ? 'حالة الصلاة' : 'Prayer Status',
-            style: TextStyle(
-              color: AppTheme.currentTextSecondary.withOpacity(0.7),
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            isArabic ? 'جاري التحميل...' : 'Loading...',
-            style: TextStyle(
-              color: AppTheme.currentTextSecondary.withOpacity(0.5),
-              fontSize: 16,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   /// Calculate prayer status - SAME LOGIC as live notification
   _PrayerStatus _calculatePrayerStatus(AlAdhanTimings timings, bool isArabic) {
@@ -454,102 +397,191 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Widget _buildAnalogClock() {
-    final hourAngle =
-        ((_now.hour % 12) + _now.minute / 60 + _now.second / 3600) *
-        (2 * math.pi / 12);
+  Widget _buildPremiumAnalogClock() {
+    final hourAngle = ((_now.hour % 12) + _now.minute / 60 + _now.second / 3600) * (2 * math.pi / 12);
     final minuteAngle = (_now.minute + _now.second / 60) * (2 * math.pi / 60);
     final secondAngle = _now.second * (2 * math.pi / 60);
+    
+    final clockSize = 250.0;
 
     return Container(
-      width: 200,
-      height: 200,
+      width: clockSize,
+      height: clockSize,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
+        color: AppTheme.currentTextPrimary.withOpacity(0.02),
         border: Border.all(
-          color: AppTheme.currentTextSecondary.withOpacity(0.3),
-          width: 3,
+          color: AppTheme.currentTextSecondary.withOpacity(0.2),
+          width: 1,
         ),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Hour marks
-          ...List.generate(12, (index) {
-            final angle = (index * 30) * math.pi / 180;
-            return Transform.rotate(
-              angle: angle,
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: Container(
-                  margin: const EdgeInsets.only(top: 6),
-                  width: 2,
-                  height: 10,
-                  color: AppTheme.currentTextSecondary,
-                ),
-              ),
-            );
-          }),
-          // Hour hand
-          Transform.rotate(
-            angle: hourAngle,
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Container(
-                margin: const EdgeInsets.only(top: 50),
-                width: 5,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: AppTheme.currentTextPrimary,
-                  borderRadius: BorderRadius.circular(2.5),
-                ),
-              ),
-            ),
-          ),
-          // Minute hand
-          Transform.rotate(
-            angle: minuteAngle,
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Container(
-                margin: const EdgeInsets.only(top: 30),
-                width: 3,
-                height: 70,
-                decoration: BoxDecoration(
-                  color: AppTheme.currentTextPrimary.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(1.5),
-                ),
-              ),
-            ),
-          ),
-          // Second hand
-          Transform.rotate(
-            angle: secondAngle,
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Container(
-                margin: const EdgeInsets.only(top: 15),
-                width: 1.5,
-                height: 65,
-                decoration: BoxDecoration(
-                  color: AppTheme.currentActiveGlow,
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-            ),
-          ),
-          // Center dot
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: AppTheme.currentActiveGlow,
-              shape: BoxShape.circle,
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            spreadRadius: 2,
           ),
         ],
       ),
+      child: CustomPaint(
+        painter: _PremiumClockFacePainter(textColor: AppTheme.currentTextPrimary),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Internal subtle ring
+            Container(
+              width: clockSize - 30,
+              height: clockSize - 30,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppTheme.currentTextSecondary.withOpacity(0.05),
+                  width: 1,
+                ),
+              ),
+            ),
+            // Hour hand
+            Transform.rotate(
+              angle: hourAngle,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: clockSize / 2),
+                  child: Container(
+                    width: 6,
+                    height: 65,
+                    decoration: BoxDecoration(
+                      color: AppTheme.currentTextPrimary,
+                      borderRadius: BorderRadius.circular(3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.currentTextPrimary.withOpacity(0.4),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // Minute hand
+            Transform.rotate(
+              angle: minuteAngle,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: clockSize / 2),
+                  child: Container(
+                    width: 4,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      color: AppTheme.currentTextPrimary.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.currentTextPrimary.withOpacity(0.3),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // Second hand
+            Transform.rotate(
+              angle: secondAngle,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: clockSize / 2 - 15), // overhang
+                  child: Container(
+                    width: 2,
+                    height: 105,
+                    decoration: BoxDecoration(
+                      color: AppTheme.currentActiveGlow,
+                      borderRadius: BorderRadius.circular(1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.currentActiveGlow.withOpacity(0.6),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // Center mounting pin
+            Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                color: AppTheme.currentTextPrimary,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                     color: Colors.black.withOpacity(0.5),
+                     blurRadius: 4,
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: AppTheme.currentActiveGlow,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
+  }
+}
+
+class _PremiumClockFacePainter extends CustomPainter {
+  final Color textColor;
+  _PremiumClockFacePainter({required this.textColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+    
+    // Draw tick marks
+    final tickPaint = Paint()
+       ..color = textColor.withOpacity(0.4)
+       ..strokeWidth = 2
+       ..strokeCap = StrokeCap.round;
+       
+    final boldTickPaint = Paint()
+       ..color = textColor.withOpacity(0.8)
+       ..strokeWidth = 3
+       ..strokeCap = StrokeCap.round;
+
+    for (int i = 0; i < 60; i++) {
+      final isHour = i % 5 == 0;
+      final angle = (i * 6) * math.pi / 180;
+      
+      final tickLength = isHour ? 12.0 : 6.0;
+      final p1 = Offset(
+         center.dx + (radius - 5) * math.cos(angle - math.pi/2),
+         center.dy + (radius - 5) * math.sin(angle - math.pi/2),
+      );
+      final p2 = Offset(
+         center.dx + (radius - 5 - tickLength) * math.cos(angle - math.pi/2),
+         center.dy + (radius - 5 - tickLength) * math.sin(angle - math.pi/2),
+      );
+      
+      canvas.drawLine(p1, p2, isHour ? boldTickPaint : tickPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PremiumClockFacePainter oldDelegate) {
+    return oldDelegate.textColor != textColor;
   }
 }
 

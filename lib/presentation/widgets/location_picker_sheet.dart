@@ -146,24 +146,26 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                         _buildFooter(context, isArabic),
                       ],
                     )
-                    : BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                      child: Column(
-                        children: [
-                          // Header
-                          _buildHeader(context, isArabic),
-
-                          // Search field
-                          _buildSearchField(context, isArabic),
-
-                          // Results list
-                          Expanded(child: _buildResultsList(context, isArabic)),
-
-                          // Footer buttons
-                          _buildFooter(context, isArabic),
-                        ],
+                    : RepaintBoundary(
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                          child: Column(
+                            children: [
+                              // Header
+                              _buildHeader(context, isArabic),
+    
+                              // Search field
+                              _buildSearchField(context, isArabic),
+    
+                              // Results list
+                              Expanded(child: _buildResultsList(context, isArabic)),
+    
+                              // Footer buttons
+                              _buildFooter(context, isArabic),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
           ),
         ),
       ),
