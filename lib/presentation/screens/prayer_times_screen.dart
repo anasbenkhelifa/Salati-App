@@ -715,20 +715,23 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
 
     return GestureDetector(
       onTap: () => _showAdhanSelection(context, index, name),
-      child: Stack(
-        children: [
-          Positioned.fill(
+      child: Builder(
+        builder: (context) {
+          final glassStyle = GlassStyle.of(context);
+          final bool isBlurLayer = glassStyle?.isBlurLayer ?? true;
+          final bool isContentLayer = glassStyle?.isContentLayer ?? true;
+
+          Widget blurWidget = Positioned.fill(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(24),
-              child: RepaintBoundary(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                  child: const SizedBox(),
-                ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+                child: const SizedBox(),
               ),
             ),
-          ),
-          Container(
+          );
+
+          Widget contentWidget = Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
           color:
@@ -865,8 +868,28 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
             ],
           ],
         ),
-      ),
-        ],
+      );
+
+          if (isBlurLayer && !isContentLayer) {
+            return Stack(
+              fit: StackFit.loose,
+              children: [
+                blurWidget,
+                Opacity(opacity: 0.0, child: contentWidget),
+              ],
+            );
+          } else if (!isBlurLayer && isContentLayer) {
+            return contentWidget;
+          }
+
+          return Stack(
+            fit: StackFit.loose,
+            children: [
+              blurWidget,
+              contentWidget,
+            ],
+          );
+        },
       ),
     );
   }

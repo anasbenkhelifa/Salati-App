@@ -148,7 +148,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                     )
                     : RepaintBoundary(
                         child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                          filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
                           child: Column(
                             children: [
                               // Header

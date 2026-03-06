@@ -1,9 +1,11 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../screens/qibla_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/prayer_times_screen.dart';
 import '../screens/settings_screen.dart';
 import '../widgets/floating_nav_bar.dart';
+import '../widgets/glass_container.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_theme_provider.dart';
 import '../../domain/providers/qibla_provider.dart';
@@ -34,6 +36,22 @@ class _AppShellState extends State<AppShell> {
     _pageController = PageController(initialPage: _currentIndex);
     // Listen to theme changes
     AppThemeProvider.instance.addListener(_onThemeChange);
+    _warmUpShaders();
+  }
+
+  Future<void> _warmUpShaders() async {
+    // Force Flutter to compile blur shaders during a non-visible frame
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final paint = Paint();
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 1, 1), paint);
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(1, 1);
+    
+    // This triggers shader compilation silently
+    final blurPaint = Paint()
+      ..imageFilter = ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3); // Matching our global sigma 3
+    image.dispose();
   }
 
   @override
@@ -80,21 +98,33 @@ class _AppShellState extends State<AppShell> {
         ),
         child: Stack(
           children: [
-            // PageView for swipe navigation with state preservation
-            // Force LTR directionality so swipe physics work naturally in both languages
-            // (In RTL, PageView would reverse swipe direction which feels unnatural)
+            // 1. Static Full-Screen Blur Layer - NEVER moves!
+            Positioned.fill(
+              child: RepaintBoundary(
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+                  child: Container(color: Colors.transparent),
+                ),
+              ),
+            ),
+            
+            // 2. Sliding Content Layer - just colored boxes, NO BackdropFilter inside
             Padding(
               padding: const EdgeInsets.only(bottom: bottomPadding),
               child: Directionality(
                 textDirection:
                     TextDirection.ltr, // Always LTR for natural swipe feel
-                child: PageView(
-                  controller: _pageController,
-                  onPageChanged: _onPageChanged,
-                  physics: const BouncingScrollPhysics(
-                    parent: AlwaysScrollableScrollPhysics(),
+                child: GlassStyle(
+                  isBlurLayer: false, // Tell all glass containers to NOT render their blur
+                  isContentLayer: true,
+                  child: PageView(
+                    controller: _pageController,
+                    onPageChanged: _onPageChanged,
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
+                    children: _pages,
                   ),
-                  children: _pages,
                 ),
               ),
             ),
