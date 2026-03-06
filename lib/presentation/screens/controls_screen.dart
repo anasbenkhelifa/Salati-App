@@ -109,6 +109,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
         body: Container(
           decoration: BoxDecoration(
             gradient: AppTheme.currentBackgroundGradient,
+            image: AppTheme.currentBackgroundImage,
           ),
           child: SafeArea(
             child: Column(
@@ -175,7 +176,9 @@ class _ControlsScreenState extends State<ControlsScreen> {
                           subtitle:
                               AppTheme.isLightMode
                                   ? t(context, 'lightMode')
-                                  : t(context, 'nightMode'),
+                                  : (AppTheme.isIslamicMode
+                                      ? t(context, 'islamicMode')
+                                      : t(context, 'nightMode')),
                           onTap: _showThemeSelector,
                         ),
                         const SizedBox(height: 12),
@@ -250,7 +253,9 @@ class _ThemeSelectorSheet extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.isLightMode ? Colors.white : const Color(0xFF1B263B),
+        color: AppTheme.isLightMode 
+            ? Colors.white 
+            : (AppTheme.isIslamicMode ? AppTheme.islamicPrimaryNavy : const Color(0xFF1B263B)),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.all(24),
@@ -294,7 +299,22 @@ class _ThemeSelectorSheet extends StatelessWidget {
                   },
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
+              // Islamic Mode
+              Expanded(
+                child: _ThemeCard(
+                  title: t(context, 'islamicMode'),
+                  icon: Icons.mosque_rounded,
+                  isSelected: currentMode == AppThemeMode.islamic,
+                  previewGradient: AppTheme.islamicBackgroundGradient,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    AppThemeProvider.instance.setTheme(AppThemeMode.islamic);
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
               // Light Mode
               Expanded(
                 child: _ThemeCard(
@@ -340,7 +360,7 @@ class _ThemeCard extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         decoration: BoxDecoration(
           gradient: previewGradient,
           borderRadius: BorderRadius.circular(16),
@@ -363,7 +383,7 @@ class _ThemeCard extends StatelessWidget {
           children: [
             Icon(
               icon,
-              size: 48,
+              size: 36,
               color:
                   previewGradient == AppTheme.lightBackgroundGradient
                       ? AppTheme.lightTextPrimary
@@ -372,12 +392,13 @@ class _ThemeCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               title,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color:
                     previewGradient == AppTheme.lightBackgroundGradient
                         ? AppTheme.lightTextPrimary
                         : AppTheme.nightTextPrimary,
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
             ),

@@ -9,6 +9,7 @@ import '../../domain/providers/hijri_date_provider.dart';
 import '../../domain/providers/prayer_times_api_provider.dart';
 import '../../data/services/prayer_times_api_service.dart';
 import '../widgets/apple_glass_card.dart';
+import '../widgets/glass_container.dart';
 
 /// Home screen with LIVE clock, Hijri date, and Prayer Status
 class HomeScreen extends StatefulWidget {
@@ -126,10 +127,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       children: [
         // ===== BOX 1: Clock + Digital Time + Date =====
-        Container(
+        GlassContainer(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-          decoration: AppTheme.glassDecoration(opacity: 0.08, borderRadius: 28),
+          borderRadius: 28,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

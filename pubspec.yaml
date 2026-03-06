@@ -108,6 +108,7 @@ flutter:
   # Audio assets for Adhan
   assets:
     - assets/audio/
+    - assets/images/
     - assets/icons/telegram.png
 
   # An image asset can refer to one or more resolution-specific "variants", see

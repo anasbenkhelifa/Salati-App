@@ -9,6 +9,7 @@ import '../../core/localization/app_locale_provider.dart';
 import '../../data/services/adhan_playback_service.dart';
 import '../../domain/providers/qibla_provider.dart';
 import '../widgets/app_option_tile.dart';
+import '../widgets/glass_container.dart';
 import 'controls_screen.dart';
 
 /// Settings screen with glass setting cards and language switcher
@@ -359,9 +360,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildLanguageSwitcher(BuildContext context, dynamic controller) {
     final isArabic = controller.isArabic;
 
-    return Container(
+    return GlassContainer(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: AppTheme.glassDecoration(opacity: 0.08, borderRadius: 20),
+      borderRadius: 20,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

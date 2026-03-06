@@ -5,6 +5,7 @@ import '../../core/localization/strings.dart';
 import '../../core/localization/western_digits.dart';
 import '../../core/localization/app_locale_provider.dart';
 import '../../domain/providers/qibla_provider.dart';
+import '../widgets/glass_container.dart';
 
 /// Qibla compass screen with smooth animated rotation and on-target glow
 class QiblaScreen extends StatefulWidget {
@@ -415,27 +416,10 @@ class _QiblaScreenState extends State<QiblaScreen>
   }
 
   Widget _buildCompassDial(double qiblaBearing, bool isAligned) {
-    return Container(
+    return GlassContainer(
       width: 280,
       height: 280,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: AppTheme.inactiveBackground,
-        border: Border.all(
-          color:
-              isAligned
-                  ? AppTheme.currentActiveGlow.withOpacity(0.5)
-                  : AppTheme.inactiveBorder,
-          width: isAligned ? 3 : 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 30,
-            spreadRadius: 5,
-          ),
-        ],
-      ),
+      shape: BoxShape.circle,
       child: Stack(
         alignment: Alignment.center,
         children: [

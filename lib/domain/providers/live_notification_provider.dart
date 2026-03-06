@@ -19,6 +19,7 @@ class LiveNotificationProvider extends ChangeNotifier {
   AlAdhanResponse? _todayTimings;
   AlAdhanResponse? _tomorrowTimings;
   HijriDate? _hijriDate;
+  String? _lastDateKey; // tracks which calendar day _hijriDate was fetched for
 
   String _locationName = '';
   bool _isArabic = false;
@@ -66,7 +67,9 @@ class LiveNotificationProvider extends ChangeNotifier {
     _isArabic = isArabic;
 
     // Load Hijri date
-    _hijriDate = await _hijriService.getHijriDate(DateTime.now());
+    final startDate = DateTime.now();
+    _hijriDate = await _hijriService.getHijriDate(startDate);
+    _lastDateKey = '${startDate.year}-${startDate.month}-${startDate.day}';
 
     // Initialize Adhan playback service
     await _adhanService.initialize();
@@ -176,6 +179,20 @@ class LiveNotificationProvider extends ChangeNotifier {
     if (_todayTimings == null) return;
 
     final now = DateTime.now();
+
+    // Refresh Hijri date when the calendar day changes (handles midnight rollover)
+    final currentDateKey = '${now.year}-${now.month}-${now.day}';
+    if (_lastDateKey != null && currentDateKey != _lastDateKey) {
+      _lastDateKey = currentDateKey;
+      // Fire-and-forget: update _hijriDate from cache (no network call needed
+      // because HijriDateService pre-fetches the next 7 days in advance)
+      _hijriService.getHijriDate(now).then((date) {
+        if (date != null) {
+          _hijriDate = date;
+          debugPrint('[LiveNotificationProvider] Hijri date refreshed for $currentDateKey: ${date.formatEnglish()}');
+        }
+      });
+    }
     final today = DateTime(now.year, now.month, now.day);
     final todayTimes = _getPrayerTimes(_todayTimings!.timings, today);
 

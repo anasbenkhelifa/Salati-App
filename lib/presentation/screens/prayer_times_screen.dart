@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/localization/strings.dart';
@@ -13,6 +14,7 @@ import '../../data/services/islamic_event_service.dart';
 import '../widgets/prayer_alert_mode_button.dart';
 import '../widgets/location_picker_sheet.dart';
 import '../widgets/adhan_selection_sheet.dart';
+import '../widgets/glass_container.dart';
 import '../../data/services/adhan_selection_service.dart';
 
 /// Prayer times screen with AlAdhan API + GPS integration
@@ -481,12 +483,11 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     // Entire location box is clickable to open location picker
     return GestureDetector(
       onTap: () => _openLocationPicker(rootContext, isArabic),
-      child: Container(
+      child: GlassContainer(
         padding: const EdgeInsetsDirectional.symmetric(
           horizontal: 20,
           vertical: 16,
         ),
-        decoration: AppTheme.glassDecoration(opacity: 0.06, borderRadius: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -714,8 +715,19 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
 
     return GestureDetector(
       onTap: () => _showAdhanSelection(context, index, name),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: const SizedBox(),
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
           color:
               AppTheme.isLightMode
@@ -851,6 +863,8 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
             ],
           ],
         ),
+      ),
+        ],
       ),
     );
   }

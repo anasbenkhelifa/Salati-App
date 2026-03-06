@@ -836,60 +836,75 @@ class AdhanForegroundService : Service() {
     }
     
     /**
-     * Get Hijri date string from Flutter's cached display strings
-     * Falls back to cached components, then approximation if no cache
+     * Get Hijri date string for TODAY by reading Flutter's per-date JSON cache.
+     *
+     * Flutter's HijriDateService pre-fetches the next 7 days and stores each as:
+     *   key:   "flutter.hijri_date_YYYY-MM-DD"
+     *   value: JSON with fields day, month, year, monthNameAr, monthNameEn
+     *
+     * Reading today's entry directly means we always show the correct date even
+     * when the Flutter engine hasn't run for days, because the pre-fetch put the
+     * data there in advance.
+     *
+     * Fallback chain:
+     *   1. Today's per-date JSON cache entry   ← NEW primary source
+     *   2. Recent pre-formatted display string  (cached_hijri_display_ar/en)
+     *   3. Crude Gregorian → Hijri approximation
      */
     private fun getHijriDateString(isArabic: Boolean): String {
-        // Check if cache is from today (within last 36 hours to handle timezone edge cases)
+        // --- 1. Primary: read today's per-date JSON cache entry ---
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val todayKey = sdf.format(Date())
+        val perDateJson = prefs.getString("flutter.hijri_date_$todayKey", null)
+
+        if (!perDateJson.isNullOrBlank()) {
+            try {
+                val json = org.json.JSONObject(perDateJson)
+                val day   = json.optInt("day", 0)
+                val month = json.optInt("month", 0)
+                val year  = json.optInt("year", 0)
+                if (day > 0 && month > 0 && year > 0) {
+                    val monthName = if (isArabic) {
+                        json.optString("monthNameAr", hijriMonthsAr.getOrElse(month - 1) { "" })
+                    } else {
+                        json.optString("monthNameEn", hijriMonthsEn.getOrElse(month - 1) { "" })
+                    }
+                    Log.d(TAG, "getHijriDateString: per-date cache hit for $todayKey → $day $monthName $year")
+                    return if (isArabic) "\u200F$day $monthName $year\u200F"
+                           else          "$day $monthName $year AH"
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "getHijriDateString: failed to parse per-date JSON for $todayKey: ${e.message}")
+            }
+        } else {
+            Log.d(TAG, "getHijriDateString: no per-date cache for $todayKey, trying display strings")
+        }
+
+        // --- 2. Fallback: pre-formatted display strings (written by Flutter for today) ---
         val cachedTimestamp = prefs.getLong("flutter.cached_hijri_updated_at", 0L)
         val now = System.currentTimeMillis()
         val cacheAgeMs = now - cachedTimestamp
         val maxCacheAgeMs = 36 * 60 * 60 * 1000L // 36 hours
-        
-        // Only use cached display if it's recent enough
+
         if (cacheAgeMs < maxCacheAgeMs && cachedTimestamp > 0) {
             val displayKey = if (isArabic) "flutter.cached_hijri_display_ar" else "flutter.cached_hijri_display_en"
             val cachedDisplay = prefs.getString(displayKey, null)
             if (!cachedDisplay.isNullOrBlank()) {
-                Log.d(TAG, "Using cached Hijri display (age: ${cacheAgeMs / 1000}s)")
+                Log.d(TAG, "getHijriDateString: display string fallback (age: ${cacheAgeMs / 1000}s)")
                 return cachedDisplay
             }
         } else if (cachedTimestamp > 0) {
-            Log.d(TAG, "Cached Hijri date is stale (age: ${cacheAgeMs / 1000}s), using approximation")
+            Log.d(TAG, "getHijriDateString: display string is stale (age: ${cacheAgeMs / 1000}s)")
         }
-        
-        // Second try: cached components (also check timestamp)
-        if (cacheAgeMs < maxCacheAgeMs && cachedTimestamp > 0) {
-            val cachedHijriDay = prefs.getInt("flutter.cached_hijri_day", 0)
-            val cachedHijriMonth = prefs.getInt("flutter.cached_hijri_month", 0)
-            val cachedHijriYear = prefs.getInt("flutter.cached_hijri_year", 0)
-            
-            if (cachedHijriDay > 0 && cachedHijriMonth > 0 && cachedHijriYear > 0) {
-                val monthName = if (isArabic) {
-                    hijriMonthsAr.getOrElse(cachedHijriMonth - 1) { "رجب" }
-                } else {
-                    hijriMonthsEn.getOrElse(cachedHijriMonth - 1) { "Rajab" }
-                }
-                return if (isArabic) {
-                    "\u200F$cachedHijriDay $monthName $cachedHijriYear\u200F"
-                } else {
-                    "$cachedHijriDay $monthName $cachedHijriYear AH"
-                }
-            }
-        }
-        
-        // Fallback: approximate from Gregorian
+
+        // --- 3. Last resort: crude Gregorian → Hijri approximation ---
+        Log.w(TAG, "getHijriDateString: no cache at all, using approximation")
         val calendar = Calendar.getInstance()
-        val gregorianYear = calendar.get(Calendar.YEAR)
-        val gregorianDay = calendar.get(Calendar.DAY_OF_MONTH)
-        val hijriYear = ((gregorianYear - 622) * 33 / 32)
-        val monthName = if (isArabic) hijriMonthsAr[6] else hijriMonthsEn[6]
-        
-        return if (isArabic) {
-            "\u200F$gregorianDay $monthName $hijriYear\u200F"
-        } else {
-            "$gregorianDay $monthName $hijriYear AH"
-        }
+        val approxYear = ((calendar.get(Calendar.YEAR) - 622) * 33 / 32)
+        val approxDay  = calendar.get(Calendar.DAY_OF_MONTH)
+        val monthName  = if (isArabic) hijriMonthsAr[6] else hijriMonthsEn[6]
+        return if (isArabic) "\u200F$approxDay $monthName $approxYear\u200F"
+               else          "$approxDay $monthName $approxYear AH"
     }
     
     /**

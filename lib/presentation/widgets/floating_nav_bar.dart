@@ -1,7 +1,7 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import 'apple_glass_card.dart';
+import 'glass_container.dart';
 
 /// Custom floating glassmorphism bottom navigation bar
 /// Features a single animated Apple liquid glass indicator that slides between icons
@@ -47,36 +47,11 @@ class FloatingNavBar extends StatelessWidget {
       bottom: navBarBottomMargin,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(32),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            height: navBarHeight,
-            decoration: BoxDecoration(
-              color:
-                  isLightMode
-                      ? Colors.white.withOpacity(0.9)
-                      : Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(
-                color:
-                    isLightMode
-                        ? AppTheme.lightDivider
-                        : Colors.white.withOpacity(0.15),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color:
-                      isLightMode
-                          ? Colors.black.withOpacity(0.08)
-                          : Colors.black.withOpacity(0.2),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            // Force LTR so icons are always: Qibla, Home, PrayerTimes, Settings
-            child: Directionality(
+        child: GlassContainer(
+          height: navBarHeight,
+          borderRadius: 32,
+          // Force LTR so icons are always: Qibla, Home, PrayerTimes, Settings
+          child: Directionality(
               textDirection: TextDirection.ltr,
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -100,7 +75,7 @@ class FloatingNavBar extends StatelessWidget {
                           borderRadius: 16,
                           glowColor: AppTheme.currentActiveGlow,
                           glowOpacity: isLightMode ? 0.25 : 0.4,
-                          blurSigma: isLightMode ? 12 : 22,
+                          blurSigma: isLightMode ? 12 : (AppTheme.isIslamicMode ? 30 : 22),
                         ),
                       ),
 
@@ -115,7 +90,6 @@ class FloatingNavBar extends StatelessWidget {
                 },
               ),
             ),
-          ),
         ),
       ),
     );

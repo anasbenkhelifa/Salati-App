@@ -74,7 +74,10 @@ class _AppShellState extends State<AppShell> {
 
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(gradient: AppTheme.currentBackgroundGradient),
+        decoration: BoxDecoration(
+          gradient: AppTheme.currentBackgroundGradient,
+          image: AppTheme.currentBackgroundImage,
+        ),
         child: Stack(
           children: [
             // PageView for swipe navigation with state preservation

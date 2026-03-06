@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import 'glass_container.dart';
 
 /// Enum for trailing widget type
 enum OptionTileTrailing { chevron, switchControl, none, custom }
@@ -20,7 +21,7 @@ class AppOptionTile extends StatelessWidget {
   final ValueChanged<bool>? onSwitchChanged;
   final VoidCallback? onTap;
   final bool enabled;
-  final double opacity;
+  final double? opacity;
   final double borderRadius;
 
   const AppOptionTile({
@@ -34,7 +35,7 @@ class AppOptionTile extends StatelessWidget {
     this.onSwitchChanged,
     this.onTap,
     this.enabled = true,
-    this.opacity = 0.08,
+    this.opacity,
     this.borderRadius = 20,
   });
 
@@ -81,16 +82,14 @@ class AppOptionTile extends StatelessWidget {
     // Get the current text direction from context
     final textDirection = Directionality.of(context);
 
-    Widget content = Container(
+    Widget content = GlassContainer(
       // Use EdgeInsetsDirectional for RTL-aware padding
       padding: const EdgeInsetsDirectional.symmetric(
         horizontal: 20,
         vertical: 14,
       ),
-      decoration: AppTheme.glassDecoration(
-        opacity: opacity,
-        borderRadius: borderRadius,
-      ),
+      customOpacity: opacity,
+      borderRadius: borderRadius,
       child: Row(
         // Row respects textDirection from Directionality context
         children: [

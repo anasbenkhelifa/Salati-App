@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import 'glass_container.dart';
 
 /// Apple-style liquid glass card with blur, vibrancy, and subtle effects
 ///
@@ -33,148 +34,12 @@ class AppleGlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLight = AppTheme.isLightMode;
-
-    // Light mode: Clean solid design (no glass effects - looks better)
-    if (isLight) {
-      return Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(borderRadius),
-          color: Colors.white,
-          border: Border.all(
-            color: borderColor ?? AppTheme.lightDivider,
-            width: 1,
-          ),
-          boxShadow:
-              glowColor != null
-                  ? [
-                    // Subtle colored shadow for glow effect
-                    BoxShadow(
-                      color: glowColor!.withOpacity(0.15),
-                      blurRadius: 8,
-                      spreadRadius: 0,
-                    ),
-                    // Soft drop shadow for depth
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                  : [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-        ),
-        padding: padding,
-        child: child,
-      );
-    }
-
-    // Dark mode: Full liquid glass effect
-    final effectiveBorderColor = borderColor ?? Colors.white.withOpacity(0.15);
-
-    Widget glassStack = Stack(
-      fit: StackFit.passthrough,
-      children: [
-        // Layer 1: Backdrop blur
-        Positioned.fill(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-            child: Container(color: Colors.transparent),
-          ),
-        ),
-
-        // Layer 2: Vibrancy overlay
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(borderRadius),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withOpacity(0.12),
-                  Colors.white.withOpacity(0.04),
-                ],
-              ),
-            ),
-          ),
-        ),
-
-        // Layer 3: Soft highlight gradient
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(borderRadius),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomCenter,
-                stops: const [0.0, 0.5],
-                colors: [Colors.white.withOpacity(0.10), Colors.transparent],
-              ),
-            ),
-          ),
-        ),
-
-        // Layer 4: Procedural noise
-        Positioned.fill(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return CustomPaint(
-                size: Size(constraints.maxWidth, constraints.maxHeight),
-                painter: _NoisePainter(
-                  borderRadius: borderRadius,
-                  opacity: 0.04,
-                ),
-              );
-            },
-          ),
-        ),
-
-        // Layer 5: Thin border
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(borderRadius),
-              border: Border.all(color: effectiveBorderColor, width: 0.5),
-            ),
-          ),
-        ),
-
-        // Layer 6: Child content
-        if (child != null)
-          Padding(padding: padding ?? EdgeInsets.zero, child: child!),
-      ],
-    );
-
-    Widget clippedGlass = ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: glassStack,
-    );
-
-    return Container(
+    return GlassContainer(
       width: width,
       height: height,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow:
-            glowColor != null
-                ? [
-                  BoxShadow(
-                    color: glowColor!.withOpacity(glowOpacity),
-                    blurRadius: 14,
-                    spreadRadius: 2,
-                  ),
-                ]
-                : null,
-      ),
-      child: clippedGlass,
+      borderRadius: borderRadius,
+      padding: padding,
+      child: child ?? const SizedBox.shrink(),
     );
   }
 }

@@ -3,8 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Theme mode enum - scalable for future themes
 enum AppThemeMode {
-  night, // Default dark theme
+  night, // Dark theme
   light, // Light mode
+  islamic, // Default Islamic patterned theme
 }
 
 /// Provider for app theme state with persistence
@@ -20,7 +21,7 @@ class AppThemeProvider extends ChangeNotifier {
 
   AppThemeProvider._();
 
-  AppThemeMode _mode = AppThemeMode.night;
+  AppThemeMode _mode = AppThemeMode.islamic;
   bool _initialized = false;
 
   /// Current theme mode
@@ -29,6 +30,7 @@ class AppThemeProvider extends ChangeNotifier {
   /// Convenience getters
   bool get isNightMode => _mode == AppThemeMode.night;
   bool get isLightMode => _mode == AppThemeMode.light;
+  bool get isIslamicMode => _mode == AppThemeMode.islamic;
 
   /// Initialize and load persisted theme
   Future<void> initialize() async {
@@ -42,7 +44,7 @@ class AppThemeProvider extends ChangeNotifier {
       if (savedMode != null) {
         _mode = AppThemeMode.values.firstWhere(
           (m) => m.name == savedMode,
-          orElse: () => AppThemeMode.night,
+          orElse: () => AppThemeMode.islamic,
         );
         debugPrint('[AppThemeProvider] Loaded theme: $_mode');
       }
@@ -69,7 +71,7 @@ class AppThemeProvider extends ChangeNotifier {
     }
   }
 
-  /// Toggle between night and light
+  /// Toggle between night and light (legacy toggle, keeping for safety if used elsewhere)
   Future<void> toggleTheme() async {
     await setTheme(isNightMode ? AppThemeMode.light : AppThemeMode.night);
   }
