@@ -24,6 +24,11 @@ enum PrayerDataState {
 /// Provider to manage prayer times data from AlAdhan API using GPS
 /// Implements OFFLINE-FIRST behavior: loads from cache first, only refreshes when needed
 class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver {
+  // Singleton pattern to share state across HomeScreen and PrayerTimesScreen
+  static final PrayerTimesApiProvider _instance = PrayerTimesApiProvider._internal();
+  factory PrayerTimesApiProvider() => _instance;
+  static PrayerTimesApiProvider get instance => _instance;
+
   final PrayerTimesApiService _apiService = PrayerTimesApiService();
   final PrayerTimesCacheService _cacheService = PrayerTimesCacheService();
   final BilingualLocationService _locationService = BilingualLocationService();
@@ -55,7 +60,7 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
   String? _prayerTimesDate;
   Timer? _midnightTimer;
 
-  PrayerTimesApiProvider() {
+  PrayerTimesApiProvider._internal() {
     WidgetsBinding.instance.addObserver(this);
     _setupMidnightTimer();
   }

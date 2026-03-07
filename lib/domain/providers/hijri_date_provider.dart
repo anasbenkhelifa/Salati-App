@@ -3,11 +3,18 @@ import '../../data/services/hijri_date_service.dart';
 
 /// Provider to manage Hijri date state
 class HijriDateProvider extends ChangeNotifier {
+  // Singleton pattern to share state across HomeScreen and PrayerTimesScreen
+  static final HijriDateProvider _instance = HijriDateProvider._internal();
+  factory HijriDateProvider() => _instance;
+  static HijriDateProvider get instance => _instance;
+
   final HijriDateService _service = HijriDateService();
 
   HijriDate? _hijriDate;
   bool _isLoading = false;
   String? _error;
+
+  HijriDateProvider._internal();
 
   HijriDate? get hijriDate => _hijriDate;
   bool get isLoading => _isLoading;
