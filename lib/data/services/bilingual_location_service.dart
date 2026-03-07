@@ -121,7 +121,9 @@ class BilingualLocationService {
     required String locale,
   }) async {
     try {
-      final placemarks = await placemarkFromCoordinates(lat, lon);
+      final placemarks = await placemarkFromCoordinates(lat, lon).timeout(
+        const Duration(seconds: 5),
+      );
       
       if (placemarks.isNotEmpty) {
         final place = placemarks.first;

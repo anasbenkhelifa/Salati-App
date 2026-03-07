@@ -43,10 +43,15 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   }
 
   Future<void> _initializePrayerTimes() async {
+    _provider.addListener(_onProviderUpdate);
     await _provider.initialize();
     await _hijriProvider.initialize();
     await _loadAlertModes();
     _startCountdownTimer();
+    if (mounted) setState(() {});
+  }
+
+  void _onProviderUpdate() {
     if (mounted) setState(() {});
   }
 
@@ -76,6 +81,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
 
   @override
   void dispose() {
+    _provider.removeListener(_onProviderUpdate);
     _countdownTimer?.cancel();
     super.dispose();
   }

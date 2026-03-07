@@ -224,18 +224,21 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
   /// Initialize - CACHE FIRST, instant rendering, background refresh
   /// Phase A: Load from cache immediately and notify
   /// Phase B: Background refresh (unawaited) if needed
-  bool _initialized = false;
+  Future<void>? _initFuture;
 
-  Future<void> initialize() async {
+  Future<void> initialize() {
     debugPrint('[PrayerTimesApiProvider] initialize() called');
 
-    // Guard against multiple initializations
-    if (_initialized) {
-      debugPrint('[PrayerTimesApiProvider] Already initialized, skipping');
-      return;
+    // Guard against multiple initializations by sharing the future
+    if (_initFuture != null) {
+      debugPrint('[PrayerTimesApiProvider] Already initializing/initialized, sharing future');
+      return _initFuture!;
     }
-    _initialized = true;
+    _initFuture = _doInitialize();
+    return _initFuture!;
+  }
 
+  Future<void> _doInitialize() async {
     _deviceTimezone = DateTime.now().timeZoneName;
 
     // Load settings synchronously-ish

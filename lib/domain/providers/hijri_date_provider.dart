@@ -38,10 +38,17 @@ class HijriDateProvider extends ChangeNotifier {
     return isArabic ? _hijriDate!.weekdayAr : _hijriDate!.weekdayEn;
   }
 
-  /// Initialize and fetch today's Hijri date
-  Future<void> initialize() async {
-    if (_hijriDate != null) return; // Already loaded
+  Future<void>? _initFuture;
 
+  /// Initialize and fetch today's Hijri date
+  Future<void> initialize() {
+    if (_hijriDate != null) return Future.value(); // Already loaded
+    if (_initFuture != null) return _initFuture!;
+    _initFuture = _doInitialize();
+    return _initFuture!;
+  }
+
+  Future<void> _doInitialize() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -60,6 +67,7 @@ class HijriDateProvider extends ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
+    _initFuture = null; // Clear future so refresh can trigger again
   }
 
   /// Refresh the Hijri date
