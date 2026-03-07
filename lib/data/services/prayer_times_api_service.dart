@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
+import 'package:adhan/adhan.dart';
+import 'package:intl/intl.dart';
 
-/// Response model for Prayer Times API
+/// Legacy models kept for backwards compatibility with the app architecture
 class AlAdhanTimings {
   final String fajr;
   final String sunrise;
@@ -24,26 +24,10 @@ class AlAdhanTimings {
     required this.midnight,
   });
 
-  /// Parse from IslamicAPI response format (times already in local timezone)
-  factory AlAdhanTimings.fromIslamicApi(Map<String, dynamic> json) {
-    return AlAdhanTimings(
-      fajr: json['Fajr'] ?? '',
-      sunrise: json['Sunrise'] ?? '',
-      dhuhr: json['Dhuhr'] ?? '',
-      asr: json['Asr'] ?? '',
-      maghrib: json['Maghrib'] ?? '',
-      isha: json['Isha'] ?? '',
-      imsak: json['Imsak'] ?? '',
-      midnight: json['Midnight'] ?? '',
-    );
-  }
-
-  /// Parse from cached JSON format
   factory AlAdhanTimings.fromJson(Map<String, dynamic> json) {
     String cleanTime(String time) {
       return time.replaceAll(RegExp(r'\s*\(.*\)'), '').trim();
     }
-
     return AlAdhanTimings(
       fajr: cleanTime(json['Fajr'] ?? json['fajr'] ?? ''),
       sunrise: cleanTime(json['Sunrise'] ?? json['sunrise'] ?? ''),
@@ -57,7 +41,6 @@ class AlAdhanTimings {
   }
 }
 
-/// Metadata from API response
 class AlAdhanMeta {
   final String timezone;
   final String method;
@@ -84,7 +67,6 @@ class AlAdhanMeta {
   }
 }
 
-/// Full API response
 class AlAdhanResponse {
   final AlAdhanTimings timings;
   final AlAdhanMeta meta;
@@ -100,33 +82,6 @@ class AlAdhanResponse {
     this.requestUrl = '',
   });
 
-  /// Parse from IslamicAPI response format
-  factory AlAdhanResponse.fromIslamicApi(
-    Map<String, dynamic> json, {
-    String requestUrl = '',
-    double latitude = 0.0,
-    double longitude = 0.0,
-  }) {
-    final data = json['data'] ?? {};
-    final times = data['times'] ?? {};
-    final timezone = data['timezone'] ?? {};
-
-    return AlAdhanResponse(
-      timings: AlAdhanTimings.fromIslamicApi(times),
-      meta: AlAdhanMeta(
-        timezone: timezone['name'] ?? '',
-        method: '',
-        school: '',
-        latitude: latitude,
-        longitude: longitude,
-      ),
-      dateReadable: data['date']?['readable'] ?? '',
-      isFromCache: false,
-      requestUrl: requestUrl,
-    );
-  }
-
-  /// Parse from cached JSON format
   factory AlAdhanResponse.fromJson(
     Map<String, dynamic> json, {
     bool isFromCache = false,
@@ -136,19 +91,17 @@ class AlAdhanResponse {
   }) {
     final data = json['data'] ?? json;
     final timingsData = data['timings'] ?? data['times'] ?? {};
-
     return AlAdhanResponse(
       timings: AlAdhanTimings.fromJson(timingsData),
-      meta:
-          data['meta'] != null
-              ? AlAdhanMeta.fromJson(data['meta'])
-              : AlAdhanMeta(
-                timezone: data['timezone']?['name'] ?? '',
-                method: '',
-                school: '',
-                latitude: latitude,
-                longitude: longitude,
-              ),
+      meta: data['meta'] != null
+          ? AlAdhanMeta.fromJson(data['meta'])
+          : AlAdhanMeta(
+              timezone: data['timezone']?['name'] ?? '',
+              method: '',
+              school: '',
+              latitude: latitude,
+              longitude: longitude,
+            ),
       dateReadable: data['date']?['readable'] ?? '',
       isFromCache: isFromCache,
       requestUrl: requestUrl,
@@ -181,7 +134,6 @@ class AlAdhanResponse {
   }
 }
 
-/// Calculation methods supported by IslamicAPI
 enum CalculationMethodId {
   mwl(3, 'Muslim World League', 'رابطة العالم الإسلامي'),
   isna(2, 'ISNA (North America)', 'الجمعية الإسلامية لأمريكا الشمالية'),
@@ -194,20 +146,44 @@ enum CalculationMethodId {
   singapore(11, 'Singapore', 'سنغافورة'),
   tehran(7, 'Tehran', 'طهران'),
   turkey(13, 'Turkey (Diyanet)', 'تركيا (ديانت)'),
-  algeria(
-    19,
-    'Algeria (Ministry of Religious Affairs)',
-    'الجزائر (وزارة الشؤون الدينية)',
-  );
+  algeria(19, 'Algeria (Ministry of Religious Affairs)', 'الجزائر (وزارة الشؤون الدينية)');
 
   final int id;
   final String nameEn;
   final String nameAr;
-
   const CalculationMethodId(this.id, this.nameEn, this.nameAr);
+
+  CalculationParameters get parameters {
+    switch (this) {
+      case CalculationMethodId.mwl:
+        return CalculationMethod.muslim_world_league.getParameters();
+      case CalculationMethodId.isna:
+        return CalculationMethod.north_america.getParameters();
+      case CalculationMethodId.egypt:
+        return CalculationMethod.egyptian.getParameters();
+      case CalculationMethodId.ummAlQura:
+        return CalculationMethod.umm_al_qura.getParameters();
+      case CalculationMethodId.karachi:
+        return CalculationMethod.karachi.getParameters();
+      case CalculationMethodId.dubai:
+        return CalculationMethod.dubai.getParameters();
+      case CalculationMethodId.qatar:
+        return CalculationMethod.qatar.getParameters();
+      case CalculationMethodId.kuwait:
+        return CalculationMethod.kuwait.getParameters();
+      case CalculationMethodId.singapore:
+        return CalculationMethod.singapore.getParameters();
+      case CalculationMethodId.tehran:
+        return CalculationMethod.tehran.getParameters();
+      case CalculationMethodId.turkey:
+        return CalculationMethod.turkey.getParameters();
+      case CalculationMethodId.algeria:
+        // Algerian parameters are typically 18 deg Fajr and 17 deg Isha, exactly matching MWL.
+        return CalculationMethod.muslim_world_league.getParameters();
+    }
+  }
 }
 
-/// Madhab/School options
 enum MadhabId {
   shafi(1, 'Shafi (Standard)', 'الشافعي'),
   hanafi(2, 'Hanafi', 'الحنفي');
@@ -215,18 +191,15 @@ enum MadhabId {
   final int id;
   final String nameEn;
   final String nameAr;
-
   const MadhabId(this.id, this.nameEn, this.nameAr);
+
+  Madhab get adhanMadhab {
+    return this == MadhabId.hanafi ? Madhab.hanafi : Madhab.shafi;
+  }
 }
 
-/// Service to fetch prayer times from IslamicAPI
-/// https://islamicapi.com/doc/prayer-time/
+/// Service to calculate prayer times entirely OFFLINE using package:adhan
 class PrayerTimesApiService {
-  static const String _baseUrl = 'https://islamicapi.com/api/v1/prayer-time/';
-  static const String _apiKey =
-      '0LXJrCmyBRD1KDXf3R4SaSdJgbIQLr5tSzS0Kj9CW6XQZ0yS';
-
-  /// Fetch prayer times by coordinates
   Future<AlAdhanResponse> fetchPrayerTimesByCoordinates({
     required double latitude,
     required double longitude,
@@ -234,55 +207,60 @@ class PrayerTimesApiService {
     required MadhabId madhab,
     DateTime? date,
   }) async {
-    final uri = Uri.parse(_baseUrl).replace(
-      queryParameters: {
-        'lat': latitude.toString(),
-        'lon': longitude.toString(),
-        'method': method.id.toString(),
-        'school': madhab.id.toString(),
-        'api_key': _apiKey,
-      },
-    );
+    date ??= DateTime.now();
+    final tz = date.timeZoneName;
 
-    final requestUrl = uri.toString();
-
-    debugPrint('[PrayerTimesApiService] ========== API REQUEST ==========');
+    debugPrint('[PrayerTimesApiService] ========== OFFLINE CALCULATION ==========');
     debugPrint('[PrayerTimesApiService] Lat: $latitude, Lng: $longitude');
-    debugPrint(
-      '[PrayerTimesApiService] Method: ${method.id}, School: ${madhab.id}',
+    debugPrint('[PrayerTimesApiService] Method: ${method.nameEn}, School: ${madhab.nameEn}');
+
+    final coordinates = Coordinates(latitude, longitude);
+    final params = method.parameters;
+    params.madhab = madhab.adhanMadhab;
+    
+    // Calculate Prayer Times natively
+    final dateComponents = DateComponents.from(date);
+    final prayers = PrayerTimes(coordinates, dateComponents, params);
+
+    final formatter = DateFormat('HH:mm');
+
+    // Calculate Midnight (between Maghrib and Fajr next day) natively if needed, 
+    // or estimate it (halfway between sunset and sunrise)
+    final tomorrow = date.add(const Duration(days: 1));
+    final tomorrowPrayers = PrayerTimes(coordinates, DateComponents.from(tomorrow), params);
+    
+    // In Islam, night usually starts at Maghrib and ends at Fajr. Midnight is halfway.
+    final nightDuration = tomorrowPrayers.fajr.difference(prayers.maghrib);
+    final midnight = prayers.maghrib.add(Duration(minutes: nightDuration.inMinutes ~/ 2));
+
+    // Imsak is typically 10 minutes before Fajr
+    final imsak = prayers.fajr.subtract(const Duration(minutes: 10));
+
+    final timings = AlAdhanTimings(
+      fajr: formatter.format(prayers.fajr),
+      sunrise: formatter.format(prayers.sunrise),
+      dhuhr: formatter.format(prayers.dhuhr),
+      asr: formatter.format(prayers.asr),
+      maghrib: formatter.format(prayers.maghrib),
+      isha: formatter.format(prayers.isha),
+      imsak: formatter.format(imsak),
+      midnight: formatter.format(midnight),
     );
-    debugPrint('[PrayerTimesApiService] URL: $requestUrl');
-    debugPrint('[PrayerTimesApiService] ===============================');
 
-    try {
-      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+    final readableDate = DateFormat('dd MMM yyyy').format(date);
 
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        if (json['code'] == 200 && json['status'] == 'success') {
-          debugPrint(
-            '[PrayerTimesApiService] SUCCESS - Fajr: ${json['data']?['times']?['Fajr']}',
-          );
-          return AlAdhanResponse.fromIslamicApi(
-            json,
-            requestUrl: requestUrl,
-            latitude: latitude,
-            longitude: longitude,
-          );
-        } else {
-          throw Exception(
-            'API returned error: ${json['message'] ?? 'Unknown error'}',
-          );
-        }
-      } else if (response.statusCode == 429) {
-        debugPrint('[PrayerTimesApiService] Rate limited! Wait a moment');
-        throw Exception('Rate limited. Please wait and try again.');
-      } else {
-        throw Exception('HTTP error: ${response.statusCode}');
-      }
-    } catch (e) {
-      debugPrint('[PrayerTimesApiService] ERROR: $e');
-      rethrow;
-    }
+    return AlAdhanResponse(
+      timings: timings,
+      meta: AlAdhanMeta(
+        timezone: tz,
+        method: method.nameEn,
+        school: madhab.nameEn,
+        latitude: latitude,
+        longitude: longitude,
+      ),
+      dateReadable: readableDate,
+      isFromCache: false,
+      requestUrl: 'offline://calculated',
+    );
   }
 }

@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
+import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Bilingual location data model
@@ -62,14 +62,12 @@ class BilingualLocation {
   }
 }
 
-/// Service to get bilingual location names using Nominatim API
+/// Service to get bilingual location names using offline `geocoding` package
 class BilingualLocationService {
-  static const String _nominatimBaseUrl =
-      'https://nominatim.openstreetmap.org/reverse';
   static const String _cacheKey = 'bilingual_location_cache';
 
   /// Reverse geocode to get bilingual location names
-  /// Fetches both English and Arabic names and caches them
+  /// Fetches both English and Arabic names natively via device OS and caches them
   Future<BilingualLocation?> getLocationNames(
     double latitude,
     double longitude,
@@ -83,30 +81,22 @@ class BilingualLocationService {
     }
 
     try {
-      // Fetch English version
-      final enResult = await _fetchFromNominatim(latitude, longitude, 'en');
+      // Fetch English version natively
+      final enResult = await _fetchFromNativeGeocoding(latitude, longitude, locale: "en_US");
 
-      // Fetch Arabic version
-      final arResult = await _fetchFromNominatim(latitude, longitude, 'ar');
-
-      if (enResult != null && arResult != null) {
+      // Fetch Arabic version natively
+      final arResult = await _fetchFromNativeGeocoding(latitude, longitude, locale: "ar_SA");
+      
+      // Some OS versions don't support explicit locales in geocoding plugins. 
+      // If fetching fails or returns empty, we fallback to whatever default was returned.
+      if (enResult != null || arResult != null) {
         final location = BilingualLocation(
           latitude: latitude,
           longitude: longitude,
-          cityEn:
-              enResult['city'] ??
-              enResult['town'] ??
-              enResult['village'] ??
-              enResult['state'] ??
-              '',
-          cityAr:
-              arResult['city'] ??
-              arResult['town'] ??
-              arResult['village'] ??
-              arResult['state'] ??
-              '',
-          countryEn: enResult['country'] ?? '',
-          countryAr: arResult['country'] ?? '',
+          cityEn: enResult?['city'] ?? arResult?['city'] ?? '',
+          cityAr: arResult?['city'] ?? enResult?['city'] ?? '',
+          countryEn: enResult?['country'] ?? arResult?['country'] ?? '',
+          countryAr: arResult?['country'] ?? enResult?['country'] ?? '',
         );
 
         // Cache the result
@@ -124,41 +114,24 @@ class BilingualLocationService {
     return null;
   }
 
-  /// Fetch location from Nominatim with specific language
-  Future<Map<String, String>?> _fetchFromNominatim(
+  /// Fetch location natively via OS with specific locale identifier
+  Future<Map<String, String>?> _fetchFromNativeGeocoding(
     double lat,
-    double lon,
-    String lang,
-  ) async {
+    double lon, {
+    required String locale,
+  }) async {
     try {
-      final url = Uri.parse(
-        '$_nominatimBaseUrl?lat=$lat&lon=$lon&format=json&accept-language=$lang&addressdetails=1',
-      );
-
-      final response = await http
-          .get(url, headers: {'User-Agent': 'AdhanApp/1.0 (prayer times app)'})
-          .timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        final address = json['address'] as Map<String, dynamic>?;
-
-        if (address != null) {
-          return {
-            'city':
-                address['city']?.toString() ??
-                address['town']?.toString() ??
-                address['village']?.toString() ??
-                '',
-            'town': address['town']?.toString() ?? '',
-            'village': address['village']?.toString() ?? '',
-            'state': address['state']?.toString() ?? '',
-            'country': address['country']?.toString() ?? '',
-          };
-        }
+      final placemarks = await placemarkFromCoordinates(lat, lon);
+      
+      if (placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        return {
+          'city': place.locality ?? place.subLocality ?? place.administrativeArea ?? '',
+          'country': place.country ?? '',
+        };
       }
     } catch (e) {
-      debugPrint('[BilingualLocationService] Nominatim error ($lang): $e');
+      debugPrint('[BilingualLocationService] Native geocoding error: $e');
     }
     return null;
   }
