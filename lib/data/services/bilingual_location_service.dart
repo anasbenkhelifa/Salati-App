@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'city_translations.dart';
 
 /// Bilingual location data model
 class BilingualLocation {
@@ -81,22 +82,24 @@ class BilingualLocationService {
     }
 
     try {
-      // Fetch English version natively
-      final enResult = await _fetchFromNativeGeocoding(latitude, longitude, locale: "en_US");
+      // Fetch English version natively (no explicit locale identifier forced)
+      final enResult = await _fetchFromNativeGeocoding(latitude, longitude);
 
-      // Fetch Arabic version natively
-      final arResult = await _fetchFromNativeGeocoding(latitude, longitude, locale: "ar_SA");
-      
-      // Some OS versions don't support explicit locales in geocoding plugins. 
-      // If fetching fails or returns empty, we fallback to whatever default was returned.
-      if (enResult != null || arResult != null) {
+      if (enResult != null) {
+        final cityEn = enResult['city'] ?? '';
+        final countryEn = enResult['country'] ?? '';
+
+        // Attempt to translate via local mapping, otherwise fallback to English
+        final cityAr = CityTranslations.lookup(cityEn) ?? cityEn;
+        final countryAr = CityTranslations.lookup(countryEn) ?? countryEn;
+
         final location = BilingualLocation(
           latitude: latitude,
           longitude: longitude,
-          cityEn: enResult?['city'] ?? arResult?['city'] ?? '',
-          cityAr: arResult?['city'] ?? enResult?['city'] ?? '',
-          countryEn: enResult?['country'] ?? arResult?['country'] ?? '',
-          countryAr: arResult?['country'] ?? enResult?['country'] ?? '',
+          cityEn: cityEn,
+          cityAr: cityAr,
+          countryEn: countryEn,
+          countryAr: countryAr,
         );
 
         // Cache the result
@@ -114,12 +117,11 @@ class BilingualLocationService {
     return null;
   }
 
-  /// Fetch location natively via OS with specific locale identifier
+  /// Fetch location natively via OS
   Future<Map<String, String>?> _fetchFromNativeGeocoding(
     double lat,
-    double lon, {
-    required String locale,
-  }) async {
+    double lon,
+  ) async {
     try {
       final placemarks = await placemarkFromCoordinates(lat, lon);
       

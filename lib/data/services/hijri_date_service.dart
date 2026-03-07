@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:hijri/hijri_calendar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Hijri date model
 class HijriDate {
@@ -99,6 +101,35 @@ class HijriDateService {
     } catch (e) {
       return null;
     }
+  }
+
+  /// Get the currently saved user offset for Hijri date (in days)
+  Future<int> getHijriOffset() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getInt('hijri_offset') ?? 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Save the user offset for Hijri date (in days)
+  Future<void> setHijriOffset(int offsetDays) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('hijri_offset', offsetDays);
+    } catch (e) {
+      debugPrint('[HijriDateService] Error saving offset: $e');
+    }
+  }
+
+  /// Fetch Hijri date natively for a given Gregorian date, with user offset applied.
+  /// This ensures all parts of the app (UI, notifications) share the exact same date.
+  Future<HijriDate?> getAdjustedHijriDate(DateTime gregorianDate) async {
+    final offsetDays = await getHijriOffset();
+    // Mathematically, adjusting the Gregorian input by N days shifts the resulting Hijri date by N days
+    final adjustedGregorian = gregorianDate.add(Duration(days: offsetDays));
+    return getHijriDate(adjustedGregorian);
   }
 
   /// No-op: API caches are no longer necessary for native calculations

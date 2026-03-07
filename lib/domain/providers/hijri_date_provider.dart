@@ -8,10 +8,12 @@ class HijriDateProvider extends ChangeNotifier {
   HijriDate? _hijriDate;
   bool _isLoading = false;
   String? _error;
+  int _offset = 0;
 
   HijriDate? get hijriDate => _hijriDate;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  int get offset => _offset;
 
   /// Formatted date for Arabic
   String get arabicDate => _hijriDate?.formatArabic() ?? '—';
@@ -41,7 +43,8 @@ class HijriDateProvider extends ChangeNotifier {
 
     try {
       final today = DateTime.now();
-      _hijriDate = await _service.getHijriDate(today);
+      _hijriDate = await _service.getAdjustedHijriDate(today);
+      _offset = await _service.getHijriOffset();
 
       if (_hijriDate == null) {
         _error = 'Could not fetch Hijri date';
@@ -59,5 +62,12 @@ class HijriDateProvider extends ChangeNotifier {
   Future<void> refresh() async {
     _hijriDate = null;
     await initialize();
+  }
+
+  /// Change the manual offset natively and rebuild UI
+  Future<void> setOffset(int newOffset) async {
+    _offset = newOffset;
+    await _service.setHijriOffset(newOffset);
+    await refresh();
   }
 }

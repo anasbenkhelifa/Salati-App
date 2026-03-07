@@ -66,9 +66,9 @@ class LiveNotificationProvider extends ChangeNotifier {
     _locationName = locationName;
     _isArabic = isArabic;
 
-    // Load Hijri date
+    // Load Hijri date natively with offset applied
     final startDate = DateTime.now();
-    _hijriDate = await _hijriService.getHijriDate(startDate);
+    _hijriDate = await _hijriService.getAdjustedHijriDate(startDate);
     _lastDateKey = '${startDate.year}-${startDate.month}-${startDate.day}';
 
     // Initialize Adhan playback service
@@ -184,9 +184,8 @@ class LiveNotificationProvider extends ChangeNotifier {
     final currentDateKey = '${now.year}-${now.month}-${now.day}';
     if (_lastDateKey != null && currentDateKey != _lastDateKey) {
       _lastDateKey = currentDateKey;
-      // Fire-and-forget: update _hijriDate from cache (no network call needed
-      // because HijriDateService pre-fetches the next 7 days in advance)
-      _hijriService.getHijriDate(now).then((date) {
+      // Fire-and-forget: update _hijriDate natively with offset
+      _hijriService.getAdjustedHijriDate(now).then((date) {
         if (date != null) {
           _hijriDate = date;
           debugPrint('[LiveNotificationProvider] Hijri date refreshed for $currentDateKey: ${date.formatEnglish()}');
