@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:hijri/hijri_calendar.dart';
@@ -81,21 +82,24 @@ class HijriDateService {
   /// Fetch Hijri date natively for a given Gregorian date
   Future<HijriDate?> getHijriDate(DateTime gregorianDate) async {
     try {
-      // Configure default locale to AR to extract arabic strings natively
+      // Bug 3 Fix: The hijri package uses a global singleton for locale.
+      // We MUST extract the localized string eagerly BEFORE switching the locale.
       HijriCalendar.setLocal('ar');
       final hijriAr = HijriCalendar.fromDate(gregorianDate);
+      final monthNameAr = hijriAr.getLongMonthName();
+      final weekdayAr = hijriAr.getDayName();
 
-      // Configure default locale to EN to extract english strings natively
       HijriCalendar.setLocal('en');
       final hijriEn = HijriCalendar.fromDate(gregorianDate);
+      final monthNameEn = hijriEn.getLongMonthName();
       
       return HijriDate(
         day: hijriEn.hDay,
         month: hijriEn.hMonth,
         year: hijriEn.hYear,
-        monthNameAr: hijriAr.getLongMonthName(),
-        monthNameEn: hijriEn.getLongMonthName(),
-        weekdayAr: hijriAr.getDayName(),
+        monthNameAr: monthNameAr,
+        monthNameEn: monthNameEn,
+        weekdayAr: weekdayAr,
         weekdayEn: DateFormat('EEEE').format(gregorianDate),
       );
     } catch (e) {
@@ -118,6 +122,9 @@ class HijriDateService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('hijri_offset', offsetDays);
+      
+      // Auto-refresh the 7-day Android cache so live notification updates instantly
+      await cacheNext7Days();
     } catch (e) {
       debugPrint('[HijriDateService] Error saving offset: $e');
     }
@@ -132,6 +139,41 @@ class HijriDateService {
     return getHijriDate(adjustedGregorian);
   }
 
-  /// No-op: API caches are no longer necessary for native calculations
+  /// Cache the next 7 days of Hijri dates to SharedPreferences.
+  /// Bug 4 Fix: The native Android Foreground Service relies entirely on this cache being present 
+  /// (under flutter.hijri_date_YYYY-MM-DD keys). Without it, the Android service falls back to a 
+  /// crude mathematical Gregorian->Hijri converter that breaks and reads as 2 months behind.
+  Future<void> cacheNext7Days() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.now();
+
+      // Write precisely formatted JSON strings identically to the old UmmahAPI format
+      for (int i = 0; i < 7; i++) {
+        final date = now.add(Duration(days: i));
+        final key = 'hijri_date_${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        
+        final hijriDate = await getAdjustedHijriDate(date);
+        if (hijriDate != null) {
+          final jsonString = jsonEncode({
+            'day': hijriDate.day,
+            'month': hijriDate.month,
+            'year': hijriDate.year,
+            'monthNameAr': hijriDate.monthNameAr,
+            'monthNameEn': hijriDate.monthNameEn,
+          });
+          await prefs.setString(key, jsonString);
+        }
+      }
+      
+      // Keep legacy timestamp for Android fallback mechanics
+      await prefs.setInt('cached_hijri_updated_at', DateTime.now().millisecondsSinceEpoch);
+      debugPrint('[HijriDateService] Pre-cached 7 days of Hijri dates for native Android Service');
+    } catch (e) {
+      debugPrint('[HijriDateService] Error caching next 7 days: $e');
+    }
+  }
+
+  /// Keep for legacy API backward compatibility
   Future<void> clearCache() async {}
 }

@@ -71,6 +71,9 @@ class LiveNotificationProvider extends ChangeNotifier {
     _hijriDate = await _hijriService.getAdjustedHijriDate(startDate);
     _lastDateKey = '${startDate.year}-${startDate.month}-${startDate.day}';
 
+    // Bug 4 Fix: Ensure the Android Foreground Service has the next 7 days cached
+    await _hijriService.cacheNext7Days();
+
     // Initialize Adhan playback service
     await _adhanService.initialize();
 
@@ -189,6 +192,11 @@ class LiveNotificationProvider extends ChangeNotifier {
         if (date != null) {
           _hijriDate = date;
           debugPrint('[LiveNotificationProvider] Hijri date refreshed for $currentDateKey: ${date.formatEnglish()}');
+          
+          // Refresh the 7-day cache for Android service, then update notification
+          _hijriService.cacheNext7Days().then((_) {
+            _updateNotification();
+          });
         }
       });
     }

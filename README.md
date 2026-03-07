@@ -1,55 +1,57 @@
 # Salati App - أذان
 
-> A beautiful, premium Islamic prayer times app built with Flutter
+> A beautifully crafted, premium Islamic prayer times application for Android built with Flutter.
 
 ---
 
 ## ✨ Features
 
-### 🕌 Prayer Times
+### 🕌 Prayer Times (Fully Offline Calculations)
 - **Live countdown** to next prayer with color-coded urgency
-- **Grace window** detection (green glow when recently prayed)
-- **Al-Adhan API** integration for accurate times worldwide
-- **Hijri calendar** with Arabic/English support
+- **Grace window** detection (soft glow when recently prayed)
+- **Adhan Package** integration for pure mathematical, fully offline, and pinpoint accurate prayer times worldwide
+- **Native Hijri calendar** powered mathematically, supporting custom manual user offsets spanning Arabic and English
 
 ### 🧭 Qibla Compass
-- **Live compass** with smooth animated rotation
-- **On-target glow** when facing Mecca
-- **Haptic feedback** at alignment (configurable)
+- **Live compass** with ultra-smooth animated rotation backed by native device sensors
+- **On-target glow** when facing the Kaaba
+- **Haptic feedback** at precise alignment
 - **Calibration hints** for accuracy
 
-### 🔔 Adhan Notifications
+### 🔔 Smart Adhan Notifications
+- **Persistent Live Android Dashboard Notification** displaying exactly what prayer is next and how much time remains
 - **Full-screen takeover** for prayer calls
 - **Beautiful Adhan audio** playback
-- **Hardware button** support to stop (volume keys)
+- **Hardware button support** to instantly dismiss alerts (power and volume keys)
 - **Per-prayer alert modes**: Sound, Vibrate, Silent
 
-### ⚙️ Settings
-- **Bilingual**: Arabic / English toggle
-- **Location picker** with OpenStreetMap search
-- **Theme controls** (coming soon)
-- **RTL/LTR** full support
+### ⚙️ Settings & Localization
+- **Bilingual Interface**: Seamless Arabic / English toggle dynamically shifting layouts
+- **Hybrid Location Engine**:
+  - Uses native device APIs (geocoding) for fast, free, and efficient reverse GPS lookups
+  - Features a custom local offline dictionary to instantly translate global city names to Arabic across MENA and beyond
+  - Employs OpenStreetMap (Nominatim) solely for manual city searches
+- **RTL/LTR** native support
 
 ---
 
 ## 🎨 Design Language
 
-### Apple Liquid Glass
-Premium glassmorphism inspired by iOS Control Center:
-- **BackdropFilter blur** (sigma 20-22)
-- **Vibrancy overlay** (white gradient for saturation pop)
-- **Subtle noise texture** (procedural, cached)
-- **Thin borders** (0.5px, 15% white)
+### Apple Liquid Glass Aesthetics
+Premium glassmorphism inspired by modern iOS paradigms:
+- **Low-opacity BackdropFilter blur** (sigma 3.0 uniformly)
+- **Vibrancy overlay** dropping heavy noise textures in favor of clean frosted glass
+- **Thin borders** seamlessly blending with custom breathtaking Islamic geometric backdrops
 
 ### Typography
-- **Tajawal** Google Font for Arabic & Latin
-- **Western digits** (0-9) always, never Arabic-Indic
-- **True centering** for numbers (symbols positioned separately)
+- **Tajawal** Google Font for elegant Arabic & Latin script
+- **Western digits** (0-9) enforced universally for absolute cross-cultural clarity
+- **True centering** for timestamps
 
 ### Navigation
-- **Floating glassmorphism navbar** with sliding indicator
-- **Swipe navigation** between screens
-- **Smooth animations** (300ms ease-out-cubic)
+- **Floating glassmorphism navbar** with a sliding pill indicator
+- **Impeller rendering engine** enabled for guaranteed 120fps butter-smooth PageView swipe animations
+- Zero jank with pre-compiled runtime blur shaders
 
 ---
 
@@ -57,44 +59,26 @@ Premium glassmorphism inspired by iOS Control Center:
 
 | Screen | Description |
 |--------|-------------|
-| **Home** | Analog + digital clock, Hijri date, prayer status with countdown |
-| **Prayer Times** | All 5 daily prayers with times, alert mode toggles |
+| **Dashboard** | Unified Analog glowing clock + Digital time, Hijri date, and active prayer countdown stack |
+| **Prayer Times** | All 5 daily prayers with localized times and quick alert mode toggles |
 | **Qibla** | Live compass with Kaaba indicator and alignment glow |
-| **Settings** | Language, location, controls, about |
+| **Settings** | Language toggles, manual Hijri offset calibration, controls, and app information |
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Tech Stack & Architecture
 
 ```yaml
 Framework: Flutter 3.7+
 Language: Dart
-State: ChangeNotifier + Provider pattern
-API: Al-Adhan (prayer times), Nominatim (geocoding)
-Storage: SharedPreferences
+Engine: Impeller Acceleration
+State Management: Strictly Singleton-Provider Architecture
+Prayer Backend: Offline 'adhan' package (pure mathematics)
+Hijri Backend: Offline 'hijri' native package
+Geocoding: Hybrid Native 'geocoding' package + offline Translation Map
+Storage: SharedPreferences (with native Android Service cache bridges)
 Audio: just_audio
-Notifications: flutter_local_notifications
-```
-
----
-
-## 📂 Project Structure
-
-```
-lib/
-├── core/
-│   ├── localization/     # Arabic/English strings, RTL support
-│   └── theme/            # Colors, gradients, glass decorations
-├── data/
-│   ├── models/           # API response models
-│   └── services/         # Cache, API, audio services
-├── domain/
-│   └── providers/        # Prayer times, Qibla, Hijri providers
-├── presentation/
-│   ├── navigation/       # App shell, page controller
-│   ├── screens/          # Home, Prayer Times, Qibla, Settings
-│   └── widgets/          # AppleGlassCard, FloatingNavBar, etc.
-└── main.dart
+Notifications: flutter_local_notifications (with deeply integrated Kotlin Foreground Service)
 ```
 
 ---
@@ -103,8 +87,8 @@ lib/
 
 Built with ❤️ for Muslims worldwide.
 
-- Prayer times: [Al-Adhan API](https://aladhan.com/prayer-times-api)
-- Geocoding: [Nominatim / OpenStreetMap](https://nominatim.org/)
+- Offline Equations: [Adhan Package](https://pub.dev/packages/adhan)
+- Manual Search: [Nominatim / OpenStreetMap](https://nominatim.org/)
 - Typography: [Google Fonts - Tajawal](https://fonts.google.com/specimen/Tajawal)
 
 ---
