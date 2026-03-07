@@ -24,11 +24,6 @@ enum PrayerDataState {
 /// Provider to manage prayer times data from AlAdhan API using GPS
 /// Implements OFFLINE-FIRST behavior: loads from cache first, only refreshes when needed
 class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver {
-  // Singleton pattern to share state across HomeScreen and PrayerTimesScreen
-  static final PrayerTimesApiProvider _instance = PrayerTimesApiProvider._internal();
-  factory PrayerTimesApiProvider() => _instance;
-  static PrayerTimesApiProvider get instance => _instance;
-
   final PrayerTimesApiService _apiService = PrayerTimesApiService();
   final PrayerTimesCacheService _cacheService = PrayerTimesCacheService();
   final BilingualLocationService _locationService = BilingualLocationService();
@@ -59,6 +54,9 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
   bool _cacheIsToday = false;
   String? _prayerTimesDate;
   Timer? _midnightTimer;
+
+  // Singleton instance
+  static final PrayerTimesApiProvider instance = PrayerTimesApiProvider._internal();
 
   PrayerTimesApiProvider._internal() {
     WidgetsBinding.instance.addObserver(this);
@@ -224,21 +222,18 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
   /// Initialize - CACHE FIRST, instant rendering, background refresh
   /// Phase A: Load from cache immediately and notify
   /// Phase B: Background refresh (unawaited) if needed
-  Future<void>? _initFuture;
+  bool _initialized = false;
 
-  Future<void> initialize() {
+  Future<void> initialize() async {
     debugPrint('[PrayerTimesApiProvider] initialize() called');
 
-    // Guard against multiple initializations by sharing the future
-    if (_initFuture != null) {
-      debugPrint('[PrayerTimesApiProvider] Already initializing/initialized, sharing future');
-      return _initFuture!;
+    // Guard against multiple initializations
+    if (_initialized) {
+      debugPrint('[PrayerTimesApiProvider] Already initialized, skipping');
+      return;
     }
-    _initFuture = _doInitialize();
-    return _initFuture!;
-  }
+    _initialized = true;
 
-  Future<void> _doInitialize() async {
     _deviceTimezone = DateTime.now().timeZoneName;
 
     // Load settings synchronously-ish

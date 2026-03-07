@@ -16,6 +16,7 @@ import '../widgets/location_picker_sheet.dart';
 import '../widgets/adhan_selection_sheet.dart';
 import '../widgets/glass_container.dart';
 import '../../data/services/adhan_selection_service.dart';
+import 'package:provider/provider.dart';
 
 /// Prayer times screen with AlAdhan API + GPS integration
 class PrayerTimesScreen extends StatefulWidget {
@@ -26,7 +27,7 @@ class PrayerTimesScreen extends StatefulWidget {
 }
 
 class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
-  final PrayerTimesApiProvider _provider = PrayerTimesApiProvider();
+  late final PrayerTimesApiProvider _provider;
   final HijriDateProvider _hijriProvider = HijriDateProvider();
   final AlertModeService _alertModeService = AlertModeService();
   Timer? _countdownTimer;
@@ -39,19 +40,15 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   @override
   void initState() {
     super.initState();
+    _provider = context.read<PrayerTimesApiProvider>();
     _initializePrayerTimes();
   }
 
   Future<void> _initializePrayerTimes() async {
-    _provider.addListener(_onProviderUpdate);
-    await _provider.initialize();
+    // _provider is initialized globally in main.dart
     await _hijriProvider.initialize();
     await _loadAlertModes();
     _startCountdownTimer();
-    if (mounted) setState(() {});
-  }
-
-  void _onProviderUpdate() {
     if (mounted) setState(() {});
   }
 
@@ -81,7 +78,6 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
 
   @override
   void dispose() {
-    _provider.removeListener(_onProviderUpdate);
     _countdownTimer?.cancel();
     super.dispose();
   }

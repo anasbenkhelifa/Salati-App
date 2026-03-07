@@ -3,18 +3,11 @@ import '../../data/services/hijri_date_service.dart';
 
 /// Provider to manage Hijri date state
 class HijriDateProvider extends ChangeNotifier {
-  // Singleton pattern to share state across HomeScreen and PrayerTimesScreen
-  static final HijriDateProvider _instance = HijriDateProvider._internal();
-  factory HijriDateProvider() => _instance;
-  static HijriDateProvider get instance => _instance;
-
   final HijriDateService _service = HijriDateService();
 
   HijriDate? _hijriDate;
   bool _isLoading = false;
   String? _error;
-
-  HijriDateProvider._internal();
 
   HijriDate? get hijriDate => _hijriDate;
   bool get isLoading => _isLoading;
@@ -38,17 +31,10 @@ class HijriDateProvider extends ChangeNotifier {
     return isArabic ? _hijriDate!.weekdayAr : _hijriDate!.weekdayEn;
   }
 
-  Future<void>? _initFuture;
-
   /// Initialize and fetch today's Hijri date
-  Future<void> initialize() {
-    if (_hijriDate != null) return Future.value(); // Already loaded
-    if (_initFuture != null) return _initFuture!;
-    _initFuture = _doInitialize();
-    return _initFuture!;
-  }
+  Future<void> initialize() async {
+    if (_hijriDate != null) return; // Already loaded
 
-  Future<void> _doInitialize() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -67,7 +53,6 @@ class HijriDateProvider extends ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
-    _initFuture = null; // Clear future so refresh can trigger again
   }
 
   /// Refresh the Hijri date

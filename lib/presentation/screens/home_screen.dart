@@ -10,6 +10,7 @@ import '../../domain/providers/prayer_times_api_provider.dart';
 import '../../data/services/prayer_times_api_service.dart';
 import '../widgets/apple_glass_card.dart';
 import '../widgets/glass_container.dart';
+import 'package:provider/provider.dart';
 
 /// Home screen with LIVE clock, Hijri date, and Prayer Status
 class HomeScreen extends StatefulWidget {
@@ -23,7 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late Timer _timer;
   DateTime _now = DateTime.now();
   final HijriDateProvider _hijriProvider = HijriDateProvider();
-  final PrayerTimesApiProvider _prayerProvider = PrayerTimesApiProvider();
+  late final PrayerTimesApiProvider _prayerProvider;
 
   // Grace window: 30 minutes after a prayer
   static const int _graceWindowMinutes = 30;
@@ -42,6 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     });
     // Initialize providers
+    _prayerProvider = context.read<PrayerTimesApiProvider>();
     _initProviders();
   }
 
@@ -52,7 +54,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Then initialize - providers will notifyListeners when data is loaded
     _hijriProvider.initialize();
-    await _prayerProvider.initialize();
+    
+    // PrayerTimesApiProvider is already initialized centrally in main.dart
+    // Just handle UI state retry if needed.
 
     // If prayer data is still null after first init, the cache might not have been ready.
     // Wait a bit and try again (handles first start timing issue)

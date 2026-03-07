@@ -6,8 +6,10 @@ import 'core/theme/app_theme_provider.dart';
 import 'core/localization/app_locale_controller.dart';
 import 'core/localization/app_locale_provider.dart';
 import 'presentation/navigation/app_shell.dart';
+import 'package:provider/provider.dart';
 import 'notification_manager.dart';
 import 'data/services/adhan_selection_service.dart';
+import 'domain/providers/prayer_times_api_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,10 +22,15 @@ void main() async {
     AdhanSelectionService.instance.initialize(),
   ]);
 
-  // NOTE: Hijri cache refresh moved to NotificationManager (non-blocking)
-  // This prevents slow network from blocking app startup
+  // Initialize PrayerTimes centrally
+  await PrayerTimesApiProvider.instance.initialize();
 
-  runApp(const AdhanApp());
+  runApp(
+    ChangeNotifierProvider.value(
+      value: PrayerTimesApiProvider.instance,
+      child: const AdhanApp(),
+    ),
+  );
 }
 
 class AdhanApp extends StatefulWidget {
