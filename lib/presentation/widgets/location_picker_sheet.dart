@@ -37,6 +37,21 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
   bool _hasError = false;
   Timer? _debounceTimer;
 
+  bool _isAnimating = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Bottom sheet animation duration is typically ~300-350ms
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (mounted) {
+        setState(() {
+          _isAnimating = false;
+        });
+      }
+    });
+  }
+
   @override
   void dispose() {
     _debounceTimer?.cancel();
@@ -114,16 +129,16 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
           decoration: BoxDecoration(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             // Theme-aware background
-            color: AppTheme.isLightMode ? Colors.white : null,
+            color: AppTheme.isLightMode ? Colors.white.withOpacity(0.85) : null,
             gradient:
                 AppTheme.isLightMode
                     ? null
-                    : const LinearGradient(
+                    : LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Color(0xFF1B263B), // Lighter navy at top
-                        Color(0xFF0D1B2A), // Darker navy at bottom
+                        const Color(0xFF1B263B).withOpacity(0.85), // Lighter navy at top
+                        const Color(0xFF0D1B2A).withOpacity(0.85), // Darker navy at bottom
                       ],
                     ),
           ),
@@ -146,26 +161,42 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                         _buildFooter(context, isArabic),
                       ],
                     )
-                    : RepaintBoundary(
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                          child: Column(
+                    : _isAnimating
+                        ? Column(
                             children: [
                               // Header
                               _buildHeader(context, isArabic),
-    
+      
                               // Search field
                               _buildSearchField(context, isArabic),
-    
+      
                               // Results list
                               Expanded(child: _buildResultsList(context, isArabic)),
-    
+      
                               // Footer buttons
                               _buildFooter(context, isArabic),
                             ],
+                          )
+                        : RepaintBoundary(
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+                              child: Column(
+                                children: [
+                                  // Header
+                                  _buildHeader(context, isArabic),
+        
+                                  // Search field
+                                  _buildSearchField(context, isArabic),
+        
+                                  // Results list
+                                  Expanded(child: _buildResultsList(context, isArabic)),
+        
+                                  // Footer buttons
+                                  _buildFooter(context, isArabic),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
           ),
         ),
       ),

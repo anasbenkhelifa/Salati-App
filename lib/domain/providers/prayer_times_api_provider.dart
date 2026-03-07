@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:flutter/widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
@@ -21,7 +23,7 @@ enum PrayerDataState {
 
 /// Provider to manage prayer times data from AlAdhan API using GPS
 /// Implements OFFLINE-FIRST behavior: loads from cache first, only refreshes when needed
-class PrayerTimesApiProvider extends ChangeNotifier {
+class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver {
   final PrayerTimesApiService _apiService = PrayerTimesApiService();
   final PrayerTimesCacheService _cacheService = PrayerTimesCacheService();
   final BilingualLocationService _locationService = BilingualLocationService();
@@ -50,6 +52,51 @@ class PrayerTimesApiProvider extends ChangeNotifier {
   String _deviceTimezone = '';
   bool _isFromCache = false;
   bool _cacheIsToday = false;
+  String? _prayerTimesDate;
+  Timer? _midnightTimer;
+
+  PrayerTimesApiProvider() {
+    WidgetsBinding.instance.addObserver(this);
+    _setupMidnightTimer();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _midnightTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkMidnightAndRefresh();
+    }
+  }
+
+  void _checkMidnightAndRefresh() { // Dual-architecture refresh
+    if (_prayerTimesDate == null || _latitude == null || _longitude == null) return;
+    
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    if (_prayerTimesDate != today) {
+      debugPrint('[PrayerTimesApiProvider] Midnight passed! Auto-refreshing prayer times...');
+      _setupMidnightTimer(); // Re-schedule next midnight precisely
+      _refreshPrayerTimesOnly(_latitude!, _longitude!, today);
+    }
+  }
+
+  void _setupMidnightTimer() {
+    _midnightTimer?.cancel();
+    final now = DateTime.now();
+    // Schedule exactly 1 second after midnight tomorrow
+    final tomorrow = DateTime(now.year, now.month, now.day + 1, 0, 0, 1);
+    final durationToMidnight = tomorrow.difference(now);
+    
+    _midnightTimer = Timer(durationToMidnight, () {
+      debugPrint('[PrayerTimesApiProvider] Midnight Timer fired!');
+      _checkMidnightAndRefresh();
+    });
+  }
 
   // Getters
   PrayerDataState get state => _state;
@@ -236,6 +283,7 @@ class PrayerTimesApiProvider extends ChangeNotifier {
     _response = cached.prayerTimes;
     _isFromCache = true;
     _cacheIsToday = cached.isToday;
+    _prayerTimesDate = cached.prayerTimesDate;
     _state = PrayerDataState.success;
 
     // NOTIFY UI IMMEDIATELY - Home can now render with cached data
@@ -297,6 +345,7 @@ class PrayerTimesApiProvider extends ChangeNotifier {
       _requestUrl = response.requestUrl;
       _isFromCache = false;
       _isOfflineMode = false;
+      _prayerTimesDate = dateStr;
       _state = PrayerDataState.success;
 
       // Update cache with new prayer times
@@ -436,6 +485,7 @@ class PrayerTimesApiProvider extends ChangeNotifier {
       _requestUrl = response.requestUrl;
       _isFromCache = false;
       _lastUpdatedAt = DateTime.now();
+      _prayerTimesDate = today;
 
       // Save to cache (don't await - run in background)
       _cacheService.saveAppState(
@@ -558,6 +608,7 @@ class PrayerTimesApiProvider extends ChangeNotifier {
       _isFromCache = false;
       _isOfflineMode = false;
       _lastUpdatedAt = DateTime.now();
+      _prayerTimesDate = today;
 
       // Save to cache (don't await)
       _cacheService.saveAppState(
