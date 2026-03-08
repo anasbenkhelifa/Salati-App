@@ -453,35 +453,14 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
         '[PrayerTimesApiProvider] Got position: $_latitude, $_longitude',
       );
 
-      // OPTIMIZATION: Run all API calls in parallel
+      // OPTIMIZATION: Resolve location first to get country code
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-      debugPrint('[PrayerTimesApiProvider] Fetching data in parallel...');
-      final results = await Future.wait([
-        // 1. Reverse geocode
-        _locationService.getLocationNames(
-          position.latitude,
-          position.longitude,
-        ),
-        // 2. Prayer times
-        _apiService.fetchPrayerTimesByCoordinates(
-          latitude: position.latitude,
-          longitude: position.longitude,
-          method: _method,
-          madhab: _madhab,
-          date: DateTime.now(),
-        ),
-        // 3. Qibla (from IslamicAPI - included in prayer times response but fetch separately for reliability)
-        _qiblaApiService.fetchQiblaDirection(
-          latitude: position.latitude,
-          longitude: position.longitude,
-        ),
-      ], eagerError: false);
-
-      // Process results
-      final location = results[0];
-      final response = results[1] as AlAdhanResponse;
-      final qiblaResponse = results[2];
+      debugPrint('[PrayerTimesApiProvider] Resolving location & country code...');
+      final location = await _locationService.getLocationNames(
+        position.latitude,
+        position.longitude,
+      );
 
       if (location != null) {
         final loc = location as BilingualLocation;
@@ -496,6 +475,27 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
           _method = PrayerMethodResolver.resolveFromCountry(_isoCountryCode);
         }
       }
+
+      debugPrint('[PrayerTimesApiProvider] Fetching data in parallel using resolved method...');
+      final results = await Future.wait([
+        // 1. Prayer times
+        _apiService.fetchPrayerTimesByCoordinates(
+          latitude: position.latitude,
+          longitude: position.longitude,
+          method: _method,
+          madhab: _madhab,
+          date: DateTime.now(),
+        ),
+        // 2. Qibla (from IslamicAPI - included in prayer times response but fetch separately for reliability)
+        _qiblaApiService.fetchQiblaDirection(
+          latitude: position.latitude,
+          longitude: position.longitude,
+        ),
+      ], eagerError: false);
+
+      // Process results
+      final response = results[0] as AlAdhanResponse;
+      final qiblaResponse = results[1];
 
       _response = response;
       _requestUrl = response.requestUrl;
@@ -584,34 +584,14 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
       _latitude = position.latitude;
       _longitude = position.longitude;
 
-      // OPTIMIZATION: Run all API calls in parallel
+      // OPTIMIZATION: Resolve location first to get country code
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-      final results = await Future.wait([
-        // 1. Reverse geocode
-        _locationService.getLocationNames(
-          position.latitude,
-          position.longitude,
-        ),
-        // 2. Prayer times
-        _apiService.fetchPrayerTimesByCoordinates(
-          latitude: position.latitude,
-          longitude: position.longitude,
-          method: _method,
-          madhab: _madhab,
-          date: DateTime.now(),
-        ),
-        // 3. Qibla
-        _qiblaApiService.fetchQiblaDirection(
-          latitude: position.latitude,
-          longitude: position.longitude,
-        ),
-      ], eagerError: false);
-
-      // Process results
-      final location = results[0];
-      final response = results[1] as AlAdhanResponse;
-      final qiblaResponse = results[2];
+      debugPrint('[PrayerTimesApiProvider] Resolving location & country code...');
+      final location = await _locationService.getLocationNames(
+        position.latitude,
+        position.longitude,
+      );
 
       if (location != null) {
         final loc = location as BilingualLocation;
@@ -626,6 +606,27 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
           _method = PrayerMethodResolver.resolveFromCountry(_isoCountryCode);
         }
       }
+
+      debugPrint('[PrayerTimesApiProvider] Fetching data in parallel using resolved method...');
+      final results = await Future.wait([
+        // 1. Prayer times
+        _apiService.fetchPrayerTimesByCoordinates(
+          latitude: position.latitude,
+          longitude: position.longitude,
+          method: _method,
+          madhab: _madhab,
+          date: DateTime.now(),
+        ),
+        // 2. Qibla
+        _qiblaApiService.fetchQiblaDirection(
+          latitude: position.latitude,
+          longitude: position.longitude,
+        ),
+      ], eagerError: false);
+
+      // Process results
+      final response = results[0] as AlAdhanResponse;
+      final qiblaResponse = results[1];
 
       _response = response;
       _requestUrl = response.requestUrl;

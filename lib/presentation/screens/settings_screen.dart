@@ -9,10 +9,6 @@ import '../../core/localization/app_locale_provider.dart';
 import '../../data/services/adhan_playback_service.dart';
 import '../../domain/providers/qibla_provider.dart';
 import '../widgets/app_option_tile.dart';
-import '../../data/services/prayer_times_api_service.dart';
-import '../../data/services/prayer_method_resolver.dart';
-import '../../domain/providers/prayer_times_api_provider.dart';
-import 'package:provider/provider.dart';
 import '../widgets/glass_container.dart';
 import 'controls_screen.dart';
 
@@ -139,9 +135,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     if (kDebugMode) const SizedBox(height: 20),
                     // Language switcher
                     _buildLanguageSwitcher(context, localeController),
-                    const SizedBox(height: 12),
-                    // Prayer Calculation Method
-                    _buildPrayerMethodSelector(context),
                     const SizedBox(height: 12),
                     // Controls section (groups notifications, haptics, theme)
                     AppOptionTile.navigation(
@@ -479,169 +472,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildPrayerMethodSelector(BuildContext context) {
-    final provider = context.watch<PrayerTimesApiProvider>();
-    final isArabic = AppLocaleProvider.of(context).isArabic;
-
-    // Determine subtitle
-    String subtitle = '';
-    if (!provider.isManualMethod) {
-      subtitle = isArabic
-          ? 'تلقائي (${provider.method.nameAr})'
-          : 'Automatic (${provider.method.nameEn})';
-    } else {
-      subtitle = isArabic ? provider.method.nameAr : provider.method.nameEn;
-    }
-
-    return AppOptionTile.navigation(
-      icon: Icons.calculate_outlined,
-      title: isArabic ? 'طريقة الحساب' : 'Calculation Method',
-      subtitle: subtitle,
-      onTap: () => _showMethodSelector(context, provider),
-    );
-  }
-
-  void _showMethodSelector(BuildContext context, PrayerTimesApiProvider provider) {
-    HapticFeedback.lightImpact();
-    final isArabic = AppLocaleProvider.of(context).isArabic;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: BoxDecoration(
-          color: AppTheme.isLightMode
-              ? Colors.white
-              : (AppTheme.isIslamicMode ? AppTheme.islamicPrimaryNavy : const Color(0xFF1B263B)),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          children: [
-            const SizedBox(height: 16),
-            // Handle
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppTheme.currentTextSecondary.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            // Title
-            Text(
-              isArabic ? 'طريقة الحساب' : 'Calculation Method',
-              style: TextStyle(
-                color: AppTheme.currentTextPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                children: [
-                  // Automatic Option
-                  _buildMethodOption(
-                    context: context,
-                    title: isArabic ? 'تلقائي (موصى به)' : 'Automatic (Recommended)',
-                    subtitle: isArabic
-                        ? 'يتم اختياره حسب موقعك'
-                        : 'Automatically selected based on your location',
-                    isSelected: !provider.isManualMethod,
-                    onTap: () async {
-                      HapticFeedback.lightImpact();
-                      await provider.autoDetectMethod();
-                      if (context.mounted) Navigator.pop(context);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Divider(color: AppTheme.currentDivider),
-                  const SizedBox(height: 12),
-                  // Manual Options
-                  ...CalculationMethodId.values.map((method) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: _buildMethodOption(
-                        context: context,
-                        title: isArabic ? method.nameAr : method.nameEn,
-                        isSelected: provider.isManualMethod && provider.method == method,
-                        onTap: () async {
-                          HapticFeedback.lightImpact();
-                          await provider.setMethod(method, isManual: true);
-                          if (context.mounted) Navigator.pop(context);
-                        },
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMethodOption({
-    required BuildContext context,
-    required String title,
-    String? subtitle,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.currentActiveGlow.withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? AppTheme.currentActiveGlow.withOpacity(0.5) : AppTheme.inactiveBorder,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: isSelected ? AppTheme.currentActiveGlow : AppTheme.currentTextPrimary,
-                      fontSize: 16,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: AppTheme.currentTextSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (isSelected)
-              Icon(Icons.check_circle, color: AppTheme.currentActiveGlow, size: 24),
-          ],
-        ),
       ),
     );
   }
