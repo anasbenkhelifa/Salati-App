@@ -91,14 +91,14 @@ class AppTheme {
   static DecorationImage? get currentBackgroundImage {
     if (isIslamicMode) {
       return const DecorationImage(
-        image: AssetImage('assets/images/islamic_bg_pattern.png'),
+        image: AssetImage('assets/images/islamic_bg_pattern.webp'),
         fit: BoxFit.cover, 
         opacity: 0.6, // Blend the pattern smoothly with the gradient underneath
       );
     }
     if (isIslamicGreenMode) {
       return const DecorationImage(
-        image: AssetImage('assets/images/islamic_bg_pattern_green.png'),
+        image: AssetImage('assets/images/islamic_bg_pattern_green.webp'),
         fit: BoxFit.cover,
         opacity: 0.6,
       );
