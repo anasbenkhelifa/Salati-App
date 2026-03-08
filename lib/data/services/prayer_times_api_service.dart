@@ -158,7 +158,7 @@ enum CalculationMethodId {
   final String nameAr;
   const CalculationMethodId(this.id, this.nameEn, this.nameAr);
 
-  CalculationParameters get parameters {
+  CalculationParameters getParametersForDate(DateTime date) {
     switch (this) {
       case CalculationMethodId.mwl:
         return CalculationMethod.muslim_world_league.getParameters();
@@ -170,7 +170,7 @@ enum CalculationMethodId {
         final params = CalculationMethod.umm_al_qura.getParameters();
         params.ishaAngle = 0;
 
-        final hijri = HijriCalendar.now();
+        final hijri = HijriCalendar.fromDate(date);
         final isRamadan = hijri.hMonth == 9;
         params.ishaInterval = isRamadan ? 120 : 90;
 
@@ -247,7 +247,7 @@ class PrayerTimesApiService {
     debugPrint('[PrayerTimesApiService] Method: ${method.nameEn}, School: ${madhab.nameEn}');
 
     final coordinates = Coordinates(latitude, longitude);
-    final params = method.parameters;
+    final params = method.getParametersForDate(date);
     params.madhab = madhab.adhanMadhab;
     
     // Calculate Prayer Times natively using explicit timezone offset
