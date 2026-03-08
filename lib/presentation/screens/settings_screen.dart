@@ -623,7 +623,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   // Version
                   Text(
-                    isArabic ? 'الإصدار 1.0.0' : 'Version 1.0.0',
+                    isArabic ? 'الإصدار 2.0.4' : 'Version 2.0.4',
                     style: TextStyle(
                       color: AppTheme.currentTextSecondary.withOpacity(0.6),
                       fontSize: 14,
@@ -634,12 +634,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // Description
                   Text(
                     isArabic
-                        ? 'تطبيق إسلامي شامل لمواقيت الصلاة واتجاه القبلة والأذان'
-                        : 'A beautiful Islamic app for prayer times, Qibla direction, and Adhan',
+                        ? 'تطبيق إسلامي شامل يعمل بدون إنترنت مع واجهة زجاجية، مواقيت دقيقة، وإشعارات حية'
+                        : 'A fully offline, private, and beautifully unified Islamic app for accurate prayer times.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: AppTheme.currentTextSecondary,
-                      fontSize: 15,
+                      fontSize: 14,
                       height: 1.5,
                     ),
                   ),
@@ -655,30 +655,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       children: [
                         _aboutFeatureRow(
-                          Icons.access_time,
-                          isArabic
-                              ? 'مواقيت الصلاة الدقيقة'
-                              : 'Accurate Prayer Times',
+                          Icons.wifi_off_rounded,
+                          isArabic ? 'يعمل 100% بدون إنترنت ومستقل' : '100% Offline & Private',
                         ),
                         const SizedBox(height: 8),
                         _aboutFeatureRow(
-                          Icons.explore,
-                          isArabic ? 'بوصلة القبلة' : 'Qibla Compass',
+                          Icons.blur_on_rounded,
+                          isArabic ? 'مظاهر زجاجية قابلة للتخصيص' : 'Customizable Glass Themes',
+                        ),
+                        const SizedBox(height: 8),
+                        _aboutFeatureRow(
+                          Icons.access_time_filled,
+                          isArabic
+                              ? 'حسابات دقيقة تلقائية للمواقيت'
+                              : 'Precise Auto-Calculated Times',
                         ),
                         const SizedBox(height: 8),
                         _aboutFeatureRow(
                           Icons.notifications_active,
-                          isArabic ? 'أذان وتذكيرات' : 'Adhan & Reminders',
+                          isArabic ? 'إشعارات الأذان الحية في الخلفية' : 'Live Foreground Adhans',
                         ),
                         const SizedBox(height: 8),
                         _aboutFeatureRow(
-                          Icons.calendar_month,
-                          isArabic ? 'التقويم الهجري' : 'Hijri Calendar',
-                        ),
-                        const SizedBox(height: 8),
-                        _aboutFeatureRow(
-                          Icons.dark_mode,
-                          isArabic ? 'الوضع الليلي' : 'Dark Mode',
+                          Icons.explore,
+                          isArabic ? 'بوصلة القبلة وتقويم هجري' : 'Qibla Compass & Hijri Dates',
                         ),
                       ],
                     ),

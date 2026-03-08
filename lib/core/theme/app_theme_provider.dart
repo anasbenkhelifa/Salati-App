@@ -5,7 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 enum AppThemeMode {
   night, // Dark theme
   light, // Light mode
-  islamic, // Default Islamic patterned theme
+  islamic, // Default Islamic patterned theme (Blue)
+  islamicGreen, // Islamic patterned theme (Green)
 }
 
 /// Provider for app theme state with persistence
@@ -31,6 +32,7 @@ class AppThemeProvider extends ChangeNotifier {
   bool get isNightMode => _mode == AppThemeMode.night;
   bool get isLightMode => _mode == AppThemeMode.light;
   bool get isIslamicMode => _mode == AppThemeMode.islamic;
+  bool get isIslamicGreenMode => _mode == AppThemeMode.islamicGreen;
 
   /// Initialize and load persisted theme
   Future<void> initialize() async {

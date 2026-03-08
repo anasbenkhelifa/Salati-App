@@ -424,7 +424,9 @@ class _ThemeSelectorSheet extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.isLightMode 
             ? Colors.white 
-            : (AppTheme.isIslamicMode ? AppTheme.islamicPrimaryNavy : const Color(0xFF1B263B)),
+            : (AppTheme.isIslamicGreenMode 
+                ? AppTheme.islamicGreenPrimary 
+                : (AppTheme.isIslamicMode ? AppTheme.islamicPrimaryNavy : const Color(0xFF1B263B))),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.all(24),
@@ -452,51 +454,61 @@ class _ThemeSelectorSheet extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           // Theme cards
-          Row(
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.5,
             children: [
               // Night Mode
-              Expanded(
-                child: _ThemeCard(
-                  title: t(context, 'nightMode'),
-                  icon: Icons.dark_mode_rounded,
-                  isSelected: currentMode == AppThemeMode.night,
-                  previewGradient: AppTheme.nightBackgroundGradient,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    AppThemeProvider.instance.setTheme(AppThemeMode.night);
-                    Navigator.pop(context);
-                  },
-                ),
+              _ThemeCard(
+                title: t(context, 'nightMode'),
+                icon: Icons.dark_mode_rounded,
+                isSelected: currentMode == AppThemeMode.night,
+                previewGradient: AppTheme.nightBackgroundGradient,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  AppThemeProvider.instance.setTheme(AppThemeMode.night);
+                  Navigator.pop(context);
+                },
               ),
-              const SizedBox(width: 12),
-              // Islamic Mode
-              Expanded(
-                child: _ThemeCard(
-                  title: t(context, 'islamicMode'),
-                  icon: Icons.mosque_rounded,
-                  isSelected: currentMode == AppThemeMode.islamic,
-                  previewGradient: AppTheme.islamicBackgroundGradient,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    AppThemeProvider.instance.setTheme(AppThemeMode.islamic);
-                    Navigator.pop(context);
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
               // Light Mode
-              Expanded(
-                child: _ThemeCard(
-                  title: t(context, 'lightMode'),
-                  icon: Icons.light_mode_rounded,
-                  isSelected: currentMode == AppThemeMode.light,
-                  previewGradient: AppTheme.lightBackgroundGradient,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    AppThemeProvider.instance.setTheme(AppThemeMode.light);
-                    Navigator.pop(context);
-                  },
-                ),
+              _ThemeCard(
+                title: t(context, 'lightMode'),
+                icon: Icons.light_mode_rounded,
+                isSelected: currentMode == AppThemeMode.light,
+                previewGradient: AppTheme.lightBackgroundGradient,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  AppThemeProvider.instance.setTheme(AppThemeMode.light);
+                  Navigator.pop(context);
+                },
+              ),
+              // Islamic (Blue)
+              _ThemeCard(
+                title: t(context, 'islamicMode'),
+                icon: Icons.mosque_outlined,
+                isSelected: currentMode == AppThemeMode.islamic,
+                previewGradient: AppTheme.islamicBackgroundGradient,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  AppThemeProvider.instance.setTheme(AppThemeMode.islamic);
+                  Navigator.pop(context);
+                },
+              ),
+              // Islamic (Green)
+              _ThemeCard(
+                title: t(context, 'islamicGreenMode'),
+                icon: Icons.mosque_outlined,
+                isSelected: currentMode == AppThemeMode.islamicGreen,
+                previewGradient: AppTheme.islamicGreenBackgroundGradient,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  AppThemeProvider.instance.setTheme(AppThemeMode.islamicGreen);
+                  Navigator.pop(context);
+                },
               ),
             ],
           ),
