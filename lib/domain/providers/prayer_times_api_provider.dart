@@ -9,6 +9,7 @@ import '../../data/services/bilingual_location_service.dart';
 import '../../data/services/qibla_api_service.dart';
 import '../../data/services/adhan_alarm_service.dart';
 import '../../notification_manager.dart';
+import '../../data/services/prayer_method_resolver.dart';
 import 'qibla_provider.dart';
 
 /// State for the prayer times data
@@ -36,6 +37,7 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
 
   // Settings
   CalculationMethodId _method = CalculationMethodId.mwl;
+  bool _isManualMethod = false;
   MadhabId _madhab = MadhabId.shafi;
 
   // Location (from cache)
@@ -45,6 +47,7 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
   String _cityAr = '';
   String _countryEn = '';
   String _countryAr = '';
+  String _isoCountryCode = 'DZ';
   DateTime? _lastUpdatedAt;
 
   // Debug info
@@ -106,6 +109,7 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
   AlAdhanResponse? get response => _response;
   String? get errorMessage => _errorMessage;
   CalculationMethodId get method => _method;
+  bool get isManualMethod => _isManualMethod;
   MadhabId get madhab => _madhab;
   double? get latitude => _latitude;
   double? get longitude => _longitude;
@@ -238,6 +242,7 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
 
     // Load settings synchronously-ish
     _method = await _cacheService.loadMethod();
+    _isManualMethod = await _cacheService.loadIsManualMethod();
     _madhab = await _cacheService.loadMadhab();
 
     // Check if setup was already done
@@ -281,6 +286,7 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
     _countryEn = cached.countryEn;
     _countryAr = cached.countryAr;
     _method = cached.method;
+    _isManualMethod = cached.isManualMethod;
     _madhab = cached.madhab;
     _lastUpdatedAt = cached.updatedAt;
     _response = cached.prayerTimes;
@@ -478,10 +484,17 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
       final qiblaResponse = results[2];
 
       if (location != null) {
-        _cityEn = (location as dynamic).cityEn ?? '';
-        _cityAr = (location as dynamic).cityAr ?? '';
-        _countryEn = (location as dynamic).countryEn ?? '';
-        _countryAr = (location as dynamic).countryAr ?? '';
+        final loc = location as BilingualLocation;
+        _cityEn = loc.cityEn;
+        _cityAr = loc.cityAr;
+        _countryEn = loc.countryEn;
+        _countryAr = loc.countryAr;
+        _isoCountryCode = loc.isoCountryCode;
+        
+        // Auto-detect method if user hasn't explicitly set one manually
+        if (!_isManualMethod) {
+          _method = PrayerMethodResolver.resolveFromCountry(_isoCountryCode);
+        }
       }
 
       _response = response;
@@ -501,6 +514,7 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
         prayerTimes: response,
         prayerTimesDate: today,
         method: _method,
+        isManualMethod: _isManualMethod,
         madhab: _madhab,
       );
 
@@ -600,10 +614,17 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
       final qiblaResponse = results[2];
 
       if (location != null) {
-        _cityEn = (location as dynamic).cityEn ?? '';
-        _cityAr = (location as dynamic).cityAr ?? '';
-        _countryEn = (location as dynamic).countryEn ?? '';
-        _countryAr = (location as dynamic).countryAr ?? '';
+        final loc = location as BilingualLocation;
+        _cityEn = loc.cityEn;
+        _cityAr = loc.cityAr;
+        _countryEn = loc.countryEn;
+        _countryAr = loc.countryAr;
+        _isoCountryCode = loc.isoCountryCode;
+
+        // Auto-detect method if user hasn't explicitly set one manually
+        if (!_isManualMethod) {
+          _method = PrayerMethodResolver.resolveFromCountry(_isoCountryCode);
+        }
       }
 
       _response = response;
@@ -624,6 +645,7 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
         prayerTimes: response,
         prayerTimesDate: today,
         method: _method,
+        isManualMethod: _isManualMethod,
         madhab: _madhab,
       );
 
@@ -657,10 +679,11 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
   }
 
   /// Update calculation method and refetch
-  Future<void> setMethod(CalculationMethodId method) async {
-    if (_method != method) {
+  Future<void> setMethod(CalculationMethodId method, {bool isManual = true}) async {
+    if (_method != method || _isManualMethod != isManual) {
       _method = method;
-      await _cacheService.saveMethod(method);
+      _isManualMethod = isManual;
+      await _cacheService.saveMethod(method, isManual: isManual);
 
       // Refresh prayer times with new method (using cached location)
       if (_latitude != null && _longitude != null) {
@@ -668,6 +691,12 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
         await _refreshPrayerTimesOnly(_latitude!, _longitude!, today);
       }
     }
+  }
+
+  /// Automatically resolve method based on country code
+  Future<void> autoDetectMethod() async {
+    final detectedMethod = PrayerMethodResolver.resolveFromCountry(_isoCountryCode);
+    await setMethod(detectedMethod, isManual: false);
   }
 
   /// Update madhab and refetch

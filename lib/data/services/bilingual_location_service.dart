@@ -12,6 +12,7 @@ class BilingualLocation {
   final String cityAr;
   final String countryEn;
   final String countryAr;
+  final String isoCountryCode;
 
   BilingualLocation({
     required this.latitude,
@@ -20,6 +21,7 @@ class BilingualLocation {
     required this.cityAr,
     required this.countryEn,
     required this.countryAr,
+    required this.isoCountryCode,
   });
 
   /// Get FULL display name (Country • City) for Prayer Times screen
@@ -48,6 +50,7 @@ class BilingualLocation {
     'cityAr': cityAr,
     'countryEn': countryEn,
     'countryAr': countryAr,
+    'isoCountryCode': isoCountryCode,
   };
 
   /// Factory from cached JSON
@@ -59,6 +62,7 @@ class BilingualLocation {
       cityAr: json['cityAr'] ?? '',
       countryEn: json['countryEn'] ?? '',
       countryAr: json['countryAr'] ?? '',
+      isoCountryCode: json['isoCountryCode'] ?? 'DZ',
     );
   }
 }
@@ -89,6 +93,8 @@ class BilingualLocationService {
         final cityEn = enResult['city'] ?? '';
         final countryEn = enResult['country'] ?? '';
 
+        final isoCountryCode = enResult['isoCountryCode'] ?? 'DZ';
+
         // Attempt to translate via local mapping, otherwise fallback to English
         final cityAr = CityTranslations.lookup(cityEn) ?? cityEn;
         final countryAr = CityTranslations.lookup(countryEn) ?? countryEn;
@@ -100,6 +106,7 @@ class BilingualLocationService {
           cityAr: cityAr,
           countryEn: countryEn,
           countryAr: countryAr,
+          isoCountryCode: isoCountryCode,
         );
 
         // Cache the result
@@ -130,6 +137,7 @@ class BilingualLocationService {
         return {
           'city': place.locality ?? place.subLocality ?? place.administrativeArea ?? '',
           'country': place.country ?? '',
+          'isoCountryCode': place.isoCountryCode ?? 'DZ',
         };
       }
     } catch (e) {

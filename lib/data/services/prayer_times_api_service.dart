@@ -148,7 +148,9 @@ enum CalculationMethodId {
   singapore(11, 'Singapore', 'سنغافورة'),
   tehran(7, 'Tehran', 'طهران'),
   turkey(13, 'Turkey (Diyanet)', 'تركيا (ديانت)'),
-  algeria(19, 'Algeria (Ministry of Religious Affairs)', 'الجزائر (وزارة الشؤون الدينية)');
+  algeria(19, 'Algeria (Ministry of Religious Affairs)', 'الجزائر (وزارة الشؤون الدينية)'),
+  france(20, 'Grande Mosquée de Paris', 'مسجد باريس الكبير'),
+  jakim(21, 'JAKIM (Malaysia)', 'جاكيم (ماليزيا)');
 
   final int id;
   final String nameEn;
@@ -182,6 +184,10 @@ enum CalculationMethodId {
       case CalculationMethodId.algeria:
         // Algerian parameters are typically 18 deg Fajr and 17 deg Isha, exactly matching MWL.
         return CalculationMethod.muslim_world_league.getParameters();
+      case CalculationMethodId.france:
+        return CalculationParameters(fajrAngle: 12, ishaAngle: 12);
+      case CalculationMethodId.jakim:
+        return CalculationParameters(fajrAngle: 20, ishaAngle: 18);
     }
   }
 }

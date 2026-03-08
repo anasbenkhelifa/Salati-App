@@ -15,6 +15,7 @@ class CachedAppState {
   final AlAdhanResponse? prayerTimes;
   final String prayerTimesDate; // yyyy-MM-dd
   final CalculationMethodId method;
+  final bool isManualMethod;
   final MadhabId madhab;
   final DateTime updatedAt;
 
@@ -30,6 +31,7 @@ class CachedAppState {
     required this.method,
     required this.madhab,
     required this.updatedAt,
+    required this.isManualMethod,
   });
 
   /// Check if prayer times are for today
@@ -70,6 +72,7 @@ class PrayerTimesCacheService {
   static const _keyPrayerTimesJson = 'cached_prayer_times_json';
   static const _keyPrayerTimesDate = 'cached_prayer_times_date';
   static const _keyMethodId = 'cached_method_id';
+  static const _keyIsManualMethod = 'cached_is_manual_method';
   static const _keyMadhabId = 'cached_madhab_id';
   static const _keyUpdatedAt = 'cached_updated_at';
 
@@ -118,6 +121,7 @@ class PrayerTimesCacheService {
     required AlAdhanResponse prayerTimes,
     required String prayerTimesDate,
     required CalculationMethodId method,
+    required bool isManualMethod,
     required MadhabId madhab,
   }) async {
     final prefs = await _preferences;
@@ -134,6 +138,7 @@ class PrayerTimesCacheService {
     );
     await prefs.setString(_keyPrayerTimesDate, prayerTimesDate);
     await prefs.setInt(_keyMethodId, method.id);
+    await prefs.setBool(_keyIsManualMethod, isManualMethod);
     await prefs.setInt(_keyMadhabId, madhab.id);
     await prefs.setInt(_keyUpdatedAt, DateTime.now().millisecondsSinceEpoch);
 
@@ -169,6 +174,7 @@ class PrayerTimesCacheService {
     final prayerTimesJson = prefs.getString(_keyPrayerTimesJson);
     final prayerTimesDate = prefs.getString(_keyPrayerTimesDate) ?? '';
     final methodId = prefs.getInt(_keyMethodId) ?? 3;
+    final isManualMethod = prefs.getBool(_keyIsManualMethod) ?? false;
     final madhabId = prefs.getInt(_keyMadhabId) ?? 1;
     final updatedAt = prefs.getInt(_keyUpdatedAt) ?? 0;
 
@@ -208,6 +214,7 @@ class PrayerTimesCacheService {
       prayerTimes: prayerTimes,
       prayerTimesDate: prayerTimesDate,
       method: method,
+      isManualMethod: isManualMethod,
       madhab: madhab,
       updatedAt: DateTime.fromMillisecondsSinceEpoch(updatedAt),
     );
@@ -233,10 +240,23 @@ class PrayerTimesCacheService {
   // ========== SETTINGS (legacy support) ==========
 
   /// Save calculation method setting
-  Future<void> saveMethod(CalculationMethodId method) async {
+  Future<void> saveMethod(CalculationMethodId method, {bool isManual = true}) async {
     final prefs = await _preferences;
     await prefs.setInt(_keySettingsMethod, method.id);
     await prefs.setInt(_keyMethodId, method.id);
+    await prefs.setBool(_keyIsManualMethod, isManual);
+  }
+
+  /// Revert to auto detection
+  Future<void> clearManualMethod() async {
+    final prefs = await _preferences;
+    await prefs.setBool(_keyIsManualMethod, false);
+  }
+
+  /// Is method manually selected
+  Future<bool> loadIsManualMethod() async {
+    final prefs = await _preferences;
+    return prefs.getBool(_keyIsManualMethod) ?? false;
   }
 
   /// Load calculation method setting
