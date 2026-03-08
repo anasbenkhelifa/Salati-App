@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:adhan/adhan.dart';
 import 'package:intl/intl.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:lat_lng_to_timezone/lat_lng_to_timezone.dart' as tzmap;
 
 /// Legacy models kept for backwards compatibility with the app architecture
 class AlAdhanTimings {
@@ -208,26 +210,42 @@ class PrayerTimesApiService {
     DateTime? date,
   }) async {
     date ??= DateTime.now();
-    final tz = date.timeZoneName;
+
+    // Fix: Resolve offline timezone string precisely from lat/lng
+    String tzName = tzmap.latLngToTimezoneString(latitude, longitude);
+    if (tzName == 'unknown' || tzName.isEmpty) {
+      tzName = 'UTC'; // Fallback if absolutely necessary
+    }
+
+    // Get current offset for that timezone (this dynamically handles Daylight Savings Time)
+    final location = tz.getLocation(tzName);
+    final nowTimezone = tz.TZDateTime.from(date, location);
+    final offsetSeconds = nowTimezone.timeZoneOffset.inSeconds;
+
+    final utcOffset = Duration(seconds: offsetSeconds);
+    
+    // We also want to correctly set the meta timezone to the resolved one
+    final metaTimezoneOffset = nowTimezone.timeZoneName;
 
     debugPrint('[PrayerTimesApiService] ========== OFFLINE CALCULATION ==========');
     debugPrint('[PrayerTimesApiService] Lat: $latitude, Lng: $longitude');
+    debugPrint('[PrayerTimesApiService] Timezone: $tzName (Offset: ${utcOffset.inHours}h ${utcOffset.inMinutes.remainder(60)}m)');
     debugPrint('[PrayerTimesApiService] Method: ${method.nameEn}, School: ${madhab.nameEn}');
 
     final coordinates = Coordinates(latitude, longitude);
     final params = method.parameters;
     params.madhab = madhab.adhanMadhab;
     
-    // Calculate Prayer Times natively
+    // Calculate Prayer Times natively using explicit timezone offset
     final dateComponents = DateComponents.from(date);
-    final prayers = PrayerTimes(coordinates, dateComponents, params);
+    final prayers = PrayerTimes(coordinates, dateComponents, params, utcOffset: utcOffset);
 
     final formatter = DateFormat('HH:mm');
 
     // Calculate Midnight (between Maghrib and Fajr next day) natively if needed, 
     // or estimate it (halfway between sunset and sunrise)
     final tomorrow = date.add(const Duration(days: 1));
-    final tomorrowPrayers = PrayerTimes(coordinates, DateComponents.from(tomorrow), params);
+    final tomorrowPrayers = PrayerTimes(coordinates, DateComponents.from(tomorrow), params, utcOffset: utcOffset);
     
     // In Islam, night usually starts at Maghrib and ends at Fajr. Midnight is halfway.
     final nightDuration = tomorrowPrayers.fajr.difference(prayers.maghrib);
@@ -252,7 +270,7 @@ class PrayerTimesApiService {
     return AlAdhanResponse(
       timings: timings,
       meta: AlAdhanMeta(
-        timezone: tz,
+        timezone: tzName,
         method: method.nameEn,
         school: madhab.nameEn,
         latitude: latitude,

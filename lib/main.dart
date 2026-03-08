@@ -10,9 +10,11 @@ import 'package:provider/provider.dart';
 import 'notification_manager.dart';
 import 'data/services/adhan_selection_service.dart';
 import 'domain/providers/prayer_times_api_provider.dart';
+import 'package:timezone/data/latest.dart' as tz_data;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  tz_data.initializeTimeZones();
 
   // Initialize date formatting and theme in parallel
   await Future.wait([
