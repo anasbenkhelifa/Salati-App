@@ -3,6 +3,7 @@ import 'package:adhan/adhan.dart';
 import 'package:intl/intl.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:lat_lng_to_timezone/lat_lng_to_timezone.dart' as tzmap;
+import 'package:hijri/hijri_calendar.dart';
 
 /// Legacy models kept for backwards compatibility with the app architecture
 class AlAdhanTimings {
@@ -168,7 +169,11 @@ enum CalculationMethodId {
       case CalculationMethodId.ummAlQura:
         final params = CalculationMethod.umm_al_qura.getParameters();
         params.ishaAngle = 0;
-        params.ishaInterval = 90;
+
+        final hijri = HijriCalendar.now();
+        final isRamadan = hijri.hMonth == 9;
+        params.ishaInterval = isRamadan ? 120 : 90;
+
         return params;
       case CalculationMethodId.karachi:
         return CalculationMethod.karachi.getParameters();
