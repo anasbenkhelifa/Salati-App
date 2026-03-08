@@ -313,19 +313,14 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
     }
   }
 
-  /// Phase B: Background refresh if cache is stale (unawaited, non-blocking)
+  /// Phase B: Background refresh - always recalculate to ensure params are fresh
+  /// (e.g. Isha interval changes depending on Ramadan)
   void _refreshIfNeeded() {
-    // Check if prayer times need refresh (not for today)
     if (_response == null || _latitude == null || _longitude == null) return;
 
-    if (_cacheIsToday) {
-      debugPrint('[PrayerTimesApiProvider] Cache is fresh, no refresh needed');
-      return;
-    }
-
-    // Cache is stale, refresh in background
+    // Always recalculate in background to pick up any parameter changes
     debugPrint(
-      '[PrayerTimesApiProvider] Cache stale, refreshing in background...',
+      '[PrayerTimesApiProvider] Refreshing prayer times in background...',
     );
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     _refreshPrayerTimesOnly(_latitude!, _longitude!, today);
