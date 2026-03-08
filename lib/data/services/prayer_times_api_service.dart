@@ -166,7 +166,10 @@ enum CalculationMethodId {
       case CalculationMethodId.egypt:
         return CalculationMethod.egyptian.getParameters();
       case CalculationMethodId.ummAlQura:
-        return CalculationMethod.umm_al_qura.getParameters();
+        final params = CalculationMethod.umm_al_qura.getParameters();
+        params.ishaAngle = 0;
+        params.ishaInterval = 90;
+        return params;
       case CalculationMethodId.karachi:
         return CalculationMethod.karachi.getParameters();
       case CalculationMethodId.dubai:
