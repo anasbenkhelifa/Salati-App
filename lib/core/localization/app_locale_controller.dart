@@ -14,7 +14,8 @@ class AppLocaleController extends ChangeNotifier {
   TextDirection get textDirection =>
       _locale.languageCode == 'ar' ? TextDirection.rtl : TextDirection.ltr;
 
-  /// Initialize locale from saved preference or set default Arabic
+  /// Initialize locale from saved preference, or detect device language on first launch.
+  /// Once user manually changes language, the saved preference is always respected.
   Future<void> initialize() async {
     if (_initialized) return;
 
@@ -23,13 +24,16 @@ class AppLocaleController extends ChangeNotifier {
       final savedLang = prefs.getString('app_language');
 
       if (savedLang != null) {
-        // Load saved language
+        // User has a saved preference — always respect it
         _locale = Locale(savedLang);
         debugPrint('[AppLocaleController] Loaded saved language: $savedLang');
       } else {
-        // First launch - save Arabic as default
-        await prefs.setString('app_language', 'ar');
-        debugPrint('[AppLocaleController] First launch - saved default: ar');
+        // First launch — detect device language
+        final deviceLang = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+        final detectedLang = (deviceLang == 'ar') ? 'ar' : 'en'; // Arabic or English fallback
+        _locale = Locale(detectedLang);
+        await prefs.setString('app_language', detectedLang);
+        debugPrint('[AppLocaleController] First launch — device=$deviceLang, set=$detectedLang');
       }
 
       _initialized = true;

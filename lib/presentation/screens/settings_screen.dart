@@ -169,22 +169,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 12),
                     // About
                     AppOptionTile.navigation(
-                      key: TourKeyRegistry.instance.themeTileKey,
                       icon: Icons.info_outline,
                       title: t(context, 'aboutApp'),
                       onTap: () => _showAboutDialog(context),
-                    ),
-                    const SizedBox(height: 12),
-                    // Replay Tour
-                    AppOptionTile.navigation(
-                      icon: Icons.school_outlined,
-                      title: t(context, 'replayTour'),
-                      onTap: () {
-                        final pc = AppShell.activePageController;
-                        if (pc != null) {
-                          AppTourService.replayTour(context, pc);
-                        }
-                      },
                     ),
                     const SizedBox(height: 40),
                     // Footer

@@ -6,6 +6,7 @@ import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/localization/app_locale_provider.dart';
 import '../../domain/providers/prayer_times_api_provider.dart';
+import '../../presentation/screens/controls_screen.dart';
 import 'tour_key_registry.dart';
 
 /// Guided app tour service.
@@ -98,6 +99,7 @@ class AppTourService {
           ? 'وجّه هاتفك للعثور على اتجاه مكة. يهتز الهاتف عند المحاذاة.'
           : 'Point your phone to find Mecca. It vibrates when aligned.',
       contentAlign: ContentAlign.bottom,
+      isArabic: isArabic,
     );
 
     // ── Step 2: Home Dashboard ──
@@ -112,6 +114,7 @@ class AppTourService {
           ? 'يعرض الصلاة القادمة والعد التنازلي الحي لها.'
           : 'Shows the next prayer and a live countdown.',
       contentAlign: ContentAlign.top,
+      isArabic: isArabic,
     );
 
     // ── Step 3: Location Header ──
@@ -126,8 +129,8 @@ class AppTourService {
           ? 'اضغط للبحث عن أي مدينة يدوياً، أو اضغط أيقونة GPS للتحديد التلقائي.'
           : 'Tap to search any city manually, or press the GPS icon to auto-detect.',
       contentAlign: ContentAlign.bottom,
+      isArabic: isArabic,
     );
-
     // ── Step 4: Alert Mode Toggle ──
     if (!context.mounted) { _isRunning = false; return; }
 
@@ -139,8 +142,8 @@ class AppTourService {
           ? 'اضغط هنا للتبديل بين صوت / اهتزاز / صامت لكل صلاة.'
           : 'Tap here to toggle Sound / Vibrate / Silent for each prayer.',
       contentAlign: ContentAlign.bottom,
+      isArabic: isArabic,
     );
-
     // ── Step 5: Custom Adhan Selection ──
     if (!context.mounted) { _isRunning = false; return; }
 
@@ -152,6 +155,7 @@ class AppTourService {
           ? 'اضغط على أي صلاة لاختيار صوت أذان مخصص لها.'
           : 'Tap any prayer to pick a custom Adhan sound for it.',
       contentAlign: ContentAlign.bottom,
+      isArabic: isArabic,
     );
 
     // ── Step 6: Controls Tile ──
@@ -166,11 +170,20 @@ class AppTourService {
           ? 'افتح لتعديل الإشعارات، الاهتزاز، وإعدادات أخرى.'
           : 'Open to adjust notifications, haptics, and more.',
       contentAlign: ContentAlign.bottom,
+      isArabic: isArabic,
     );
 
-    // ── Step 7: Theme Tile ──
+    // ── Step 7: Theme Picker (push INTO Controls screen) ──
     if (!context.mounted) { _isRunning = false; return; }
 
+    // Push into Controls screen
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ControlsScreen()),
+    );
+    // Wait for the route to fully animate and build
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    if (!context.mounted) { _isRunning = false; return; }
     await _showSingleStep(
       context,
       key: keys.themeTileKey,
@@ -179,7 +192,14 @@ class AppTourService {
           ? 'اختر بين الوضع الليلي، الفاتح، الإسلامي، أو الإصدار الخاص.'
           : 'Choose Night, Light, Islamic, or Special Edition.',
       contentAlign: ContentAlign.bottom,
+      isArabic: isArabic,
     );
+
+    // Pop back from Controls to Settings
+    if (context.mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      await Future.delayed(const Duration(milliseconds: 400));
+    }
 
     // ── Step 8: Language Tile ──
     if (!context.mounted) { _isRunning = false; return; }
@@ -192,6 +212,7 @@ class AppTourService {
           ? 'بدّل بين العربية والإنجليزية فوراً.'
           : 'Switch between English and Arabic instantly.',
       contentAlign: ContentAlign.bottom,
+      isArabic: isArabic,
     );
 
     // Tour complete — navigate back to Home and persist
@@ -206,6 +227,7 @@ class AppTourService {
     required GlobalKey key,
     required String title,
     required String description,
+    required bool isArabic,
     ContentAlign contentAlign = ContentAlign.bottom,
   }) async {
     // Guard: if the key's widget isn't mounted, skip this step
@@ -228,7 +250,7 @@ class AppTourService {
             TargetContent(
               align: contentAlign,
               builder: (context, controller) {
-                return _buildTooltipCard(title, description);
+                return _buildTooltipCard(title, description, isArabic);
               },
             ),
           ],
@@ -259,7 +281,7 @@ class AppTourService {
   }
 
   /// Frosted glass tooltip card matching the app's aesthetic.
-  static Widget _buildTooltipCard(String title, String description) {
+  static Widget _buildTooltipCard(String title, String description, bool isArabic) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: ClipRRect(
@@ -301,7 +323,7 @@ class AppTourService {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '↓ Tap anywhere to continue',
+                  isArabic ? '↓ اضغط في أي مكان للمتابعة' : '↓ Tap anywhere to continue',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.5),
                     fontSize: 12,

@@ -5,11 +5,14 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_theme_provider.dart';
 import '../../core/localization/strings.dart';
 import '../../core/localization/app_locale_provider.dart';
+import '../../core/tour/tour_key_registry.dart';
+import '../../core/tour/app_tour_service.dart';
 import '../../domain/providers/qibla_provider.dart';
 import '../../data/services/adhan_alarm_service.dart';
 import '../widgets/app_option_tile.dart';
 import '../../data/services/prayer_times_api_service.dart';
 import '../../domain/providers/prayer_times_api_provider.dart';
+import '../navigation/app_shell.dart';
 import 'package:provider/provider.dart';
 
 /// Controls screen with full-screen notification, compass haptics, and theme settings
@@ -174,6 +177,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
                         const SizedBox(height: 12),
                         // Theme picker
                         AppOptionTile.navigation(
+                          key: TourKeyRegistry.instance.themeTileKey,
                           icon: Icons.palette_outlined,
                           title: t(context, 'chooseTheme'),
                           subtitle:
@@ -202,6 +206,20 @@ class _ControlsScreenState extends State<ControlsScreen> {
                           onTap: () async {
                             HapticFeedback.lightImpact();
                             await AdhanAlarmService.openBatterySettings();
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        // Replay Tour
+                        AppOptionTile.navigation(
+                          icon: Icons.school_outlined,
+                          title: t(context, 'replayTour'),
+                          onTap: () {
+                            // Pop back to AppShell first
+                            Navigator.of(context).pop();
+                            final pc = AppShell.activePageController;
+                            if (pc != null) {
+                              AppTourService.replayTour(context, pc);
+                            }
                           },
                         ),
                       ],
