@@ -140,12 +140,8 @@ class _ControlsScreenState extends State<ControlsScreen> {
                         // Max volume override toggle
                         AppOptionTile.toggle(
                           icon: Icons.volume_up,
-                          title:
-                              isArabic ? 'أقصى صوت للأذان' : 'Max Volume Adhan',
-                          subtitle:
-                              isArabic
-                                  ? 'يشغل الأذان بأعلى صوت مهما كان مستوى الصوت'
-                                  : 'Play adhan at max volume regardless of system volume',
+                          title: t(context, 'maxVolumeAdhan'),
+                          subtitle: t(context, 'maxVolumeAdhanDesc'),
                           value: _maxVolumeOverrideEnabled,
                           onChanged: (val) async {
                             setState(() => _maxVolumeOverrideEnabled = val);
@@ -157,14 +153,8 @@ class _ControlsScreenState extends State<ControlsScreen> {
                         // Pre-adhan reminder toggle
                         AppOptionTile.toggle(
                           icon: Icons.notifications_active,
-                          title:
-                              isArabic
-                                  ? 'تذكير قبل الأذان'
-                                  : 'Pre-Adhan Reminder',
-                          subtitle:
-                              isArabic
-                                  ? 'تنبيه قبل 15 دقيقة من وقت الصلاة'
-                                  : 'Get notified 15 minutes before prayer',
+                          title: t(context, 'preAdhanReminder'),
+                          subtitle: t(context, 'preAdhanReminderDesc'),
                           value: _preAdhanEnabled,
                           onChanged: (val) async {
                             setState(() => _preAdhanEnabled = val);
@@ -195,14 +185,8 @@ class _ControlsScreenState extends State<ControlsScreen> {
                         // Battery optimization for Adhan reliability
                         AppOptionTile.navigation(
                           icon: Icons.battery_saver,
-                          title:
-                              isArabic
-                                  ? 'تحسين البطارية'
-                                  : 'Battery Optimization',
-                          subtitle:
-                              isArabic
-                                  ? 'اختر "بدون قيود" لموثوقية الأذان'
-                                  : 'Set to "Unrestricted" for Adhan reliability',
+                          title: t(context, 'batteryOpt'),
+                          subtitle: t(context, 'batteryOptDesc'),
                           onTap: () async {
                             HapticFeedback.lightImpact();
                             await AdhanAlarmService.openBatterySettings();
@@ -216,10 +200,14 @@ class _ControlsScreenState extends State<ControlsScreen> {
                           onTap: () {
                             // Pop back to AppShell first
                             Navigator.of(context).pop();
-                            final pc = AppShell.activePageController;
-                            if (pc != null) {
-                              AppTourService.replayTour(context, pc);
-                            }
+                            // Wait for frame to settle, then use AppShell's persistent context
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              final ctx = AppShell.activeContext;
+                              final pc = AppShell.activePageController;
+                              if (ctx != null && ctx.mounted && pc != null) {
+                                AppTourService.replayTour(ctx, pc);
+                              }
+                            });
                           },
                         ),
                       ],
@@ -274,16 +262,15 @@ class _ControlsScreenState extends State<ControlsScreen> {
     // Determine subtitle
     String subtitle = '';
     if (!provider.isManualMethod) {
-      subtitle = isArabic
-          ? 'تلقائي (${provider.method.nameAr})'
-          : 'Automatic (${provider.method.nameEn})';
+      final methodName = isArabic ? provider.method.nameAr : provider.method.nameEn;
+      subtitle = t(context, 'calcMethodAuto').replaceAll('{method}', methodName);
     } else {
       subtitle = isArabic ? provider.method.nameAr : provider.method.nameEn;
     }
 
     return AppOptionTile.navigation(
       icon: Icons.calculate_outlined,
-      title: isArabic ? 'طريقة الحساب' : 'Calculation Method',
+      title: t(context, 'calcMethod'),
       subtitle: subtitle,
       onTap: () => _showMethodSelector(context, provider),
     );
@@ -320,7 +307,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
             const SizedBox(height: 20),
             // Title
             Text(
-              isArabic ? 'طريقة الحساب' : 'Calculation Method',
+              t(context, 'calcMethod'),
               style: TextStyle(
                 color: AppTheme.currentTextPrimary,
                 fontSize: 20,
@@ -335,10 +322,8 @@ class _ControlsScreenState extends State<ControlsScreen> {
                   // Automatic Option
                   _buildMethodOption(
                     context: context,
-                    title: isArabic ? 'تلقائي (موصى به)' : 'Automatic (Recommended)',
-                    subtitle: isArabic
-                        ? 'يتم اختياره حسب موقعك'
-                        : 'Automatically selected based on your location',
+                    title: t(context, 'calcMethodAuto').replaceAll(' ({method})', ''),
+                    subtitle: t(context, 'calcMethodAutoDesc'),
                     isSelected: !provider.isManualMethod,
                     onTap: () async {
                       HapticFeedback.lightImpact();

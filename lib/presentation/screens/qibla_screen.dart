@@ -88,7 +88,7 @@ class _QiblaScreenState extends State<QiblaScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            isArabic ? 'اتجاه القبلة' : 'Qibla Direction',
+            t(context, 'qiblaDirectionSubtitle'),
             style: TextStyle(
               color: AppTheme.currentTextSecondary.withOpacity(0.7),
               fontSize: 14,
@@ -124,7 +124,7 @@ class _QiblaScreenState extends State<QiblaScreen>
           CircularProgressIndicator(color: AppTheme.currentActiveGlow),
           const SizedBox(height: 16),
           Text(
-            isArabic ? 'جاري التحميل...' : 'Loading...',
+            t(context, 'loading'),
             style: TextStyle(
               color: AppTheme.currentTextSecondary,
               fontSize: 14,
@@ -146,7 +146,7 @@ class _QiblaScreenState extends State<QiblaScreen>
             Icon(Icons.location_off, size: 64, color: AppTheme.iconSecondary),
             const SizedBox(height: 16),
             Text(
-              isArabic ? 'لم يتم تحديد الموقع' : 'Location Not Set',
+              t(context, 'locationNotSet'),
               style: TextStyle(
                 color: AppTheme.currentTextPrimary,
                 fontSize: 18,
@@ -155,9 +155,7 @@ class _QiblaScreenState extends State<QiblaScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              isArabic
-                  ? 'اذهب إلى أوقات الصلاة واضغط "تحديث الموقع"'
-                  : 'Go to Prayer Times and tap "Update Location"',
+              t(context, 'locationNotSetDesc'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppTheme.currentTextSecondary.withOpacity(0.7),
@@ -181,7 +179,7 @@ class _QiblaScreenState extends State<QiblaScreen>
             Icon(Icons.wifi_off, size: 64, color: AppTheme.iconSecondary),
             const SizedBox(height: 16),
             Text(
-              isArabic ? 'لا يوجد اتصال' : 'No Connection',
+              t(context, 'noConnection'),
               style: TextStyle(
                 color: AppTheme.currentTextPrimary,
                 fontSize: 18,
@@ -190,9 +188,7 @@ class _QiblaScreenState extends State<QiblaScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              isArabic
-                  ? 'اتصل بالإنترنت واضغط "تحديث الموقع" في أوقات الصلاة'
-                  : 'Connect to internet and tap "Update Location" in Prayer Times',
+              t(context, 'noConnectionDesc'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppTheme.currentTextSecondary.withOpacity(0.7),
@@ -215,19 +211,16 @@ class _QiblaScreenState extends State<QiblaScreen>
             Icon(Icons.error_outline, size: 64, color: AppTheme.iconSecondary),
             const SizedBox(height: 16),
             Text(
-              isArabic
-                  ? 'تعذر تحديد اتجاه القبلة'
-                  : 'Unable to get Qibla direction',
-              style: TextStyle(
-                color: AppTheme.currentTextPrimary,
+              t(context, 'error'),
+              style: const TextStyle(
+                color: Colors.red,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              _provider.errorMessage ??
-                  (isArabic ? 'حاول لاحقاً' : 'Try again later'),
+              _provider.errorMessage ?? t(context, 'error'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppTheme.currentTextSecondary.withOpacity(0.7),

@@ -407,12 +407,11 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
 
     if (isEid) {
       title = IslamicEventService.getEidGreeting(hijriDate, isArabic: isArabic);
-      subtitle =
-          isArabic ? 'تقبل الله منا ومنكم' : 'May Allah accept from us and you';
+      subtitle = t(context, 'eidGreeting');
       emoji = IslamicEventService.isEidAlFitr(hijriDate) ? '🎉' : '🐑';
       bannerColor = Colors.amber;
     } else if (isRamadan) {
-      title = isArabic ? 'رمضان كريم 🌙' : 'Ramadan Kareem 🌙';
+      title = t(context, 'ramadanGreeting');
       subtitle = IslamicEventService.getRamadanStatus(
         hijriDate,
         isArabic: isArabic,
@@ -601,10 +600,8 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                     Icon(Icons.cloud_off, color: Colors.orange, size: 14),
                     const SizedBox(width: 6),
                     Text(
-                      isArabic
-                          ? 'وضع عدم الاتصال'
-                          : 'Offline - using saved data',
-                      style: TextStyle(color: Colors.orange, fontSize: 12),
+                      t(context, 'offlineMode'),
+                      style: const TextStyle(color: Colors.orange, fontSize: 12),
                     ),
                   ],
                 ),
@@ -623,7 +620,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          isArabic ? 'جاري تحديث الموقع...' : 'Updating location...',
+          t(context, 'updatingLocation'),
         ),
         duration: const Duration(seconds: 1),
         backgroundColor: AppTheme.currentActiveGlow,
@@ -641,10 +638,8 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
         SnackBar(
           content: Text(
             success
-                ? (isArabic ? 'تم تحديث الموقع' : 'Location updated')
-                : (isArabic
-                    ? 'فشل التحديث - يتم استخدام البيانات المحفوظة'
-                    : 'Update failed - using saved data'),
+                ? t(context, 'locationUpdated')
+                : t(context, 'updateFailed'),
           ),
           backgroundColor: success ? Colors.green : Colors.orange,
         ),

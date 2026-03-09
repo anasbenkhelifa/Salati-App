@@ -525,7 +525,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           Text(
-            isArabic ? 'تصميم وتطوير' : 'Designed & Developed by',
+            t(context, 'designedBy'),
             style: TextStyle(
               color: AppTheme.currentTextSecondary.withOpacity(0.4),
               fontSize: 12,
@@ -547,7 +547,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        isArabic ? 'تعذر فتح الرابط' : 'Could not open link',
+                        t(context, 'couldNotOpenLink'),
                       ),
                       backgroundColor: Colors.red,
                     ),
@@ -596,7 +596,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showAboutDialog(BuildContext context) {
-    final isArabic = AppLocaleProvider.of(context).isArabic;
 
     showModalBottomSheet(
       context: context,
@@ -654,7 +653,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   // App name
                   Text(
-                    isArabic ? 'صلاتي' : 'Salati',
+                    t(context, 'aboutApp'),
                     style: TextStyle(
                       color: AppTheme.currentTextPrimary,
                       fontSize: 28,
@@ -665,7 +664,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   // Version
                   Text(
-                    isArabic ? 'الإصدار 2.0.4' : 'Version 2.0.4',
+                    t(context, 'appVersion'),
                     style: TextStyle(
                       color: AppTheme.currentTextSecondary.withOpacity(0.6),
                       fontSize: 14,
@@ -675,9 +674,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   // Description
                   Text(
-                    isArabic
-                        ? 'تطبيق إسلامي شامل يعمل بدون إنترنت مع واجهة زجاجية، مواقيت دقيقة، وإشعارات حية'
-                        : 'A fully offline, private, and beautifully unified Islamic app for accurate prayer times.',
+                    t(context, 'openSourceNotice'),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: AppTheme.currentTextSecondary,
@@ -698,29 +695,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         _aboutFeatureRow(
                           Icons.wifi_off_rounded,
-                          isArabic ? 'يعمل 100% بدون إنترنت ومستقل' : '100% Offline & Private',
+                          t(context, 'aboutFeatureOffline'),
                         ),
                         const SizedBox(height: 8),
                         _aboutFeatureRow(
                           Icons.blur_on_rounded,
-                          isArabic ? 'مظاهر زجاجية قابلة للتخصيص' : 'Customizable Glass Themes',
+                          t(context, 'aboutFeature1'),
                         ),
                         const SizedBox(height: 8),
                         _aboutFeatureRow(
                           Icons.access_time_filled,
-                          isArabic
-                              ? 'حسابات دقيقة تلقائية للمواقيت'
-                              : 'Precise Auto-Calculated Times',
+                          t(context, 'aboutFeature2'),
                         ),
                         const SizedBox(height: 8),
                         _aboutFeatureRow(
                           Icons.notifications_active,
-                          isArabic ? 'إشعارات الأذان الحية في الخلفية' : 'Live Foreground Adhans',
+                          t(context, 'aboutFeature3'),
                         ),
                         const SizedBox(height: 8),
                         _aboutFeatureRow(
                           Icons.explore,
-                          isArabic ? 'بوصلة القبلة وتقويم هجري' : 'Qibla Compass & Hijri Dates',
+                          t(context, 'aboutFeature4'),
                         ),
                       ],
                     ),
@@ -736,7 +731,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   // Developer credit
                   Text(
-                    isArabic ? 'تطوير بواسطة' : 'Developed with ❤️ by',
+                    t(context, 'developedByHeart'),
                     style: TextStyle(
                       color: AppTheme.currentTextSecondary.withOpacity(0.5),
                       fontSize: 12,
@@ -808,7 +803,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                       child: Text(
-                        isArabic ? 'حسناً' : 'Got it',
+                        t(context, 'gotIt'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,

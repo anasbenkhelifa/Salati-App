@@ -18,6 +18,9 @@ class AppShell extends StatefulWidget {
   /// Expose page controller for tour replay from Settings
   static PageController? activePageController;
 
+  /// Expose a persistent context for tour replay
+  static BuildContext? activeContext;
+
   @override
   State<AppShell> createState() => _AppShellState();
 }
@@ -69,6 +72,7 @@ class _AppShellState extends State<AppShell> {
   void dispose() {
     _pageController.dispose();
     AppShell.activePageController = null;
+    AppShell.activeContext = null;
     AppThemeProvider.instance.removeListener(_onThemeChange);
     super.dispose();
   }
@@ -101,6 +105,9 @@ class _AppShellState extends State<AppShell> {
     // Calculate bottom padding for content
     const bottomPadding =
         FloatingNavBar.navBarHeight + FloatingNavBar.navBarBottomMargin + 8;
+
+    // Keep a reference to a persistent, mounted context for tour replay
+    AppShell.activeContext = context;
 
     return PopScope(
       canPop: !AppTourService.isRunning,

@@ -209,7 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    final prayerStatus = _calculatePrayerStatus(response.timings, isArabic);
+    final prayerStatus = _calculatePrayerStatus(context, response.timings, isArabic);
 
     return Container(
       key: TourKeyRegistry.instance.prayerDashboardKey,
@@ -281,11 +281,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
   /// Calculate prayer status - SAME LOGIC as live notification
-  _PrayerStatus _calculatePrayerStatus(AlAdhanTimings timings, bool isArabic) {
-    final prayerNames =
-        isArabic
-            ? ['الفجر', 'الظهر', 'العصر', 'المغرب', 'العشاء']
-            : ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+  _PrayerStatus _calculatePrayerStatus(BuildContext context, AlAdhanTimings timings, bool isArabic) {
+    final prayerNames = [
+      t(context, 'fajr'),
+      t(context, 'dhuhr'),
+      t(context, 'asr'),
+      t(context, 'maghrib'),
+      t(context, 'isha'),
+    ];
 
     final today = DateTime(_now.year, _now.month, _now.day);
     final times = _getPrayerTimes(timings, today);
