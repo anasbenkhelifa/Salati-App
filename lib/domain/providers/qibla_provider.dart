@@ -301,6 +301,11 @@ class QiblaProvider extends ChangeNotifier {
       } else {
         if (absError <= _alignOnThreshold) {
           _isAligned = true;
+          // Distinct double-pulse vibration on alignment
+          HapticFeedback.heavyImpact();
+          Future.delayed(const Duration(milliseconds: 100), () {
+            HapticFeedback.heavyImpact();
+          });
         }
       }
 

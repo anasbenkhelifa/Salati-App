@@ -58,7 +58,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
       setState(() {
         _maxVolumeOverrideEnabled =
             prefs.getBool('max_volume_override') ?? false;
-        _preAdhanEnabled = prefs.getBool('pre_adhan_enabled') ?? false;
+        _preAdhanEnabled = prefs.getBool('pre_adhan_enabled') ?? true;
       });
     }
   }
@@ -527,18 +527,6 @@ class _ThemeSelectorSheet extends StatelessWidget {
                 onTap: () {
                   HapticFeedback.selectionClick();
                   AppThemeProvider.instance.setTheme(AppThemeMode.islamicGreen);
-                  Navigator.pop(context);
-                },
-              ),
-              // Special Edition
-              _ThemeCard(
-                title: t(context, 'islamicSpecialMode'),
-                icon: Icons.diamond_outlined, // Luxury icon
-                isSelected: currentMode == AppThemeMode.islamicSpecial,
-                previewGradient: AppTheme.islamicSpecialBackgroundGradient,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  AppThemeProvider.instance.setTheme(AppThemeMode.islamicSpecial);
                   Navigator.pop(context);
                 },
               ),

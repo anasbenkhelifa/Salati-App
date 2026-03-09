@@ -79,13 +79,20 @@ class AppTourService {
     await Future.delayed(const Duration(milliseconds: 500));
   }
 
+  /// Get localized text for 3 languages
+  static String _l(String lang, {required String ar, required String fr, required String en}) {
+    if (lang == 'ar') return ar;
+    if (lang == 'fr') return fr;
+    return en;
+  }
+
   static Future<void> _showTour(
     BuildContext context,
     PageController pageController,
   ) async {
     _isRunning = true;
     final keys = TourKeyRegistry.instance;
-    final isArabic = AppLocaleProvider.of(context).isArabic;
+    final lang = AppLocaleProvider.of(context).locale.languageCode;
 
     // ── Step 1: Qibla Compass ──
     await _navigateToPage(pageController, 0);
@@ -94,12 +101,14 @@ class AppTourService {
     await _showSingleStep(
       context,
       key: keys.compassDialKey,
-      title: isArabic ? 'بوصلة القبلة' : 'Qibla Compass',
-      description: isArabic
-          ? 'وجّه هاتفك للعثور على اتجاه مكة. يهتز الهاتف عند المحاذاة.'
-          : 'Point your phone to find Mecca. It vibrates when aligned.',
+      title: _l(lang, ar: 'بوصلة القبلة', fr: 'Boussole Qibla', en: 'Qibla Compass'),
+      description: _l(lang,
+        ar: 'وجّه هاتفك للعثور على اتجاه مكة. يهتز الهاتف عند المحاذاة.',
+        fr: 'Orientez votre téléphone vers La Mecque. Il vibre quand il est aligné.',
+        en: 'Point your phone to find Mecca. It vibrates when aligned.',
+      ),
       contentAlign: ContentAlign.bottom,
-      isArabic: isArabic,
+      lang: lang,
     );
 
     // ── Step 2: Home Dashboard ──
@@ -109,12 +118,14 @@ class AppTourService {
     await _showSingleStep(
       context,
       key: keys.prayerDashboardKey,
-      title: isArabic ? 'لوحة الصلاة' : 'Prayer Dashboard',
-      description: isArabic
-          ? 'يعرض الصلاة القادمة والعد التنازلي الحي لها.'
-          : 'Shows the next prayer and a live countdown.',
+      title: _l(lang, ar: 'لوحة الصلاة', fr: 'Tableau de Prière', en: 'Prayer Dashboard'),
+      description: _l(lang,
+        ar: 'يعرض الصلاة القادمة والعد التنازلي الحي لها.',
+        fr: 'Affiche la prochaine prière et un compte à rebours en direct.',
+        en: 'Shows the next prayer and a live countdown.',
+      ),
       contentAlign: ContentAlign.top,
-      isArabic: isArabic,
+      lang: lang,
     );
 
     // ── Step 3: Location Header ──
@@ -124,38 +135,46 @@ class AppTourService {
     await _showSingleStep(
       context,
       key: keys.locationHeaderKey,
-      title: isArabic ? 'الموقع' : 'Your Location',
-      description: isArabic
-          ? 'اضغط للبحث عن أي مدينة يدوياً، أو اضغط أيقونة GPS للتحديد التلقائي.'
-          : 'Tap to search any city manually, or press the GPS icon to auto-detect.',
+      title: _l(lang, ar: 'الموقع', fr: 'Votre Position', en: 'Your Location'),
+      description: _l(lang,
+        ar: 'اضغط للبحث عن أي مدينة يدوياً، أو اضغط أيقونة GPS للتحديد التلقائي.',
+        fr: 'Appuyez pour chercher une ville ou utilisez le GPS pour la détection auto.',
+        en: 'Tap to search any city manually, or press the GPS icon to auto-detect.',
+      ),
       contentAlign: ContentAlign.bottom,
-      isArabic: isArabic,
+      lang: lang,
     );
+
     // ── Step 4: Alert Mode Toggle ──
     if (!context.mounted) { _isRunning = false; return; }
 
     await _showSingleStep(
       context,
       key: keys.prayerAlertModeKey,
-      title: isArabic ? 'وضع التنبيه' : 'Alert Mode',
-      description: isArabic
-          ? 'اضغط هنا للتبديل بين صوت / اهتزاز / صامت لكل صلاة.'
-          : 'Tap here to toggle Sound / Vibrate / Silent for each prayer.',
+      title: _l(lang, ar: 'وضع التنبيه', fr: 'Mode d\'Alerte', en: 'Alert Mode'),
+      description: _l(lang,
+        ar: 'اضغط هنا للتبديل بين صوت / اهتزاز / صامت لكل صلاة.',
+        fr: 'Appuyez pour basculer entre Son / Vibration / Silencieux.',
+        en: 'Tap here to toggle Sound / Vibrate / Silent for each prayer.',
+      ),
       contentAlign: ContentAlign.bottom,
-      isArabic: isArabic,
+      lang: lang,
     );
+
     // ── Step 5: Custom Adhan Selection ──
     if (!context.mounted) { _isRunning = false; return; }
 
     await _showSingleStep(
       context,
       key: keys.prayerCardKey,
-      title: isArabic ? 'أذان مخصص' : 'Custom Adhan',
-      description: isArabic
-          ? 'اضغط على أي صلاة لاختيار صوت أذان مخصص لها.'
-          : 'Tap any prayer to pick a custom Adhan sound for it.',
+      title: _l(lang, ar: 'أذان مخصص', fr: 'Adhan Personnalisé', en: 'Custom Adhan'),
+      description: _l(lang,
+        ar: 'اضغط على أي صلاة لاختيار صوت أذان مخصص لها.',
+        fr: 'Appuyez sur une prière pour choisir un son d\'Adhan personnalisé.',
+        en: 'Tap any prayer to pick a custom Adhan sound for it.',
+      ),
       contentAlign: ContentAlign.bottom,
-      isArabic: isArabic,
+      lang: lang,
     );
 
     // ── Step 6: Controls Tile ──
@@ -165,12 +184,14 @@ class AppTourService {
     await _showSingleStep(
       context,
       key: keys.controlsTileKey,
-      title: isArabic ? 'لوحة التحكم' : 'Controls',
-      description: isArabic
-          ? 'افتح لتعديل الإشعارات، الاهتزاز، وإعدادات أخرى.'
-          : 'Open to adjust notifications, haptics, and more.',
+      title: _l(lang, ar: 'لوحة التحكم', fr: 'Contrôles', en: 'Controls'),
+      description: _l(lang,
+        ar: 'افتح لتعديل الإشعارات، الاهتزاز، وإعدادات أخرى.',
+        fr: 'Ouvrez pour ajuster les notifications, vibrations, et plus.',
+        en: 'Open to adjust notifications, haptics, and more.',
+      ),
       contentAlign: ContentAlign.bottom,
-      isArabic: isArabic,
+      lang: lang,
     );
 
     // ── Step 7: Theme Picker (push INTO Controls screen) ──
@@ -187,12 +208,14 @@ class AppTourService {
     await _showSingleStep(
       context,
       key: keys.themeTileKey,
-      title: isArabic ? 'المظهر' : 'App Theme',
-      description: isArabic
-          ? 'اختر بين الوضع الليلي، الفاتح، الإسلامي، أو الإصدار الخاص.'
-          : 'Choose Night, Light, Islamic, or Special Edition.',
+      title: _l(lang, ar: 'المظهر', fr: 'Thème', en: 'App Theme'),
+      description: _l(lang,
+        ar: 'اختر بين الوضع الليلي، الفاتح، الإسلامي، أو الإصدار الخاص.',
+        fr: 'Choisissez entre Nuit, Clair, Islamique Bleu ou Vert.',
+        en: 'Choose Night, Light, Islamic Blue, or Islamic Green.',
+      ),
       contentAlign: ContentAlign.bottom,
-      isArabic: isArabic,
+      lang: lang,
     );
 
     // Pop back from Controls to Settings
@@ -207,12 +230,14 @@ class AppTourService {
     await _showSingleStep(
       context,
       key: keys.languageTileKey,
-      title: isArabic ? 'اللغة' : 'Language',
-      description: isArabic
-          ? 'بدّل بين العربية والإنجليزية فوراً.'
-          : 'Switch between English and Arabic instantly.',
+      title: _l(lang, ar: 'اللغة', fr: 'Langue', en: 'Language'),
+      description: _l(lang,
+        ar: 'بدّل بين العربية والفرنسية والإنجليزية فوراً.',
+        fr: 'Basculez entre l\'arabe, le français et l\'anglais instantanément.',
+        en: 'Switch between Arabic, French, and English instantly.',
+      ),
       contentAlign: ContentAlign.bottom,
-      isArabic: isArabic,
+      lang: lang,
     );
 
     // Tour complete — navigate back to Home and persist
@@ -227,7 +252,7 @@ class AppTourService {
     required GlobalKey key,
     required String title,
     required String description,
-    required bool isArabic,
+    required String lang,
     ContentAlign contentAlign = ContentAlign.bottom,
   }) async {
     // Guard: if the key's widget isn't mounted, skip this step
@@ -250,7 +275,7 @@ class AppTourService {
             TargetContent(
               align: contentAlign,
               builder: (context, controller) {
-                return _buildTooltipCard(title, description, isArabic);
+                return _buildTooltipCard(title, description, lang);
               },
             ),
           ],
@@ -281,7 +306,13 @@ class AppTourService {
   }
 
   /// Frosted glass tooltip card matching the app's aesthetic.
-  static Widget _buildTooltipCard(String title, String description, bool isArabic) {
+  static Widget _buildTooltipCard(String title, String description, String lang) {
+    final continueText = _l(lang,
+      ar: '↓ اضغط في أي مكان للمتابعة',
+      fr: '↓ Appuyez n\'importe où pour continuer',
+      en: '↓ Tap anywhere to continue',
+    );
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: ClipRRect(
@@ -323,7 +354,7 @@ class AppTourService {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  isArabic ? '↓ اضغط في أي مكان للمتابعة' : '↓ Tap anywhere to continue',
+                  continueText,
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.5),
                     fontSize: 12,

@@ -136,10 +136,9 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                     : LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [
-                        const Color(0xFF1B263B).withOpacity(0.85), // Lighter navy at top
-                        const Color(0xFF0D1B2A).withOpacity(0.85), // Darker navy at bottom
-                      ],
+                      colors: AppTheme.currentBackgroundGradient.colors.map(
+                        (c) => c.withOpacity(0.92),
+                      ).toList(),
                     ),
           ),
           child: ClipRRect(

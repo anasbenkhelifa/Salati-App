@@ -398,7 +398,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          // Language toggle buttons
+          // Language toggle buttons (3 languages)
           Row(
             children: [
               Expanded(
@@ -408,13 +408,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
                       color:
-                          isArabic
+                          controller.locale.languageCode == 'ar'
                               ? AppTheme.currentActiveGlow.withOpacity(0.2)
                               : AppTheme.inactiveBackground,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color:
-                            isArabic
+                            controller.locale.languageCode == 'ar'
                                 ? AppTheme.currentActiveGlow.withOpacity(0.5)
                                 : AppTheme.inactiveBorder,
                         width: 1.5,
@@ -425,19 +425,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         t(context, 'arabic'),
                         style: TextStyle(
                           color:
-                              isArabic
+                              controller.locale.languageCode == 'ar'
                                   ? AppTheme.currentActiveGlow
                                   : AppTheme.currentTextSecondary,
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight:
-                              isArabic ? FontWeight.bold : FontWeight.normal,
+                              controller.locale.languageCode == 'ar' ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => controller.setLocale(const Locale('fr')),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color:
+                          controller.locale.languageCode == 'fr'
+                              ? AppTheme.currentActiveGlow.withOpacity(0.2)
+                              : AppTheme.inactiveBackground,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color:
+                            controller.locale.languageCode == 'fr'
+                                ? AppTheme.currentActiveGlow.withOpacity(0.5)
+                                : AppTheme.inactiveBorder,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        t(context, 'french'),
+                        style: TextStyle(
+                          color:
+                              controller.locale.languageCode == 'fr'
+                                  ? AppTheme.currentActiveGlow
+                                  : AppTheme.currentTextSecondary,
+                          fontSize: 15,
+                          fontWeight:
+                              controller.locale.languageCode == 'fr' ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: GestureDetector(
                   onTap: () => controller.setLocale(const Locale('en')),
@@ -445,13 +482,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
                       color:
-                          !isArabic
+                          controller.locale.languageCode == 'en'
                               ? AppTheme.currentActiveGlow.withOpacity(0.2)
                               : AppTheme.inactiveBackground,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color:
-                            !isArabic
+                            controller.locale.languageCode == 'en'
                                 ? AppTheme.currentActiveGlow.withOpacity(0.5)
                                 : AppTheme.inactiveBorder,
                         width: 1.5,
@@ -462,12 +499,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         t(context, 'english'),
                         style: TextStyle(
                           color:
-                              !isArabic
+                              controller.locale.languageCode == 'en'
                                   ? AppTheme.currentActiveGlow
                                   : AppTheme.currentTextSecondary,
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight:
-                              !isArabic ? FontWeight.bold : FontWeight.normal,
+                              controller.locale.languageCode == 'en' ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
                     ),

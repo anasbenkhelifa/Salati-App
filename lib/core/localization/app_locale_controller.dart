@@ -30,7 +30,14 @@ class AppLocaleController extends ChangeNotifier {
       } else {
         // First launch — detect device language
         final deviceLang = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
-        final detectedLang = (deviceLang == 'ar') ? 'ar' : 'en'; // Arabic or English fallback
+        String detectedLang;
+        if (deviceLang == 'ar') {
+          detectedLang = 'ar';
+        } else if (deviceLang == 'fr') {
+          detectedLang = 'fr';
+        } else {
+          detectedLang = 'en'; // Fallback for all other languages
+        }
         _locale = Locale(detectedLang);
         await prefs.setString('app_language', detectedLang);
         debugPrint('[AppLocaleController] First launch — device=$deviceLang, set=$detectedLang');
