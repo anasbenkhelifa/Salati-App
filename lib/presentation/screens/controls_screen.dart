@@ -424,9 +424,11 @@ class _ThemeSelectorSheet extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.isLightMode 
             ? Colors.white 
-            : (AppTheme.isIslamicGreenMode 
-                ? AppTheme.islamicGreenPrimary 
-                : (AppTheme.isIslamicMode ? AppTheme.islamicPrimaryNavy : const Color(0xFF1B263B))),
+            : (AppTheme.isIslamicSpecialMode
+                ? AppTheme.islamicSpecialPrimary
+                : (AppTheme.isIslamicGreenMode 
+                    ? AppTheme.islamicGreenPrimary 
+                    : (AppTheme.isIslamicMode ? AppTheme.islamicPrimaryNavy : const Color(0xFF1B263B)))),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.all(24),
@@ -507,6 +509,18 @@ class _ThemeSelectorSheet extends StatelessWidget {
                 onTap: () {
                   HapticFeedback.selectionClick();
                   AppThemeProvider.instance.setTheme(AppThemeMode.islamicGreen);
+                  Navigator.pop(context);
+                },
+              ),
+              // Special Edition
+              _ThemeCard(
+                title: t(context, 'islamicSpecialMode'),
+                icon: Icons.diamond_outlined, // Luxury icon
+                isSelected: currentMode == AppThemeMode.islamicSpecial,
+                previewGradient: AppTheme.islamicSpecialBackgroundGradient,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  AppThemeProvider.instance.setTheme(AppThemeMode.islamicSpecial);
                   Navigator.pop(context);
                 },
               ),

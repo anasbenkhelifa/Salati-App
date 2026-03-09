@@ -43,6 +43,7 @@ const Map<String, Map<String, String>> _strings = {
     'lightMode': 'الوضع الفاتح',
     'islamicMode': 'المظهر الإسلامي (أزرق)',
     'islamicGreenMode': 'المظهر الإسلامي (أخضر)',
+    'islamicSpecialMode': 'الإصدار الخاص',
     // Adhan selection
     'selectAdhan': 'اختيار الأذان',
     'defaultAdhan': 'الأذان الافتراضي',
@@ -95,6 +96,7 @@ const Map<String, Map<String, String>> _strings = {
     'lightMode': 'Light Mode',
     'islamicMode': 'Islamic Mode (Blue)',
     'islamicGreenMode': 'Islamic Mode (Green)',
+    'islamicSpecialMode': 'Special Edition',
     // Adhan selection
     'selectAdhan': 'Select Adhan',
     'defaultAdhan': 'Default Adhan',

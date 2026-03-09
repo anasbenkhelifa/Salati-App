@@ -7,6 +7,7 @@ enum AppThemeMode {
   light, // Light mode
   islamic, // Default Islamic patterned theme (Blue)
   islamicGreen, // Islamic patterned theme (Green)
+  islamicSpecial, // Special Edition Theme
 }
 
 /// Provider for app theme state with persistence
@@ -33,6 +34,7 @@ class AppThemeProvider extends ChangeNotifier {
   bool get isLightMode => _mode == AppThemeMode.light;
   bool get isIslamicMode => _mode == AppThemeMode.islamic;
   bool get isIslamicGreenMode => _mode == AppThemeMode.islamicGreen;
+  bool get isIslamicSpecialMode => _mode == AppThemeMode.islamicSpecial;
 
   /// Initialize and load persisted theme
   Future<void> initialize() async {

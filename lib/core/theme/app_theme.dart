@@ -62,6 +62,20 @@ class AppTheme {
     colors: [Color(0xFF041613), Color(0xFF08251F), Color(0xFF041613)], // Very deep backdrop for the green image
   );
 
+  // ========== ISLAMIC SPECIAL MODE COLORS (Luxury Edition) ==========
+  static const Color islamicSpecialPrimary = Color(0xFF0D0D0D); // Deep luxury dark
+  static const Color islamicSpecialSecondary = Color(0xFF1A1A1A); // Slightly lighter for surfaces
+  static const Color islamicSpecialAccentGold = Color(0xFFFFD700); // Brighter classic luxury gold
+  static const Color islamicSpecialGlassWhite = Color(0x40FFFFFF); // 25% opacity white
+  static const Color islamicSpecialTextPrimary = Color(0xFFFFFFFF); // Pure white for better contrast
+  static const Color islamicSpecialTextSecondary = Color(0xFFE5C07B); // Brighter muted gold
+  static const Color islamicSpecialActiveGlow = Color(0xFFD4AF37); // Glow gold
+  static const LinearGradient islamicSpecialBackgroundGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xFF000000), Color(0xFF0F0C05), Color(0xFF000000)], // Darker for more contrast
+  );
+
   // ========== LEGACY STATIC COLORS (for backward compatibility) ==========
   static const Color primaryNavy = nightPrimaryNavy;
   static const Color secondaryNavy = nightSecondaryNavy;
@@ -77,6 +91,7 @@ class AppTheme {
   static bool get isLightMode => AppThemeProvider.instance.isLightMode;
   static bool get isIslamicMode => AppThemeProvider.instance.isIslamicMode;
   static bool get isIslamicGreenMode => AppThemeProvider.instance.isIslamicGreenMode;
+  static bool get isIslamicSpecialMode => AppThemeProvider.instance.isIslamicSpecialMode;
   static bool get isNightMode => AppThemeProvider.instance.isNightMode;
 
   /// Current background gradient based on theme
@@ -84,6 +99,7 @@ class AppTheme {
     if (isLightMode) return lightBackgroundGradient;
     if (isIslamicMode) return islamicBackgroundGradient;
     if (isIslamicGreenMode) return islamicGreenBackgroundGradient;
+    if (isIslamicSpecialMode) return islamicSpecialBackgroundGradient;
     return nightBackgroundGradient;
   }
 
@@ -103,6 +119,13 @@ class AppTheme {
         opacity: 0.6,
       );
     }
+    if (isIslamicSpecialMode) {
+      return const DecorationImage(
+        image: AssetImage('assets/images/islamic_bg_pattern_special.webp'),
+        fit: BoxFit.cover,
+        opacity: 0.65, 
+      );
+    }
     return null;
   }
 
@@ -111,6 +134,7 @@ class AppTheme {
     if (isLightMode) return lightTextPrimary;
     if (isIslamicMode) return islamicTextPrimary;
     if (isIslamicGreenMode) return islamicGreenTextPrimary;
+    if (isIslamicSpecialMode) return islamicSpecialTextPrimary;
     return nightTextPrimary;
   }
 
@@ -119,6 +143,7 @@ class AppTheme {
     if (isLightMode) return lightTextSecondary;
     if (isIslamicMode) return islamicTextSecondary;
     if (isIslamicGreenMode) return islamicGreenTextSecondary;
+    if (isIslamicSpecialMode) return islamicSpecialTextSecondary;
     return nightTextSecondary;
   }
 
@@ -127,6 +152,7 @@ class AppTheme {
     if (isLightMode) return lightActiveGlow;
     if (isIslamicMode) return islamicActiveGlow;
     if (isIslamicGreenMode) return islamicGreenActiveGlow;
+    if (isIslamicSpecialMode) return islamicSpecialActiveGlow;
     return nightActiveGlow;
   }
 
@@ -135,6 +161,7 @@ class AppTheme {
     if (isLightMode) return lightAccentBlue;
     if (isIslamicMode) return islamicAccentGold;
     if (isIslamicGreenMode) return islamicGreenAccentGold;
+    if (isIslamicSpecialMode) return islamicSpecialAccentGold;
     return nightAccentBlue;
   }
 
@@ -143,6 +170,7 @@ class AppTheme {
     if (isLightMode) return lightSurface;
     if (isIslamicMode) return islamicSecondaryNavy;
     if (isIslamicGreenMode) return islamicGreenSecondary;
+    if (isIslamicSpecialMode) return islamicSpecialSecondary;
     return nightSecondaryNavy;
   }
 
@@ -151,6 +179,7 @@ class AppTheme {
     if (isLightMode) return lightGlassTint;
     if (isIslamicMode) return islamicGlassWhite;
     if (isIslamicGreenMode) return islamicGreenGlassWhite;
+    if (isIslamicSpecialMode) return islamicSpecialGlassWhite;
     return nightGlassWhite;
   }
 
@@ -191,8 +220,8 @@ class AppTheme {
         ],
       );
     } else {
-      // Unified minimal opacity (very transparent)
-      final defaultOpacity = (isIslamicMode || isIslamicGreenMode) ? 0.08 : 0.05;
+      // Unified minimal opacity (very transparent), but Special Edition gets a boost for visibility
+      final defaultOpacity = isIslamicSpecialMode ? 0.15 : ((isIslamicMode || isIslamicGreenMode) ? 0.08 : 0.05);
       return BoxDecoration(
         color: Colors.white.withOpacity(opacity ?? defaultOpacity),
         borderRadius: shape == BoxShape.circle ? null : BorderRadius.circular(borderRadius),
@@ -376,11 +405,49 @@ class AppTheme {
     );
   }
 
+  // Islamic Special Theme
+  static ThemeData get islamicSpecialTheme {
+    final baseTheme = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: Colors.transparent,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: islamicSpecialAccentGold,
+        brightness: Brightness.dark,
+        surface: islamicSpecialPrimary,
+      ),
+      textTheme: _tajawalTextTheme(baseTheme.textTheme, false).apply(
+        bodyColor: islamicSpecialTextPrimary,
+        displayColor: islamicSpecialTextPrimary,
+      ),
+      primaryTextTheme: _tajawalTextTheme(baseTheme.primaryTextTheme, false).apply(
+        bodyColor: islamicSpecialTextPrimary,
+        displayColor: islamicSpecialTextPrimary,
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        titleTextStyle: GoogleFonts.tajawal(
+          color: islamicSpecialTextPrimary,
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   /// Get current theme based on provider
   static ThemeData get currentTheme {
     if (isLightMode) return lightTheme;
     if (isIslamicMode) return islamicTheme;
     if (isIslamicGreenMode) return islamicGreenTheme;
+    if (isIslamicSpecialMode) return islamicSpecialTheme;
     return darkTheme;
   }
 }
