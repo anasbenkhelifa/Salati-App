@@ -6,10 +6,13 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_theme_provider.dart';
 import '../../core/localization/strings.dart';
 import '../../core/localization/app_locale_provider.dart';
+import '../../core/tour/tour_key_registry.dart';
+import '../../core/tour/app_tour_service.dart';
 import '../../data/services/adhan_playback_service.dart';
 import '../../domain/providers/qibla_provider.dart';
 import '../widgets/app_option_tile.dart';
 import '../widgets/glass_container.dart';
+import '../navigation/app_shell.dart';
 import 'controls_screen.dart';
 
 /// Settings screen with glass setting cards and language switcher
@@ -134,10 +137,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     if (kDebugMode) _buildAdhanDebugSection(),
                     if (kDebugMode) const SizedBox(height: 20),
                     // Language switcher
-                    _buildLanguageSwitcher(context, localeController),
+                    _buildLanguageSwitcher(context, localeController, key: TourKeyRegistry.instance.languageTileKey),
                     const SizedBox(height: 12),
                     // Controls section (groups notifications, haptics, theme)
                     AppOptionTile.navigation(
+                      key: TourKeyRegistry.instance.controlsTileKey,
                       icon: Icons.tune,
                       title: t(context, 'controlsTitle'),
                       onTap: () {
@@ -165,9 +169,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 12),
                     // About
                     AppOptionTile.navigation(
+                      key: TourKeyRegistry.instance.themeTileKey,
                       icon: Icons.info_outline,
                       title: t(context, 'aboutApp'),
                       onTap: () => _showAboutDialog(context),
+                    ),
+                    const SizedBox(height: 12),
+                    // Replay Tour
+                    AppOptionTile.navigation(
+                      icon: Icons.school_outlined,
+                      title: t(context, 'replayTour'),
+                      onTap: () {
+                        final pc = AppShell.activePageController;
+                        if (pc != null) {
+                          AppTourService.replayTour(context, pc);
+                        }
+                      },
                     ),
                     const SizedBox(height: 40),
                     // Footer
@@ -357,10 +374,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildLanguageSwitcher(BuildContext context, dynamic controller) {
+  Widget _buildLanguageSwitcher(BuildContext context, dynamic controller, {Key? key}) {
     final isArabic = controller.isArabic;
 
     return GlassContainer(
+      key: key,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       borderRadius: 20,
       child: Column(

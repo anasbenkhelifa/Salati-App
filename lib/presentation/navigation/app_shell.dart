@@ -9,10 +9,14 @@ import '../widgets/glass_container.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_theme_provider.dart';
 import '../../domain/providers/qibla_provider.dart';
+import '../../core/tour/app_tour_service.dart';
 
 /// Main app shell with floating bottom navigation and swipe navigation
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
+
+  /// Expose page controller for tour replay from Settings
+  static PageController? activePageController;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -34,9 +38,16 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentIndex);
+    AppShell.activePageController = _pageController;
     // Listen to theme changes
     AppThemeProvider.instance.addListener(_onThemeChange);
     _warmUpShaders();
+    // Trigger guided tour after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        AppTourService.showTourIfFirstTime(context, _pageController);
+      }
+    });
   }
 
   Future<void> _warmUpShaders() async {
@@ -57,6 +68,7 @@ class _AppShellState extends State<AppShell> {
   @override
   void dispose() {
     _pageController.dispose();
+    AppShell.activePageController = null;
     AppThemeProvider.instance.removeListener(_onThemeChange);
     super.dispose();
   }
@@ -90,47 +102,50 @@ class _AppShellState extends State<AppShell> {
     const bottomPadding =
         FloatingNavBar.navBarHeight + FloatingNavBar.navBarBottomMargin + 8;
 
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: AppTheme.currentBackgroundGradient,
-          image: AppTheme.currentBackgroundImage,
-        ),
-        child: Stack(
-          children: [
-            // 1. Static Full-Screen Blur Layer - NEVER moves!
-            Positioned.fill(
-              child: RepaintBoundary(
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3),
-                  child: Container(color: Colors.transparent),
-                ),
-              ),
-            ),
-            
-            // 2. Sliding Content Layer - just colored boxes, NO BackdropFilter inside
-            Padding(
-              padding: const EdgeInsets.only(bottom: bottomPadding),
-              child: Directionality(
-                textDirection:
-                    TextDirection.ltr, // Always LTR for natural swipe feel
-                child: GlassStyle(
-                  isBlurLayer: false, // Tell all glass containers to NOT render their blur
-                  isContentLayer: true,
-                  child: PageView(
-                    controller: _pageController,
-                    onPageChanged: _onPageChanged,
-                    physics: const BouncingScrollPhysics(
-                      parent: AlwaysScrollableScrollPhysics(),
-                    ),
-                    children: _pages,
+    return PopScope(
+      canPop: !AppTourService.isRunning,
+      child: Scaffold(
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: AppTheme.currentBackgroundGradient,
+            image: AppTheme.currentBackgroundImage,
+          ),
+          child: Stack(
+            children: [
+              // 1. Static Full-Screen Blur Layer - NEVER moves!
+              Positioned.fill(
+                child: RepaintBoundary(
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+                    child: Container(color: Colors.transparent),
                   ),
                 ),
               ),
-            ),
-            // Floating nav bar - synced with PageView
-            FloatingNavBar(currentIndex: _currentIndex, onTap: _onNavTapped),
-          ],
+              
+              // 2. Sliding Content Layer - just colored boxes, NO BackdropFilter inside
+              Padding(
+                padding: const EdgeInsets.only(bottom: bottomPadding),
+                child: Directionality(
+                  textDirection:
+                      TextDirection.ltr, // Always LTR for natural swipe feel
+                  child: GlassStyle(
+                    isBlurLayer: false, // Tell all glass containers to NOT render their blur
+                    isContentLayer: true,
+                    child: PageView(
+                      controller: _pageController,
+                      onPageChanged: _onPageChanged,
+                      physics: const BouncingScrollPhysics(
+                        parent: AlwaysScrollableScrollPhysics(),
+                      ),
+                      children: _pages,
+                    ),
+                  ),
+                ),
+              ),
+              // Floating nav bar - synced with PageView
+              FloatingNavBar(currentIndex: _currentIndex, onTap: _onNavTapped),
+            ],
+          ),
         ),
       ),
     );

@@ -55,6 +55,7 @@ const Map<String, Map<String, String>> _strings = {
     'invalidFormat': 'صيغة غير مدعومة',
     'adhanAdded': 'تم إضافة الأذان',
     'adhanDeleted': 'تم حذف الأذان',
+    'replayTour': 'إعادة الجولة التعريفية',
   },
   'en': {
     'qibla': 'Qibla',
@@ -108,6 +109,7 @@ const Map<String, Map<String, String>> _strings = {
     'invalidFormat': 'Unsupported format',
     'adhanAdded': 'Adhan added',
     'adhanDeleted': 'Adhan deleted',
+    'replayTour': 'Replay Tour',
   },
 };
 

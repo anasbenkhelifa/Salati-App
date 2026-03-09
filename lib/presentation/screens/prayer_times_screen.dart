@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/localization/strings.dart';
+import '../../core/tour/tour_key_registry.dart';
 import '../../core/localization/western_digits.dart';
 import '../../core/localization/app_locale_provider.dart';
 import '../../domain/providers/prayer_times_api_provider.dart';
@@ -486,6 +487,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     return GestureDetector(
       onTap: () => _openLocationPicker(rootContext, isArabic),
       child: GlassContainer(
+        key: TourKeyRegistry.instance.locationHeaderKey,
         padding: const EdgeInsetsDirectional.symmetric(
           horizontal: 20,
           vertical: 16,
@@ -716,6 +718,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     }
 
     return GestureDetector(
+      key: index == 0 ? TourKeyRegistry.instance.prayerCardKey : null,
       onTap: () => _showAdhanSelection(context, index, name),
       child: Builder(
         builder: (context) {
@@ -775,6 +778,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
           children: [
             // Alert mode toggle button
             PrayerAlertModeButton(
+              key: index == 0 ? TourKeyRegistry.instance.prayerAlertModeKey : null,
               mode: _alertModes[_prayerKeys[index]] ?? AlertMode.sound,
               onTap: () => _toggleAlertMode(index),
             ),

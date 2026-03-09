@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_theme_provider.dart';
 import 'core/localization/app_locale_controller.dart';
 import 'core/localization/app_locale_provider.dart';
 import 'presentation/navigation/app_shell.dart';
-import 'presentation/screens/onboarding_screen.dart';
 import 'package:provider/provider.dart';
 import 'notification_manager.dart';
 import 'data/services/adhan_selection_service.dart';
 import 'domain/providers/prayer_times_api_provider.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
-
-/// Whether the onboarding has been completed (checked once at startup)
-late final bool _onboardingComplete;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,10 +23,6 @@ void main() async {
     AppThemeProvider.instance.initialize(),
     AdhanSelectionService.instance.initialize(),
   ]);
-
-  // Check onboarding status
-  final prefs = await SharedPreferences.getInstance();
-  _onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
 
   // Initialize PrayerTimes centrally
   await PrayerTimesApiProvider.instance.initialize();
@@ -107,35 +98,11 @@ class _AdhanAppState extends State<AdhanApp> {
             // Theme - uses current mode
             theme: AppTheme.currentTheme,
 
-            // Home: Onboarding on first launch, or main app
-            home: _onboardingComplete
-                ? const NotificationManager(child: AppShell())
-                : _OnboardingWrapper(),
+            // Home with notification manager
+            home: const NotificationManager(child: AppShell()),
           );
         },
       ),
     );
   }
 }
-
-/// Wrapper that shows onboarding and navigates to main app on completion
-class _OnboardingWrapper extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return OnboardingScreen(
-      onComplete: () {
-        Navigator.of(context).pushAndRemoveUntil(
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => const NotificationManager(child: AppShell()),
-            transitionsBuilder: (_, animation, __, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-            transitionDuration: const Duration(milliseconds: 600),
-          ),
-          (route) => false,
-        );
-      },
-    );
-  }
-}
-

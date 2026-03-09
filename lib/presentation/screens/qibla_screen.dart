@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../core/tour/tour_key_registry.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/localization/strings.dart';
 import '../../core/localization/western_digits.dart';
@@ -306,6 +307,7 @@ class _QiblaScreenState extends State<QiblaScreen>
     final headingDeg = _provider.headingDegrees;
 
     return SizedBox(
+      key: TourKeyRegistry.instance.compassDialKey,
       width: 280,
       height: 280,
       child: Stack(

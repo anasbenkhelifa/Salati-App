@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/tour/tour_key_registry.dart';
 import '../../core/localization/strings.dart';
 import '../../core/localization/western_digits.dart';
 import '../../core/localization/app_locale_provider.dart';
@@ -211,6 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final prayerStatus = _calculatePrayerStatus(response.timings, isArabic);
 
     return Container(
+      key: TourKeyRegistry.instance.prayerDashboardKey,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
         color: AppTheme.currentTextPrimary.withOpacity(0.04),
