@@ -21,8 +21,8 @@ class AdhanOption {
   /// Default adhan (bundled with app)
   static const AdhanOption defaultAdhan = AdhanOption(
     id: 'default',
-    name: 'Default Adhan',
-    nameAr: 'الأذان الافتراضي',
+    name: 'Mecca Adhan',
+    nameAr: 'أذان مكة المكرمة',
     filePath: 'assets/audio/adhan.mp3',
     isAsset: true,
   );

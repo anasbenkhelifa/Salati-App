@@ -137,13 +137,15 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
               shrinkWrap: true,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               children: [
-                // Default adhan section
+                // Built-in adhans section
                 _buildSectionHeader(t(context, 'defaultAdhan')),
-                _buildAdhanTile(
-                  AdhanOption.defaultAdhan,
-                  selectedAdhan.id == 'default',
-                  isArabic,
-                ),
+                ...allAdhans.where((a) => !a.isCustom).map((adhan) => 
+                  _buildAdhanTile(
+                    adhan,
+                    selectedAdhan.id == adhan.id,
+                    isArabic,
+                  )
+                ).toList(),
 
                 // Custom adhans section
                 if (customAdhans.isNotEmpty) ...[
