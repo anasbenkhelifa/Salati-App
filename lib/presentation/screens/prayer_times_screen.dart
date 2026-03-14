@@ -91,27 +91,32 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     return Directionality(
       textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-              // Title
-              Center(
-                child: Text(
-                  t(context, 'prayerTimes'),
-                  style: TextStyle(
-                    color: AppTheme.currentTextPrimary,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  // Title
+                  Center(
+                    child: Text(
+                      t(context, 'prayerTimes'),
+                      style: TextStyle(
+                        color: AppTheme.currentTextPrimary,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  // Content based on state
+                  Expanded(child: _buildContent(context)),
+                ],
               ),
-              const SizedBox(height: 16),
-              // Content based on state
-              Expanded(child: _buildContent(context)),
-            ],
+            ),
           ),
         ),
       ),
@@ -601,7 +606,10 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                     const SizedBox(width: 6),
                     Text(
                       t(context, 'offlineMode'),
-                      style: const TextStyle(color: Colors.orange, fontSize: 12),
+                      style: const TextStyle(
+                        color: Colors.orange,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -619,9 +627,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     // Show loading
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          t(context, 'updatingLocation'),
-        ),
+        content: Text(t(context, 'updatingLocation')),
         duration: const Duration(seconds: 1),
         backgroundColor: AppTheme.currentActiveGlow,
       ),
@@ -733,143 +739,149 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
 
           Widget contentWidget = Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        decoration: BoxDecoration(
-          color:
-              AppTheme.isLightMode
-                  ? (isNext
-                      ? AppTheme.currentActiveGlow.withOpacity(0.08)
-                      : Colors.white)
-                  : Colors.white.withOpacity(isNext ? 0.15 : 0.08),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color:
-                isNext
-                    ? AppTheme.currentActiveGlow.withOpacity(0.3)
-                    : AppTheme.isLightMode
-                    ? AppTheme.lightDivider
-                    : AppTheme.inactiveBorder,
-            width: isNext ? 1.5 : 1,
-          ),
-          boxShadow:
-              isNext
-                  ? [
-                    BoxShadow(
-                      color: AppTheme.currentActiveGlow.withOpacity(0.15),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                    ),
-                  ]
-                  : AppTheme.isLightMode
-                  ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                  : null,
-        ),
-        child: Row(
-          children: [
-            // Alert mode toggle button
-            PrayerAlertModeButton(
-              key: index == 0 ? TourKeyRegistry.instance.prayerAlertModeKey : null,
-              mode: _alertModes[_prayerKeys[index]] ?? AlertMode.sound,
-              onTap: () => _toggleAlertMode(index),
-            ),
-            const SizedBox(width: 16),
-            // Prayer name + Ramadan label
-            Expanded(
-              child: Row(
-                children: [
-                  Text(
-                    name,
-                    style: TextStyle(
-                      color: AppTheme.currentTextPrimary,
-                      fontSize: 20,
-                      fontWeight: isNext ? FontWeight.bold : FontWeight.w500,
-                    ),
-                  ),
-                  if (ramadanLabel != null) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.purple.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.purple.withOpacity(0.4),
-                        ),
-                      ),
-                      child: Text(
-                        ramadanLabel,
-                        style: TextStyle(
-                          color: Colors.purple.shade300,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+            decoration: BoxDecoration(
+              color:
+                  AppTheme.isLightMode
+                      ? (isNext
+                          ? AppTheme.currentActiveGlow.withOpacity(0.08)
+                          : Colors.white)
+                      : Colors.white.withOpacity(isNext ? 0.15 : 0.08),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color:
+                    isNext
+                        ? AppTheme.currentActiveGlow.withOpacity(0.3)
+                        : AppTheme.isLightMode
+                        ? AppTheme.lightDivider
+                        : AppTheme.inactiveBorder,
+                width: isNext ? 1.5 : 1,
               ),
+              boxShadow:
+                  isNext
+                      ? [
+                        BoxShadow(
+                          color: AppTheme.currentActiveGlow.withOpacity(0.15),
+                          blurRadius: 20,
+                          spreadRadius: 2,
+                        ),
+                      ]
+                      : AppTheme.isLightMode
+                      ? [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ]
+                      : null,
             ),
-            // Time or countdown
-            if (isNext && countdownParts != null) ...[
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    timeStr,
-                    style: TextStyle(
-                      color: AppTheme.currentTextSecondary.withOpacity(0.7),
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  // Countdown with separate sign and time for visual balance
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
+            child: Row(
+              children: [
+                // Alert mode toggle button
+                PrayerAlertModeButton(
+                  key:
+                      index == 0
+                          ? TourKeyRegistry.instance.prayerAlertModeKey
+                          : null,
+                  mode: _alertModes[_prayerKeys[index]] ?? AlertMode.sound,
+                  onTap: () => _toggleAlertMode(index),
+                ),
+                const SizedBox(width: 16),
+                // Prayer name + Ramadan label
+                Expanded(
+                  child: Row(
                     children: [
                       Text(
-                        countdownParts.sign,
+                        name,
                         style: TextStyle(
-                          color: AppTheme.currentActiveGlow.withOpacity(0.7),
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          color: AppTheme.currentTextPrimary,
+                          fontSize: 20,
+                          fontWeight:
+                              isNext ? FontWeight.bold : FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        countdownParts.time,
-                        style: TextStyle(
-                          color: AppTheme.currentActiveGlow,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      if (ramadanLabel != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.purple.withOpacity(0.4),
+                            ),
+                          ),
+                          child: Text(
+                            ramadanLabel,
+                            style: TextStyle(
+                              color: Colors.purple.shade300,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
+                      ],
+                    ],
+                  ),
+                ),
+                // Time or countdown
+                if (isNext && countdownParts != null) ...[
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        timeStr,
+                        style: TextStyle(
+                          color: AppTheme.currentTextSecondary.withOpacity(0.7),
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      // Countdown with separate sign and time for visual balance
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            countdownParts.sign,
+                            style: TextStyle(
+                              color: AppTheme.currentActiveGlow.withOpacity(
+                                0.7,
+                              ),
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            countdownParts.time,
+                            style: TextStyle(
+                              color: AppTheme.currentActiveGlow,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
+                ] else ...[
+                  Text(
+                    timeStr,
+                    style: TextStyle(
+                      color: AppTheme.currentTextPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ],
-              ),
-            ] else ...[
-              Text(
-                timeStr,
-                style: TextStyle(
-                  color: AppTheme.currentTextPrimary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ],
-        ),
-      );
+              ],
+            ),
+          );
 
           if (isBlurLayer && !isContentLayer) {
             return Stack(
@@ -885,10 +897,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
 
           return Stack(
             fit: StackFit.loose,
-            children: [
-              blurWidget,
-              contentWidget,
-            ],
+            children: [blurWidget, contentWidget],
           );
         },
       ),

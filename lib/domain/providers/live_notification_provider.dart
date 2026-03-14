@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/services/foreground_service_bridge.dart';
 import '../../data/services/prayer_times_api_service.dart';
 import '../../data/services/prayer_times_cache_service.dart';
@@ -24,6 +25,9 @@ class LiveNotificationProvider extends ChangeNotifier {
   String _locationName = '';
   bool _isArabic = false;
   bool _isRunning = false;
+
+  // 0: Disabled, 1: Static, 2: Dynamic
+  int _liveNotifMode = 1;
 
   // Grace window: 30 minutes after a prayer
   static const int _graceWindowMinutes = 30;
@@ -53,6 +57,28 @@ class LiveNotificationProvider extends ChangeNotifier {
     'isha',
   ];
 
+  void updateLanguage(bool isArabic) {
+    _isArabic = isArabic;
+    _updateNotification();
+  }
+
+  Future<void> refreshMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    _liveNotifMode = prefs.getInt('live_notification_mode') ?? 1;
+
+    if (_liveNotifMode != 0 && !_isRunning && _locationName != null) {
+      // Reboot the service completely since it was dead
+      await start(
+        locationName: _locationName!,
+        isArabic: _isArabic,
+        latitude: 0, // It will reload from cached timings anyway
+        longitude: 0,
+      );
+    } else {
+      _updateNotification();
+    }
+  }
+
   /// Start the live notification service
   Future<void> start({
     required String locationName,
@@ -65,6 +91,9 @@ class LiveNotificationProvider extends ChangeNotifier {
 
     _locationName = locationName;
     _isArabic = isArabic;
+
+    final prefs = await SharedPreferences.getInstance();
+    _liveNotifMode = prefs.getInt('live_notification_mode') ?? 1;
 
     // Load Hijri date natively with offset applied
     final startDate = DateTime.now();
@@ -97,12 +126,6 @@ class LiveNotificationProvider extends ChangeNotifier {
 
   String _buildInitialBody() {
     return _isArabic ? 'جاري التحميل...' : 'Loading...';
-  }
-
-  /// Update language setting
-  void updateLanguage(bool isArabic) {
-    _isArabic = isArabic;
-    _updateNotification();
   }
 
   /// Update location
@@ -181,6 +204,12 @@ class LiveNotificationProvider extends ChangeNotifier {
   void _updateNotification() {
     if (_todayTimings == null) return;
 
+    // Mode 0: Disabled
+    if (_liveNotifMode == 0) {
+      ForegroundServiceBridge.stopService();
+      return;
+    }
+
     final now = DateTime.now();
 
     // Refresh Hijri date when the calendar day changes (handles midnight rollover)
@@ -191,8 +220,10 @@ class LiveNotificationProvider extends ChangeNotifier {
       _hijriService.getAdjustedHijriDate(now).then((date) {
         if (date != null) {
           _hijriDate = date;
-          debugPrint('[LiveNotificationProvider] Hijri date refreshed for $currentDateKey: ${date.formatEnglish()}');
-          
+          debugPrint(
+            '[LiveNotificationProvider] Hijri date refreshed for $currentDateKey: ${date.formatEnglish()}',
+          );
+
           // Refresh the 7-day cache for Android service, then update notification
           _hijriService.cacheNext7Days().then((_) {
             _updateNotification();
@@ -253,8 +284,34 @@ class LiveNotificationProvider extends ChangeNotifier {
     }
 
     // Build notification content
-    String title = _buildTitle(now);
-    String body = _buildBody(
+    // Mode 2: Dynamic (Only show 1 hr before next prayer, and 30 mins after previous)
+    if (_liveNotifMode == 2) {
+      bool shouldShow = false;
+
+      // Before next prayer
+      if (nextPrayerTime != null) {
+        final diffToNext = nextPrayerTime.difference(now);
+        if (diffToNext.inMinutes <= 60 && diffToNext.inMinutes >= 0) {
+          shouldShow = true;
+        }
+      }
+
+      // After previous prayer
+      if (lastPrayerTime != null) {
+        final diffFromPrev = now.difference(lastPrayerTime);
+        if (diffFromPrev.inMinutes <= 30 && diffFromPrev.inMinutes >= 0) {
+          shouldShow = true;
+        }
+      }
+
+      if (!shouldShow) {
+        ForegroundServiceBridge.stopService();
+        return;
+      }
+    }
+
+    final title = _buildTitle(now);
+    final body = _buildBody(
       now: now,
       isGraceWindow: isGraceWindow,
       lastPrayerIndex: lastPrayerIndex,

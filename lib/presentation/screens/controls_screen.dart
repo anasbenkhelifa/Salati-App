@@ -8,12 +8,15 @@ import '../../core/localization/app_locale_provider.dart';
 import '../../core/tour/tour_key_registry.dart';
 import '../../core/tour/app_tour_service.dart';
 import '../../domain/providers/qibla_provider.dart';
+import '../../domain/providers/live_notification_provider.dart';
 import '../../data/services/adhan_alarm_service.dart';
 import '../widgets/app_option_tile.dart';
 import '../../data/services/prayer_times_api_service.dart';
 import '../../domain/providers/prayer_times_api_provider.dart';
 import '../navigation/app_shell.dart';
+import '../../notification_manager.dart';
 import 'package:provider/provider.dart';
+import '../../data/services/analytics_service.dart';
 
 /// Controls screen with full-screen notification, compass haptics, and theme settings
 class ControlsScreen extends StatefulWidget {
@@ -27,6 +30,11 @@ class _ControlsScreenState extends State<ControlsScreen> {
   bool _compassHapticsEnabled = true;
   bool _maxVolumeOverrideEnabled = false;
   bool _preAdhanEnabled = false;
+  bool _isDisposed = false;
+
+  // Live Notification Mode
+  // 0: Disabled, 1: Static, 2: Dynamic
+  int _liveNotifMode = 1;
 
   @override
   void initState() {
@@ -40,6 +48,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
 
   @override
   void dispose() {
+    _isDisposed = true;
     QiblaProvider.instance?.removeListener(_onProviderChange);
     AppThemeProvider.instance.removeListener(_onThemeChange);
     super.dispose();
@@ -54,11 +63,13 @@ class _ControlsScreenState extends State<ControlsScreen> {
 
     // Load max volume override setting
     final prefs = await SharedPreferences.getInstance();
+    if (_isDisposed) return;
     if (mounted) {
       setState(() {
         _maxVolumeOverrideEnabled =
             prefs.getBool('max_volume_override') ?? false;
         _preAdhanEnabled = prefs.getBool('pre_adhan_enabled') ?? true;
+        _liveNotifMode = prefs.getInt('live_notification_mode') ?? 1;
       });
     }
   }
@@ -92,6 +103,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
     } else {
       debugPrint('[ControlsScreen] Warning: QiblaProvider.instance is null');
     }
+    AnalyticsService.instance.logCompassHapticsToggled(enabled);
   }
 
   void _showThemeSelector() {
@@ -147,6 +159,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
                             setState(() => _maxVolumeOverrideEnabled = val);
                             final prefs = await SharedPreferences.getInstance();
                             await prefs.setBool('max_volume_override', val);
+                            AnalyticsService.instance.logMaxVolumeToggled(val);
                           },
                         ),
                         const SizedBox(height: 12),
@@ -162,7 +175,16 @@ class _ControlsScreenState extends State<ControlsScreen> {
                             await prefs.setBool('pre_adhan_enabled', val);
                             // Reschedule all alarms to add/remove pre-adhan reminders
                             await AdhanAlarmService.rescheduleAllAlarms();
+                            AnalyticsService.instance.logPreAdhanToggled(val);
                           },
+                        ),
+                        const SizedBox(height: 12),
+                        // Live Notification Mode
+                        AppOptionTile.navigation(
+                          icon: Icons.notifications_active_outlined,
+                          title: t(context, 'liveNotificationMode'),
+                          subtitle: _getLiveNotifModeString(context),
+                          onTap: _showLiveNotifModeSelector,
                         ),
                         const SizedBox(height: 12),
                         // Theme picker
@@ -170,12 +192,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
                           key: TourKeyRegistry.instance.themeTileKey,
                           icon: Icons.palette_outlined,
                           title: t(context, 'chooseTheme'),
-                          subtitle:
-                              AppTheme.isLightMode
-                                  ? t(context, 'lightMode')
-                                  : (AppTheme.isIslamicMode
-                                      ? t(context, 'islamicMode')
-                                      : t(context, 'nightMode')),
+                          subtitle: _getThemeSubtitle(context),
                           onTap: _showThemeSelector,
                         ),
                         const SizedBox(height: 12),
@@ -222,6 +239,162 @@ class _ControlsScreenState extends State<ControlsScreen> {
     );
   }
 
+  String _getLiveNotifModeString(BuildContext context) {
+    switch (_liveNotifMode) {
+      case 0:
+        return t(context, 'lnDisabled');
+      case 2:
+        return t(context, 'lnDynamic');
+      case 1:
+      default:
+        return t(context, 'lnStatic');
+    }
+  }
+
+  void _showLiveNotifModeSelector() {
+    HapticFeedback.lightImpact();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => StatefulBuilder(
+            builder: (context, setModalState) {
+              return Container(
+                decoration: BoxDecoration(
+                  color:
+                      AppTheme.isLightMode
+                          ? Colors.white
+                          : (AppTheme.isIslamicMode
+                              ? AppTheme.islamicPrimaryNavy
+                              : const Color(0xFF1B263B)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                ),
+                child: SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 16),
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppTheme.currentTextSecondary.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        t(context, 'liveNotificationMode'),
+                        style: TextStyle(
+                          color: AppTheme.currentTextPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildModeOption(
+                        0,
+                        t(context, 'lnDisabled'),
+                        Icons.notifications_off_outlined,
+                        setModalState,
+                      ),
+                      _buildModeOption(
+                        1,
+                        t(context, 'lnStatic'),
+                        Icons.notifications_active,
+                        setModalState,
+                      ),
+                      _buildModeOption(
+                        2,
+                        t(context, 'lnDynamic'),
+                        Icons.auto_awesome,
+                        setModalState,
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+    );
+  }
+
+  Widget _buildModeOption(
+    int mode,
+    String label,
+    IconData icon,
+    StateSetter setModalState,
+  ) {
+    final isSelected = _liveNotifMode == mode;
+    return InkWell(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        setModalState(() => _liveNotifMode = mode);
+        setState(() => _liveNotifMode = mode);
+
+        Future.delayed(const Duration(milliseconds: 150), () async {
+          if (!mounted) return;
+          Navigator.pop(context);
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt('live_notification_mode', mode);
+          AnalyticsService.instance.logLiveNotifModeChanged(mode);
+
+          if (mounted) {
+            NotificationManager.instance?.provider.refreshMode();
+          }
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        color:
+            isSelected
+                ? AppTheme.currentActiveGlow.withOpacity(0.1)
+                : Colors.transparent,
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color:
+                  isSelected
+                      ? AppTheme.currentActiveGlow
+                      : AppTheme.currentTextSecondary,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color:
+                      isSelected
+                          ? AppTheme.currentActiveGlow
+                          : AppTheme.currentTextPrimary,
+                  fontSize: 16,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_circle, color: AppTheme.currentActiveGlow),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getThemeSubtitle(BuildContext context) {
+    if (AppTheme.isLightMode) return t(context, 'lightMode');
+    if (AppTheme.isNightMode) return t(context, 'nightMode');
+    if (AppTheme.isIslamicGreenMode) return t(context, 'islamicGreenMode');
+    if (AppTheme.isIslamicSpecialMode) return t(context, 'islamicSpecialMode');
+    if (AppTheme.isIslamicMode) return t(context, 'islamicMode');
+    return t(context, 'nightMode');
+  }
+
   Widget _buildHeader(BuildContext context, bool isArabic) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -256,14 +429,18 @@ class _ControlsScreenState extends State<ControlsScreen> {
   }
 
   Widget _buildPrayerMethodSelector(BuildContext context) {
-    final provider = context.watch<PrayerTimesApiProvider>();
+    final provider = PrayerTimesApiProvider.instance;
     final isArabic = AppLocaleProvider.of(context).isArabic;
 
     // Determine subtitle
     String subtitle = '';
     if (!provider.isManualMethod) {
-      final methodName = isArabic ? provider.method.nameAr : provider.method.nameEn;
-      subtitle = t(context, 'calcMethodAuto').replaceAll('{method}', methodName);
+      final methodName =
+          isArabic ? provider.method.nameAr : provider.method.nameEn;
+      subtitle = t(
+        context,
+        'calcMethodAuto',
+      ).replaceAll('{method}', methodName);
     } else {
       subtitle = isArabic ? provider.method.nameAr : provider.method.nameEn;
     }
@@ -276,7 +453,10 @@ class _ControlsScreenState extends State<ControlsScreen> {
     );
   }
 
-  void _showMethodSelector(BuildContext context, PrayerTimesApiProvider provider) {
+  void _showMethodSelector(
+    BuildContext context,
+    PrayerTimesApiProvider provider,
+  ) {
     HapticFeedback.lightImpact();
     final isArabic = AppLocaleProvider.of(context).isArabic;
 
@@ -284,79 +464,95 @@ class _ControlsScreenState extends State<ControlsScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: BoxDecoration(
-          color: AppTheme.isLightMode
-              ? Colors.white
-              : (AppTheme.isIslamicMode ? AppTheme.islamicPrimaryNavy : const Color(0xFF1B263B)),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          children: [
-            const SizedBox(height: 16),
-            // Handle
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppTheme.currentTextSecondary.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(2),
+      builder:
+          (context) => Container(
+            height: MediaQuery.of(context).size.height * 0.7,
+            decoration: BoxDecoration(
+              color:
+                  AppTheme.isLightMode
+                      ? Colors.white
+                      : (AppTheme.isIslamicMode
+                          ? AppTheme.islamicPrimaryNavy
+                          : const Color(0xFF1B263B)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
               ),
             ),
-            const SizedBox(height: 20),
-            // Title
-            Text(
-              t(context, 'calcMethod'),
-              style: TextStyle(
-                color: AppTheme.currentTextPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                children: [
-                  // Automatic Option
-                  _buildMethodOption(
-                    context: context,
-                    title: t(context, 'calcMethodAuto').replaceAll(' ({method})', ''),
-                    subtitle: t(context, 'calcMethodAutoDesc'),
-                    isSelected: !provider.isManualMethod,
-                    onTap: () async {
-                      HapticFeedback.lightImpact();
-                      await provider.autoDetectMethod();
-                      if (context.mounted) Navigator.pop(context);
-                    },
+            child: Column(
+              children: [
+                const SizedBox(height: 16),
+                // Handle
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.currentTextSecondary.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  const SizedBox(height: 12),
-                  Divider(color: AppTheme.currentDivider),
-                  const SizedBox(height: 12),
-                  // Manual Options
-                  ...CalculationMethodId.values.map((method) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: _buildMethodOption(
+                ),
+                const SizedBox(height: 20),
+                // Title
+                Text(
+                  t(context, 'calcMethod'),
+                  style: TextStyle(
+                    color: AppTheme.currentTextPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    children: [
+                      // Automatic Option
+                      _buildMethodOption(
                         context: context,
-                        title: isArabic ? method.nameAr : method.nameEn,
-                        isSelected: provider.isManualMethod && provider.method == method,
+                        title: t(
+                          context,
+                          'calcMethodAuto',
+                        ).replaceAll(' ({method})', ''),
+                        subtitle: t(context, 'calcMethodAutoDesc'),
+                        isSelected: !provider.isManualMethod,
                         onTap: () async {
                           HapticFeedback.lightImpact();
-                          await provider.setMethod(method, isManual: true);
+                          await provider.autoDetectMethod();
+                          AnalyticsService.instance.logCalculationMethodChanged('auto');
                           if (context.mounted) Navigator.pop(context);
                         },
                       ),
-                    );
-                  }),
-                  const SizedBox(height: 24),
-                ],
-              ),
+                      const SizedBox(height: 12),
+                      Divider(color: AppTheme.currentDivider),
+                      const SizedBox(height: 12),
+                      // Manual Options
+                      ...CalculationMethodId.values.map((method) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: _buildMethodOption(
+                            context: context,
+                            title: isArabic ? method.nameAr : method.nameEn,
+                            isSelected:
+                                provider.isManualMethod &&
+                                provider.method == method,
+                            onTap: () async {
+                              HapticFeedback.lightImpact();
+                              await provider.setMethod(method, isManual: true);
+                              AnalyticsService.instance.logCalculationMethodChanged(method.nameEn);
+                              if (context.mounted) Navigator.pop(context);
+                            },
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
@@ -373,10 +569,16 @@ class _ControlsScreenState extends State<ControlsScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.currentActiveGlow.withOpacity(0.1) : Colors.transparent,
+          color:
+              isSelected
+                  ? AppTheme.currentActiveGlow.withOpacity(0.1)
+                  : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? AppTheme.currentActiveGlow.withOpacity(0.5) : AppTheme.inactiveBorder,
+            color:
+                isSelected
+                    ? AppTheme.currentActiveGlow.withOpacity(0.5)
+                    : AppTheme.inactiveBorder,
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -389,9 +591,13 @@ class _ControlsScreenState extends State<ControlsScreen> {
                   Text(
                     title,
                     style: TextStyle(
-                      color: isSelected ? AppTheme.currentActiveGlow : AppTheme.currentTextPrimary,
+                      color:
+                          isSelected
+                              ? AppTheme.currentActiveGlow
+                              : AppTheme.currentTextPrimary,
                       fontSize: 16,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.w500,
                     ),
                   ),
                   if (subtitle != null) ...[
@@ -408,7 +614,11 @@ class _ControlsScreenState extends State<ControlsScreen> {
               ),
             ),
             if (isSelected)
-              Icon(Icons.check_circle, color: AppTheme.currentActiveGlow, size: 24),
+              Icon(
+                Icons.check_circle,
+                color: AppTheme.currentActiveGlow,
+                size: 24,
+              ),
           ],
         ),
       ),
@@ -425,13 +635,16 @@ class _ThemeSelectorSheet extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.isLightMode 
-            ? Colors.white 
-            : (AppTheme.isIslamicSpecialMode
-                ? AppTheme.islamicSpecialPrimary
-                : (AppTheme.isIslamicGreenMode 
-                    ? AppTheme.islamicGreenPrimary 
-                    : (AppTheme.isIslamicMode ? AppTheme.islamicPrimaryNavy : const Color(0xFF1B263B)))),
+        color:
+            AppTheme.isLightMode
+                ? Colors.white
+                : (AppTheme.isIslamicSpecialMode
+                    ? AppTheme.islamicSpecialPrimary
+                    : (AppTheme.isIslamicGreenMode
+                        ? AppTheme.islamicGreenPrimary
+                        : (AppTheme.isIslamicMode
+                            ? AppTheme.islamicPrimaryNavy
+                            : const Color(0xFF1B263B)))),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.all(24),

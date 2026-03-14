@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import '../domain/providers/live_notification_provider.dart';
 import '../data/services/notification_service.dart';
 import '../data/services/prayer_times_cache_service.dart';
@@ -89,34 +88,10 @@ class _NotificationManagerState extends State<NotificationManager>
     _refreshHijriCacheInBackground();
   }
 
-  /// Request both notification and location permissions at startup
+  /// Request notification permission at startup
+  /// NOTE: Location permission is handled by PrayerTimesApiProvider — not here.
   Future<void> _requestAllPermissions() async {
-    debugPrint('[NotificationManager] Requesting permissions at startup...');
-
-    // 1. Request location permission first
-    try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (serviceEnabled) {
-        var permission = await Geolocator.checkPermission();
-        if (permission == LocationPermission.denied) {
-          debugPrint('[NotificationManager] Requesting location permission...');
-          permission = await Geolocator.requestPermission();
-          debugPrint(
-            '[NotificationManager] Location permission result: $permission',
-          );
-        } else {
-          debugPrint(
-            '[NotificationManager] Location already granted: $permission',
-          );
-        }
-      } else {
-        debugPrint('[NotificationManager] Location services disabled');
-      }
-    } catch (e) {
-      debugPrint('[NotificationManager] Location permission error: $e');
-    }
-
-    // 2. Request notification permission (Android 13+)
+    // Request notification permission (Android 13+)
     debugPrint('[NotificationManager] Requesting notification permission...');
     final notifResult = await _notificationService.requestPermission();
     debugPrint(

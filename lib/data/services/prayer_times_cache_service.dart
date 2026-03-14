@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'prayer_times_api_service.dart';
+import 'analytics_service.dart';
 
 /// Cached app state for offline-first behavior
 class CachedAppState {
@@ -153,6 +154,7 @@ class PrayerTimesCacheService {
     debugPrint(
       '[PrayerTimesCacheService] App state saved: $cityEn, $prayerTimesDate',
     );
+    AnalyticsService.instance.logLocationSet(cityEn, countryEn);
   }
 
   /// Load complete app state from cache
@@ -410,5 +412,6 @@ class PrayerTimesCacheService {
     debugPrint(
       '[PrayerTimesCacheService] Manual location saved: $cityEn, $countryEn ($lat, $lng)',
     );
+    AnalyticsService.instance.logLocationSet(cityEn, countryEn);
   }
 }

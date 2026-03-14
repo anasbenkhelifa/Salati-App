@@ -148,7 +148,7 @@ class AdhanForegroundService : Service() {
         when (intent?.action) {
             ACTION_STOP -> {
                 Log.d(TAG, "Stopping service via ACTION_STOP")
-                stopAdhanPlayback()
+                stopAdhanPlayback(isServiceStopping = true)
                 stopTicker()
                 stopSelf()
                 return START_NOT_STICKY
@@ -309,8 +309,18 @@ class AdhanForegroundService : Service() {
                     .build())
                 
                 setOnPreparedListener {
-                    Log.d(TAG, "MediaPlayer prepared, starting playback")
-                    start()
+                    Log.d(TAG, "MediaPlayer prepared, starting playback after delay")
+                    // Small delay to let Android audio routing and AudioFocus settle
+                    // This prevents the "stuttering" effect on Adhan start
+                    handler.postDelayed({
+                        try {
+                            if (isAdhanPlaying && mediaPlayer != null) {
+                                start()
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error starting playback after delay: \${e.message}")
+                        }
+                    }, 400)
                 }
                 
                 setOnCompletionListener {
@@ -343,7 +353,7 @@ class AdhanForegroundService : Service() {
     /**
      * Stop Adhan playback and revert notification
      */
-    fun stopAdhanPlayback() {
+    fun stopAdhanPlayback(isServiceStopping: Boolean = false) {
         Log.d(TAG, "stopAdhanPlayback")
         
         // Unregister hardware stop listeners first
@@ -378,11 +388,18 @@ class AdhanForegroundService : Service() {
         val manager = getSystemService(NotificationManager::class.java)
         manager.cancel(NOTIFICATION_ID_PLAYING)
         
-        // Revert to normal countdown notification using startForeground
-        val (title, body) = computeNotificationContent()
-        val notification = buildNotification(title, body)
-        startForeground(NOTIFICATION_ID, notification)
-        Log.d(TAG, "Reverted to countdown notification")
+        if (!isServiceStopping) {
+            try {
+                // Revert to normal countdown notification using startForeground
+                val content = computeNotificationContent()
+                val (title, body) = content
+                val notification = buildNotification(title, body)
+                startForeground(NOTIFICATION_ID, notification)
+                Log.d(TAG, "Reverted to countdown notification")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error reverting notification: ${e.message}")
+            }
+        }
     }
     
     /**

@@ -10,6 +10,10 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_theme_provider.dart';
 import '../../domain/providers/qibla_provider.dart';
 import '../../core/tour/app_tour_service.dart';
+import '../../data/services/analytics_service.dart';
+import '../../domain/providers/prayer_times_api_provider.dart';
+import '../widgets/rate_app_sheet.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Main app shell with floating bottom navigation and swipe navigation
 class AppShell extends StatefulWidget {
@@ -37,6 +41,8 @@ class _AppShellState extends State<AppShell> {
     _KeepAlivePage(child: SettingsScreen()),
   ];
 
+  bool _tourTriggered = false;
+
   @override
   void initState() {
     super.initState();
@@ -44,12 +50,12 @@ class _AppShellState extends State<AppShell> {
     AppShell.activePageController = _pageController;
     // Listen to theme changes
     AppThemeProvider.instance.addListener(_onThemeChange);
+    // Listen to prayer data state for tour & rating prompt
+    PrayerTimesApiProvider.instance.addListener(_onPrayerDataChanged);
     _warmUpShaders();
-    // Trigger guided tour after first frame
+    // Try to trigger tour immediately if data is already loaded
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        AppTourService.showTourIfFirstTime(context, _pageController);
-      }
+      _tryTriggerTourAndRatingPrompt();
     });
   }
 
@@ -74,11 +80,108 @@ class _AppShellState extends State<AppShell> {
     AppShell.activePageController = null;
     AppShell.activeContext = null;
     AppThemeProvider.instance.removeListener(_onThemeChange);
+    PrayerTimesApiProvider.instance.removeListener(_onPrayerDataChanged);
     super.dispose();
   }
 
   void _onThemeChange() {
     if (mounted) setState(() {});
+  }
+
+  /// Called whenever prayer data state changes (e.g., GPS off → GPS on recovery)
+  void _onPrayerDataChanged() {
+    _tryTriggerTourAndRatingPrompt();
+  }
+
+  /// Trigger the tour when data becomes available, and show rating prompt on 2nd/3rd open
+  void _tryTriggerTourAndRatingPrompt() {
+    if (!mounted || _tourTriggered) return;
+    final provider = PrayerTimesApiProvider.instance;
+    if (provider.state == PrayerDataState.success ||
+        provider.state == PrayerDataState.offline) {
+      _tourTriggered = true;
+      // Small delay for UI to fully settle, then trigger tour
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) {
+          AppTourService.showTourIfFirstTime(context, _pageController).then((_) {
+            // After tour completes (or is skipped because already done), check rating prompt
+            _checkRatingPrompt();
+          });
+        }
+      });
+    }
+  }
+
+  /// Show a rating prompt on the 2nd or 3rd app open
+  Future<void> _checkRatingPrompt() async {
+    if (!mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    final openCount = (prefs.getInt('app_open_count') ?? 0) + 1;
+    await prefs.setInt('app_open_count', openCount);
+
+    // Show prompt on 2nd or 3rd open, but only once
+    if (openCount >= 2 && openCount <= 3 && !(prefs.getBool('rating_prompt_shown') ?? false)) {
+      await prefs.setBool('rating_prompt_shown', true);
+      if (!mounted) return;
+      // Wait a moment for the app to feel settled
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      _showRatingPromptDialog();
+    }
+  }
+
+  void _showRatingPromptDialog() {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.currentSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          isArabic ? 'هل تعجبك صلاتي؟' : 'Enjoying Salati?',
+          style: TextStyle(color: AppTheme.currentTextPrimary, fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+        ),
+        content: Text(
+          isArabic
+              ? 'إذا أعجبك التطبيق، يرجى تقييمنا! رأيك يساعدنا كثيراً ⭐'
+              : 'If you like the app, please rate us! Your feedback helps a lot ⭐',
+          style: TextStyle(color: AppTheme.currentTextSecondary),
+          textAlign: TextAlign.center,
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              isArabic ? 'لاحقاً' : 'Maybe Later',
+              style: TextStyle(color: AppTheme.currentTextSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => const RateAppSheet(),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.currentActiveGlow,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            ),
+            child: Text(
+              isArabic ? 'قيّمنا ⭐' : 'Rate Us ⭐',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Animate to page when bottom nav is tapped
@@ -91,9 +194,17 @@ class _AppShellState extends State<AppShell> {
   }
 
   /// Update current index when page is swiped
+  /// Page names for analytics tracking
+  static const _pageNames = ['Qibla', 'Home', 'Prayer Times', 'Settings'];
+
   void _onPageChanged(int index) {
     // Notify Qibla about page visibility (Qibla is at index 0)
     QiblaProvider.instance?.setActive(index == 0);
+
+    // Log page view to analytics
+    if (index >= 0 && index < _pageNames.length) {
+      AnalyticsService.instance.logPageView(_pageNames[index]);
+    }
 
     setState(() {
       _currentIndex = index;
@@ -138,13 +249,20 @@ class _AppShellState extends State<AppShell> {
                   child: GlassStyle(
                     isBlurLayer: false, // Tell all glass containers to NOT render their blur
                     isContentLayer: true,
-                    child: PageView(
-                      controller: _pageController,
-                      onPageChanged: _onPageChanged,
-                      physics: const BouncingScrollPhysics(
-                        parent: AlwaysScrollableScrollPhysics(),
+                    // Layer 1: Swipeable Main Content with Responsive Constraint
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 600),
+                        child: PageView.builder(
+                          controller: _pageController,
+                          physics: AppTourService.isRunning
+                              ? const NeverScrollableScrollPhysics() // Disable swipe during tour
+                              : const ClampingScrollPhysics(),       // Prevents overscroll glow issues
+                          onPageChanged: _onPageChanged,
+                          itemCount: _pages.length,
+                          itemBuilder: (context, index) => _pages[index],
+                        ),
                       ),
-                      children: _pages,
                     ),
                   ),
                 ),

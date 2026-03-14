@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:home_widget/home_widget.dart';
+import '../../data/services/analytics_service.dart';
 
 /// Controller for app-wide locale management
 class AppLocaleController extends ChangeNotifier {
@@ -51,6 +52,7 @@ class AppLocaleController extends ChangeNotifier {
   }
 
   void setLocale(Locale newLocale) {
+    AnalyticsService.instance.logLanguageChanged(newLocale.languageCode);
     if (_locale != newLocale) {
       _locale = newLocale;
       _saveLanguageToCache(newLocale.languageCode);

@@ -27,6 +27,15 @@ class AdhanOption {
     isAsset: true,
   );
 
+  /// Medina Adhan (bundled with app)
+  static const AdhanOption medinaAdhan = AdhanOption(
+    id: 'medina',
+    name: 'Medina Adhan',
+    nameAr: 'أذان المدينة المنورة',
+    filePath: 'assets/audio/medina_adhan.mp3',
+    isAsset: true,
+  );
+
   /// Create from JSON (for SharedPreferences storage)
   factory AdhanOption.fromJson(Map<String, dynamic> json) {
     return AdhanOption(

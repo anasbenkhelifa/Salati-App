@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_theme_provider.dart';
 import '../../core/localization/strings.dart';
@@ -14,6 +15,7 @@ import '../widgets/app_option_tile.dart';
 import '../widgets/glass_container.dart';
 import '../navigation/app_shell.dart';
 import 'controls_screen.dart';
+import '../widgets/rate_app_sheet.dart';
 
 /// Settings screen with glass setting cards and language switcher
 class SettingsScreen extends StatefulWidget {
@@ -137,7 +139,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     if (kDebugMode) _buildAdhanDebugSection(),
                     if (kDebugMode) const SizedBox(height: 20),
                     // Language switcher
-                    _buildLanguageSwitcher(context, localeController, key: TourKeyRegistry.instance.languageTileKey),
+                    _buildLanguageSwitcher(
+                      context,
+                      localeController,
+                      key: TourKeyRegistry.instance.languageTileKey,
+                    ),
                     const SizedBox(height: 12),
                     // Controls section (groups notifications, haptics, theme)
                     AppOptionTile.navigation(
@@ -157,14 +163,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     AppOptionTile.navigation(
                       icon: Icons.share_outlined,
                       title: t(context, 'shareApp'),
-                      onTap: () {},
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        final isArabic = AppLocaleProvider.of(context).isArabic;
+                        final message = isArabic
+                            ? 'جرب تطبيق صلاتي لمواقيت الصلاة وبوصلة القبلة \ud83d\udd4c\nhttps://salatiapp.vercel.app/'
+                            : 'Check out Salati - Prayer Times & Qibla Compass \ud83d\udd4c\nhttps://salatiapp.vercel.app/';
+                        SharePlus.instance.share(ShareParams(text: message));
+                      },
                     ),
                     const SizedBox(height: 12),
                     // Rate
                     AppOptionTile.navigation(
                       icon: Icons.star_outline,
                       title: t(context, 'rateApp'),
-                      onTap: () {},
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => const RateAppSheet(),
+                        );
+                      },
                     ),
                     const SizedBox(height: 12),
                     // About
@@ -361,7 +381,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildLanguageSwitcher(BuildContext context, dynamic controller, {Key? key}) {
+  Widget _buildLanguageSwitcher(
+    BuildContext context,
+    dynamic controller, {
+    Key? key,
+  }) {
     final isArabic = controller.isArabic;
 
     return GlassContainer(
@@ -430,7 +454,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   : AppTheme.currentTextSecondary,
                           fontSize: 15,
                           fontWeight:
-                              controller.locale.languageCode == 'ar' ? FontWeight.bold : FontWeight.normal,
+                              controller.locale.languageCode == 'ar'
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                         ),
                       ),
                     ),
@@ -467,7 +493,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   : AppTheme.currentTextSecondary,
                           fontSize: 15,
                           fontWeight:
-                              controller.locale.languageCode == 'fr' ? FontWeight.bold : FontWeight.normal,
+                              controller.locale.languageCode == 'fr'
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                         ),
                       ),
                     ),
@@ -504,7 +532,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   : AppTheme.currentTextSecondary,
                           fontSize: 15,
                           fontWeight:
-                              controller.locale.languageCode == 'en' ? FontWeight.bold : FontWeight.normal,
+                              controller.locale.languageCode == 'en'
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                         ),
                       ),
                     ),
@@ -546,9 +576,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (!ok && mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(
-                        t(context, 'couldNotOpenLink'),
-                      ),
+                      content: Text(t(context, 'couldNotOpenLink')),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -596,7 +624,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showAboutDialog(BuildContext context) {
-
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,

@@ -55,7 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Then initialize - providers will notifyListeners when data is loaded
     _hijriProvider.initialize();
-    
+
     // PrayerTimesApiProvider is already initialized centrally in main.dart
     // Just handle UI state retry if needed.
 
@@ -87,28 +87,33 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Column(
-        children: [
-          const SizedBox(height: 16),
-          // Title
-          Text(
-            t(context, 'home'),
-            style: TextStyle(
-              color: AppTheme.currentTextPrimary,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-            ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Column(
+            children: [
+              const SizedBox(height: 16),
+              // Title
+              Text(
+                t(context, 'home'),
+                style: TextStyle(
+                  color: AppTheme.currentTextPrimary,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Main glass panel - Expanded to fill available space
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _buildMainPanel(context),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
           ),
-          const SizedBox(height: 12),
-          // Main glass panel - Expanded to fill available space
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildMainPanel(context),
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
+        ),
       ),
     );
   }
@@ -118,10 +123,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final isArabic = localeController.locale.languageCode == 'ar';
 
     // Calculate time components for the header (digital clock)
-    final hour12 = _now.hour > 12 ? _now.hour - 12 : (_now.hour == 0 ? 12 : _now.hour);
+    final hour12 =
+        _now.hour > 12 ? _now.hour - 12 : (_now.hour == 0 ? 12 : _now.hour);
     final hourStr = westernDigits(hour12.toString());
     final minuteStr = westernDigits(_now.minute.toString().padLeft(2, '0'));
-    final period = _now.hour >= 12 ? (isArabic ? 'م' : 'PM') : (isArabic ? 'ص' : 'AM');
+    final period =
+        _now.hour >= 12 ? (isArabic ? 'م' : 'PM') : (isArabic ? 'ص' : 'AM');
 
     final hijriDate = _hijriProvider.getFormattedDate(isArabic);
     final dateStr = westernDigits(hijriDate);
@@ -164,11 +171,15 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               // Hijri Date
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
-                  color: AppTheme.isLightMode
-                      ? AppTheme.currentActiveGlow.withOpacity(0.08)
-                      : AppTheme.currentActiveGlow.withOpacity(0.15),
+                  color:
+                      AppTheme.isLightMode
+                          ? AppTheme.currentActiveGlow.withOpacity(0.08)
+                          : AppTheme.currentActiveGlow.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: AppTheme.currentActiveGlow.withOpacity(0.2),
@@ -185,14 +196,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          
+
           const Spacer(),
-          
+
           // Row 2: Premium Analog Clock Centerpiece
           _buildPremiumAnalogClock(),
-          
+
           const Spacer(),
-          
+
           // Row 3: Prayer Status
           _buildPrayerDashboardSection(context, isArabic),
         ],
@@ -201,15 +212,56 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPrayerDashboardSection(BuildContext context, bool isArabic) {
+    final state = _prayerProvider.state;
     final response = _prayerProvider.response;
-    if (response == null) {
-      return const SizedBox(
-         height: 100, 
-         child: Center(child: CircularProgressIndicator()),
+
+    // Handle non-success states with clear, actionable UI
+    if (state == PrayerDataState.locationDisabled) {
+      return _buildErrorState(
+        context,
+        icon: Icons.location_off,
+        message: isArabic
+            ? 'خدمة الموقع معطلة'
+            : 'Location services are disabled',
+        buttonLabel: isArabic ? 'تفعيل GPS' : 'Enable GPS',
+        onPressed: () => _prayerProvider.openLocationSettings(),
       );
     }
 
-    final prayerStatus = _calculatePrayerStatus(context, response.timings, isArabic);
+    if (state == PrayerDataState.permissionDenied) {
+      return _buildErrorState(
+        context,
+        icon: Icons.location_disabled,
+        message: isArabic
+            ? 'يرجى السماح بالوصول للموقع'
+            : 'Location permission required',
+        buttonLabel: isArabic ? 'فتح الإعدادات' : 'Open Settings',
+        onPressed: () => _prayerProvider.openAppSettings(),
+      );
+    }
+
+    if (state == PrayerDataState.error) {
+      return _buildErrorState(
+        context,
+        icon: Icons.error_outline,
+        message: isArabic ? 'حدث خطأ' : 'Something went wrong',
+        buttonLabel: isArabic ? 'إعادة المحاولة' : 'Retry',
+        onPressed: () => _prayerProvider.requestPermission(),
+      );
+    }
+
+    if (response == null) {
+      return const SizedBox(
+        height: 100,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final prayerStatus = _calculatePrayerStatus(
+      context,
+      response.timings,
+      isArabic,
+    );
 
     return Container(
       key: TourKeyRegistry.instance.prayerDashboardKey,
@@ -218,7 +270,7 @@ class _HomeScreenState extends State<HomeScreen> {
         color: AppTheme.currentTextPrimary.withOpacity(0.04),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-           color: AppTheme.currentTextSecondary.withOpacity(0.1),
+          color: AppTheme.currentTextSecondary.withOpacity(0.1),
         ),
       ),
       child: Row(
@@ -248,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          
+
           // Right side: Countdown
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -279,9 +331,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
   /// Calculate prayer status - SAME LOGIC as live notification
-  _PrayerStatus _calculatePrayerStatus(BuildContext context, AlAdhanTimings timings, bool isArabic) {
+  _PrayerStatus _calculatePrayerStatus(
+    BuildContext context,
+    AlAdhanTimings timings,
+    bool isArabic,
+  ) {
     final prayerNames = [
       t(context, 'fajr'),
       t(context, 'dhuhr'),
@@ -407,10 +462,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPremiumAnalogClock() {
-    final hourAngle = ((_now.hour % 12) + _now.minute / 60 + _now.second / 3600) * (2 * math.pi / 12);
+    final hourAngle =
+        ((_now.hour % 12) + _now.minute / 60 + _now.second / 3600) *
+        (2 * math.pi / 12);
     final minuteAngle = (_now.minute + _now.second / 60) * (2 * math.pi / 60);
     final secondAngle = _now.second * (2 * math.pi / 60);
-    
+
     final clockSize = 250.0;
 
     return Container(
@@ -432,7 +489,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       child: CustomPaint(
-        painter: _PremiumClockFacePainter(textColor: AppTheme.currentTextPrimary),
+        painter: _PremiumClockFacePainter(
+          textColor: AppTheme.currentTextPrimary,
+        ),
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -502,7 +561,9 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Align(
                 alignment: Alignment.bottomCenter,
                 child: Padding(
-                  padding: EdgeInsets.only(bottom: clockSize / 2 - 15), // overhang
+                  padding: EdgeInsets.only(
+                    bottom: clockSize / 2 - 15,
+                  ), // overhang
                   child: Container(
                     width: 2,
                     height: 105,
@@ -529,8 +590,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                     color: Colors.black.withOpacity(0.5),
-                     blurRadius: 4,
+                    color: Colors.black.withOpacity(0.5),
+                    blurRadius: 4,
                   ),
                 ],
               ),
@@ -548,6 +609,55 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  /// Build a clear, actionable error state for the prayer dashboard
+  Widget _buildErrorState(
+    BuildContext context, {
+    required IconData icon,
+    required String message,
+    required String buttonLabel,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      decoration: BoxDecoration(
+        color: AppTheme.currentTextPrimary.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: AppTheme.currentTextSecondary.withOpacity(0.1),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: AppTheme.currentTextSecondary, size: 36),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            style: TextStyle(
+              color: AppTheme.currentTextSecondary,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: onPressed,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.currentActiveGlow,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            ),
+            child: Text(buttonLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PremiumClockFacePainter extends CustomPainter {
@@ -558,32 +668,34 @@ class _PremiumClockFacePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
-    
+
     // Draw tick marks
-    final tickPaint = Paint()
-       ..color = textColor.withOpacity(0.4)
-       ..strokeWidth = 2
-       ..strokeCap = StrokeCap.round;
-       
-    final boldTickPaint = Paint()
-       ..color = textColor.withOpacity(0.8)
-       ..strokeWidth = 3
-       ..strokeCap = StrokeCap.round;
+    final tickPaint =
+        Paint()
+          ..color = textColor.withOpacity(0.4)
+          ..strokeWidth = 2
+          ..strokeCap = StrokeCap.round;
+
+    final boldTickPaint =
+        Paint()
+          ..color = textColor.withOpacity(0.8)
+          ..strokeWidth = 3
+          ..strokeCap = StrokeCap.round;
 
     for (int i = 0; i < 60; i++) {
       final isHour = i % 5 == 0;
       final angle = (i * 6) * math.pi / 180;
-      
+
       final tickLength = isHour ? 12.0 : 6.0;
       final p1 = Offset(
-         center.dx + (radius - 5) * math.cos(angle - math.pi/2),
-         center.dy + (radius - 5) * math.sin(angle - math.pi/2),
+        center.dx + (radius - 5) * math.cos(angle - math.pi / 2),
+        center.dy + (radius - 5) * math.sin(angle - math.pi / 2),
       );
       final p2 = Offset(
-         center.dx + (radius - 5 - tickLength) * math.cos(angle - math.pi/2),
-         center.dy + (radius - 5 - tickLength) * math.sin(angle - math.pi/2),
+        center.dx + (radius - 5 - tickLength) * math.cos(angle - math.pi / 2),
+        center.dy + (radius - 5 - tickLength) * math.sin(angle - math.pi / 2),
       );
-      
+
       canvas.drawLine(p1, p2, isHour ? boldTickPaint : tickPaint);
     }
   }
@@ -593,6 +705,7 @@ class _PremiumClockFacePainter extends CustomPainter {
     return oldDelegate.textColor != textColor;
   }
 }
+
 
 /// Helper class for prayer status display
 class _PrayerStatus {

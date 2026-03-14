@@ -76,6 +76,14 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      // If setup failed earlier (GPS was off or permission denied), retry now
+      // because the user may have just enabled GPS or granted permission in settings
+      if (_state == PrayerDataState.locationDisabled ||
+          _state == PrayerDataState.permissionDenied) {
+        debugPrint('[PrayerTimesApiProvider] App resumed — retrying setup...');
+        _firstTimeSetup();
+        return;
+      }
       _checkMidnightAndRefresh();
     }
   }

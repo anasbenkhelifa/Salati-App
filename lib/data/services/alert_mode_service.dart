@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'analytics_service.dart';
 
 /// Alert mode for each prayer notification
 enum AlertMode {
@@ -77,6 +78,7 @@ class AlertModeService {
   Future<void> saveAlertMode(String prayerKey, AlertMode mode) async {
     final prefs = await _preferences;
     await prefs.setInt('$_keyPrefix$prayerKey', mode.value);
+    AnalyticsService.instance.logAlertModeChanged(prayerKey, mode.name);
     debugPrint('[AlertModeService] Saved $prayerKey = $mode');
   }
 

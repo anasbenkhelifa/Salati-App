@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/services/analytics_service.dart';
 
 /// Theme mode enum - scalable for future themes
 enum AppThemeMode {
@@ -23,7 +24,7 @@ class AppThemeProvider extends ChangeNotifier {
 
   AppThemeProvider._();
 
-  AppThemeMode _mode = AppThemeMode.islamic;
+  AppThemeMode _mode = AppThemeMode.islamicGreen;
   bool _initialized = false;
 
   /// Current theme mode
@@ -48,7 +49,7 @@ class AppThemeProvider extends ChangeNotifier {
       if (savedMode != null) {
         _mode = AppThemeMode.values.firstWhere(
           (m) => m.name == savedMode,
-          orElse: () => AppThemeMode.islamic,
+          orElse: () => AppThemeMode.islamicGreen,
         );
         debugPrint('[AppThemeProvider] Loaded theme: $_mode');
       }
@@ -65,6 +66,7 @@ class AppThemeProvider extends ChangeNotifier {
 
     _mode = mode;
     notifyListeners();
+    AnalyticsService.instance.logThemeChanged(mode.name);
 
     try {
       final prefs = await SharedPreferences.getInstance();

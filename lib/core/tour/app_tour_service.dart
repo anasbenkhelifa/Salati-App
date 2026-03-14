@@ -26,12 +26,23 @@ class AppTourService {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool(_prefKey) == true) return;
 
-    // Wait for prayer data to be ready (max 5 seconds)
+    // Wait for prayer data initialization to complete (max 10 seconds)
+    // We wait for the state to leave 'loading' — not just for response != null
     final provider = PrayerTimesApiProvider.instance;
     int waited = 0;
-    while (provider.response == null && waited < 5000) {
+    while (provider.state == PrayerDataState.loading && waited < 10000) {
       await Future.delayed(const Duration(milliseconds: 250));
       waited += 250;
+    }
+
+    // If setup failed (GPS off, permission denied, error) — DO NOT show tour.
+    // The tour depends on fully rendered widgets that only exist when data is loaded.
+    if (provider.state != PrayerDataState.success &&
+        provider.state != PrayerDataState.offline) {
+      debugPrint(
+        '[AppTourService] Skipping tour — provider state: ${provider.state}',
+      );
+      return;
     }
 
     // Additional 1500ms delay for UI to fully settle
@@ -80,7 +91,12 @@ class AppTourService {
   }
 
   /// Get localized text for 3 languages
-  static String _l(String lang, {required String ar, required String fr, required String en}) {
+  static String _l(
+    String lang, {
+    required String ar,
+    required String fr,
+    required String en,
+  }) {
     if (lang == 'ar') return ar;
     if (lang == 'fr') return fr;
     return en;
@@ -96,15 +112,25 @@ class AppTourService {
 
     // ── Step 1: Qibla Compass ──
     await _navigateToPage(pageController, 0);
-    if (!context.mounted) { _isRunning = false; return; }
+    if (!context.mounted || !_isRunning) {
+      _isRunning = false;
+      return;
+    }
 
     await _showSingleStep(
       context,
       key: keys.compassDialKey,
-      title: _l(lang, ar: 'بوصلة القبلة', fr: 'Boussole Qibla', en: 'Qibla Compass'),
-      description: _l(lang,
+      title: _l(
+        lang,
+        ar: 'بوصلة القبلة',
+        fr: 'Boussole Qibla',
+        en: 'Qibla Compass',
+      ),
+      description: _l(
+        lang,
         ar: 'وجّه هاتفك للعثور على اتجاه مكة. يهتز الهاتف عند المحاذاة.',
-        fr: 'Orientez votre téléphone vers La Mecque. Il vibre quand il est aligné.',
+        fr:
+            'Orientez votre téléphone vers La Mecque. Il vibre quand il est aligné.',
         en: 'Point your phone to find Mecca. It vibrates when aligned.',
       ),
       contentAlign: ContentAlign.bottom,
@@ -113,13 +139,22 @@ class AppTourService {
 
     // ── Step 2: Home Dashboard ──
     await _navigateToPage(pageController, 1);
-    if (!context.mounted) { _isRunning = false; return; }
+    if (!context.mounted || !_isRunning) {
+      _isRunning = false;
+      return;
+    }
 
     await _showSingleStep(
       context,
       key: keys.prayerDashboardKey,
-      title: _l(lang, ar: 'لوحة الصلاة', fr: 'Tableau de Prière', en: 'Prayer Dashboard'),
-      description: _l(lang,
+      title: _l(
+        lang,
+        ar: 'لوحة الصلاة',
+        fr: 'Tableau de Prière',
+        en: 'Prayer Dashboard',
+      ),
+      description: _l(
+        lang,
         ar: 'يعرض الصلاة القادمة والعد التنازلي الحي لها.',
         fr: 'Affiche la prochaine prière et un compte à rebours en direct.',
         en: 'Shows the next prayer and a live countdown.',
@@ -130,29 +165,44 @@ class AppTourService {
 
     // ── Step 3: Location Header ──
     await _navigateToPage(pageController, 2);
-    if (!context.mounted) { _isRunning = false; return; }
+    if (!context.mounted || !_isRunning) {
+      _isRunning = false;
+      return;
+    }
 
     await _showSingleStep(
       context,
       key: keys.locationHeaderKey,
       title: _l(lang, ar: 'الموقع', fr: 'Votre Position', en: 'Your Location'),
-      description: _l(lang,
+      description: _l(
+        lang,
         ar: 'اضغط للبحث عن أي مدينة يدوياً، أو اضغط أيقونة GPS للتحديد التلقائي.',
-        fr: 'Appuyez pour chercher une ville ou utilisez le GPS pour la détection auto.',
-        en: 'Tap to search any city manually, or press the GPS icon to auto-detect.',
+        fr:
+            'Appuyez pour chercher une ville ou utilisez le GPS pour la détection auto.',
+        en:
+            'Tap to search any city manually, or press the GPS icon to auto-detect.',
       ),
       contentAlign: ContentAlign.bottom,
       lang: lang,
     );
 
     // ── Step 4: Alert Mode Toggle ──
-    if (!context.mounted) { _isRunning = false; return; }
+    if (!context.mounted || !_isRunning) {
+      _isRunning = false;
+      return;
+    }
 
     await _showSingleStep(
       context,
       key: keys.prayerAlertModeKey,
-      title: _l(lang, ar: 'وضع التنبيه', fr: 'Mode d\'Alerte', en: 'Alert Mode'),
-      description: _l(lang,
+      title: _l(
+        lang,
+        ar: 'وضع التنبيه',
+        fr: 'Mode d\'Alerte',
+        en: 'Alert Mode',
+      ),
+      description: _l(
+        lang,
         ar: 'اضغط هنا للتبديل بين صوت / اهتزاز / صامت لكل صلاة.',
         fr: 'Appuyez pour basculer entre Son / Vibration / Silencieux.',
         en: 'Tap here to toggle Sound / Vibrate / Silent for each prayer.',
@@ -162,13 +212,22 @@ class AppTourService {
     );
 
     // ── Step 5: Custom Adhan Selection ──
-    if (!context.mounted) { _isRunning = false; return; }
+    if (!context.mounted || !_isRunning) {
+      _isRunning = false;
+      return;
+    }
 
     await _showSingleStep(
       context,
       key: keys.prayerCardKey,
-      title: _l(lang, ar: 'أذان مخصص', fr: 'Adhan Personnalisé', en: 'Custom Adhan'),
-      description: _l(lang,
+      title: _l(
+        lang,
+        ar: 'أذان مخصص',
+        fr: 'Adhan Personnalisé',
+        en: 'Custom Adhan',
+      ),
+      description: _l(
+        lang,
         ar: 'اضغط على أي صلاة لاختيار صوت أذان مخصص لها.',
         fr: 'Appuyez sur une prière pour choisir un son d\'Adhan personnalisé.',
         en: 'Tap any prayer to pick a custom Adhan sound for it.',
@@ -179,13 +238,17 @@ class AppTourService {
 
     // ── Step 6: Controls Tile ──
     await _navigateToPage(pageController, 3);
-    if (!context.mounted) { _isRunning = false; return; }
+    if (!context.mounted || !_isRunning) {
+      _isRunning = false;
+      return;
+    }
 
     await _showSingleStep(
       context,
       key: keys.controlsTileKey,
       title: _l(lang, ar: 'لوحة التحكم', fr: 'Contrôles', en: 'Controls'),
-      description: _l(lang,
+      description: _l(
+        lang,
         ar: 'افتح لتعديل الإشعارات، الاهتزاز، وإعدادات أخرى.',
         fr: 'Ouvrez pour ajuster les notifications, vibrations, et plus.',
         en: 'Open to adjust notifications, haptics, and more.',
@@ -195,21 +258,28 @@ class AppTourService {
     );
 
     // ── Step 7: Theme Picker (push INTO Controls screen) ──
-    if (!context.mounted) { _isRunning = false; return; }
+    if (!context.mounted || !_isRunning) {
+      _isRunning = false;
+      return;
+    }
 
     // Push into Controls screen
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ControlsScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const ControlsScreen()));
     // Wait for the route to fully animate and build
     await Future.delayed(const Duration(milliseconds: 800));
 
-    if (!context.mounted) { _isRunning = false; return; }
+    if (!context.mounted || !_isRunning) {
+      _isRunning = false;
+      return;
+    }
     await _showSingleStep(
       context,
       key: keys.themeTileKey,
       title: _l(lang, ar: 'المظهر', fr: 'Thème', en: 'App Theme'),
-      description: _l(lang,
+      description: _l(
+        lang,
         ar: 'اختر بين الوضع الليلي، الفاتح، الإسلامي، أو الإصدار الخاص.',
         fr: 'Choisissez entre Nuit, Clair, Islamique Bleu ou Vert.',
         en: 'Choose Night, Light, Islamic Blue, or Islamic Green.',
@@ -225,13 +295,17 @@ class AppTourService {
     }
 
     // ── Step 8: Language Tile ──
-    if (!context.mounted) { _isRunning = false; return; }
+    if (!context.mounted || !_isRunning) {
+      _isRunning = false;
+      return;
+    }
 
     await _showSingleStep(
       context,
       key: keys.languageTileKey,
       title: _l(lang, ar: 'اللغة', fr: 'Langue', en: 'Language'),
-      description: _l(lang,
+      description: _l(
+        lang,
         ar: 'بدّل بين العربية والفرنسية والإنجليزية فوراً.',
         fr: 'Basculez entre l\'arabe, le français et l\'anglais instantanément.',
         en: 'Switch between Arabic, French, and English instantly.',
@@ -283,7 +357,15 @@ class AppTourService {
       ],
       colorShadow: Colors.black,
       opacityShadow: 0.75,
-      hideSkip: true,
+      hideSkip: false,
+      textSkip: _l(lang, ar: 'تخطي', fr: 'Passer', en: 'Skip'),
+      alignSkip: Alignment.topRight,
+      onSkip: () {
+        _markCompleted();
+        _isRunning = false;
+        if (!completer.isCompleted) completer.complete();
+        return true;
+      },
       onFinish: () {
         if (!completer.isCompleted) completer.complete();
       },
@@ -292,10 +374,6 @@ class AppTourService {
       },
       onClickOverlay: (target) {
         if (!completer.isCompleted) completer.complete();
-      },
-      onSkip: () {
-        if (!completer.isCompleted) completer.complete();
-        return true;
       },
     );
 
@@ -306,8 +384,13 @@ class AppTourService {
   }
 
   /// Frosted glass tooltip card matching the app's aesthetic.
-  static Widget _buildTooltipCard(String title, String description, String lang) {
-    final continueText = _l(lang,
+  static Widget _buildTooltipCard(
+    String title,
+    String description,
+    String lang,
+  ) {
+    final continueText = _l(
+      lang,
       ar: '↓ اضغط في أي مكان للمتابعة',
       fr: '↓ Appuyez n\'importe où pour continuer',
       en: '↓ Tap anywhere to continue',
@@ -324,9 +407,7 @@ class AppTourService {
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.12),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.2),
-              ),
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

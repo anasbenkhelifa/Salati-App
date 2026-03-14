@@ -238,55 +238,87 @@ class _QiblaScreenState extends State<QiblaScreen>
       children: [
         Expanded(
           child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildAnimatedCompass(context, isArabic),
-                const SizedBox(height: 24),
-                if (!_provider.hasCompass) ...[
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 32),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.orange.withOpacity(0.5)),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_provider.hasCompass) ...[
+                    _buildAnimatedCompass(context, isArabic),
+                    const SizedBox(height: 24),
+                    Text(
+                      isArabic
+                          ? 'حرّك الهاتف بشكل ∞ للمعايرة'
+                          : 'Move phone in figure-8 to calibrate',
+                      style: TextStyle(
+                        color: AppTheme.currentTextSecondary.withValues(alpha: 0.5),
+                        fontSize: 12,
+                      ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          color: Colors.orange,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            isArabic
-                                ? 'البوصلة غير متوفرة. الاتجاه المعروض ثابت.'
-                                : 'Compass not available. Showing static bearing.',
-                            style: TextStyle(
-                              color: Colors.orange,
-                              fontSize: 12,
+                  ] else ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.explore_off_rounded,
+                            size: 64,
+                            color: AppTheme.currentTextSecondary.withValues(alpha: 0.5),
+                          ),
+                          const SizedBox(height: 24),
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: AppTheme.currentActiveGlow.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: AppTheme.currentActiveGlow.withValues(alpha: 0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        isArabic ? 'البوصلة غير متوفرة' : 'No Compass Sensor',
+                                        style: const TextStyle(
+                                          color: Colors.orange,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  isArabic
+                                      ? 'جهازك لا يحتوي على مستشعر بوصلة مغناطيسية. الاتجاه المعروض ثابت ولا يتفاعل مع الحركة.'
+                                      : 'Your device lacks a magnetic compass sensor. The displayed bearing is static and will not react to movement.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: AppTheme.currentTextSecondary,
+                                    fontSize: 14,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ] else ...[
-                  Text(
-                    isArabic
-                        ? 'حرّك الهاتف بشكل ∞ للمعايرة'
-                        : 'Move phone in figure-8 to calibrate',
-                    style: TextStyle(
-                      color: AppTheme.currentTextSecondary.withOpacity(0.5),
-                      fontSize: 12,
-                    ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

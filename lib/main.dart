@@ -11,10 +11,20 @@ import 'notification_manager.dart';
 import 'data/services/adhan_selection_service.dart';
 import 'domain/providers/prayer_times_api_provider.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'data/services/analytics_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   tz_data.initializeTimeZones();
+
+  // Initialize Firebase First
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Log app open and set user properties for analytics segmentation
+  AnalyticsService.instance.logAppOpened();
+  AnalyticsService.instance.setUserProperties();
 
   // Initialize date formatting and theme in parallel
   await Future.wait([

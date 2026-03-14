@@ -45,6 +45,7 @@ class AdhanSelectionService extends ChangeNotifier {
   /// Get all available adhans (default + custom)
   List<AdhanOption> get allAdhans => [
     AdhanOption.defaultAdhan,
+    AdhanOption.medinaAdhan,
     ..._customAdhans,
   ];
 
