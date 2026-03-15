@@ -33,14 +33,14 @@ class AlAdhanTimings {
       return time.replaceAll(RegExp(r'\s*\(.*\)'), '').trim();
     }
 
-    /// Validate that a time string matches HH:mm format.
+    /// Validate that a time string matches HH:mm format with valid ranges.
     bool isValidTime(String time) {
       if (time.isEmpty) return false;
-      final parts = time.split(':');
-      if (parts.length != 2) return false;
-      final hour = int.tryParse(parts[0]);
-      final minute = int.tryParse(parts[1]);
-      return hour != null && minute != null && hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+      final match = RegExp(r'^(\d{2}):(\d{2})$').firstMatch(time);
+      if (match == null) return false;
+      final hour = int.parse(match.group(1)!);
+      final minute = int.parse(match.group(2)!);
+      return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
     }
 
     final fajr = cleanTime(json['Fajr'] ?? json['fajr'] ?? '');
@@ -52,9 +52,10 @@ class AlAdhanTimings {
     final imsak = cleanTime(json['Imsak'] ?? json['imsak'] ?? '');
     final midnight = cleanTime(json['Midnight'] ?? json['midnight'] ?? '');
 
-    // Log warnings for any invalid prayer times
+    // Log warnings for any invalid prayer times (all 8 timings)
     for (final entry in {'Fajr': fajr, 'Sunrise': sunrise, 'Dhuhr': dhuhr,
-        'Asr': asr, 'Maghrib': maghrib, 'Isha': isha}.entries) {
+        'Asr': asr, 'Maghrib': maghrib, 'Isha': isha,
+        'Imsak': imsak, 'Midnight': midnight}.entries) {
       if (!isValidTime(entry.value)) {
         AppLogger.warning('AlAdhanTimings', 'Invalid or missing time for ${entry.key}: "${entry.value}"');
       }
