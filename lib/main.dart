@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_theme_provider.dart';
 import 'core/localization/app_locale_controller.dart';
 import 'core/localization/app_locale_provider.dart';
+import 'core/utils/app_logger.dart';
 import 'presentation/navigation/app_shell.dart';
 import 'package:provider/provider.dart';
 import 'notification_manager.dart';
@@ -19,30 +22,45 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   tz_data.initializeTimeZones();
 
-  // Initialize Firebase First
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Catch Flutter framework errors
+  FlutterError.onError = (FlutterErrorDetails details) {
+    AppLogger.error('FlutterError', details.exceptionAsString(),
+        error: details.exception, stackTrace: details.stack);
+    // Forward to default handler (prints in debug, silences in release)
+    FlutterError.presentError(details);
+  };
 
-  // Log app open and set user properties for analytics segmentation
-  AnalyticsService.instance.logAppOpened();
-  AnalyticsService.instance.setUserProperties();
+  // Catch asynchronous errors not handled by Flutter
+  runZonedGuarded(() async {
+    // Initialize Firebase First
+    await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform);
 
-  // Initialize date formatting and theme in parallel
-  await Future.wait([
-    initializeDateFormatting('ar'),
-    initializeDateFormatting('en'),
-    AppThemeProvider.instance.initialize(),
-    AdhanSelectionService.instance.initialize(),
-  ]);
+    // Log app open and set user properties for analytics segmentation
+    AnalyticsService.instance.logAppOpened();
+    AnalyticsService.instance.setUserProperties();
 
-  // Initialize PrayerTimes centrally
-  await PrayerTimesApiProvider.instance.initialize();
+    // Initialize date formatting and theme in parallel
+    await Future.wait([
+      initializeDateFormatting('ar'),
+      initializeDateFormatting('en'),
+      AppThemeProvider.instance.initialize(),
+      AdhanSelectionService.instance.initialize(),
+    ]);
 
-  runApp(
-    ChangeNotifierProvider.value(
-      value: PrayerTimesApiProvider.instance,
-      child: const AdhanApp(),
-    ),
-  );
+    // Initialize PrayerTimes centrally
+    await PrayerTimesApiProvider.instance.initialize();
+
+    runApp(
+      ChangeNotifierProvider.value(
+        value: PrayerTimesApiProvider.instance,
+        child: const AdhanApp(),
+      ),
+    );
+  }, (error, stackTrace) {
+    AppLogger.error('UncaughtError', 'Unhandled async error',
+        error: error, stackTrace: stackTrace);
+  });
 }
 
 class AdhanApp extends StatefulWidget {

@@ -1,4 +1,5 @@
 import 'package:geolocator/geolocator.dart';
+import '../../core/utils/app_logger.dart';
 
 /// Service to handle location permissions and get current position
 class LocationService {
@@ -58,7 +59,8 @@ class LocationService {
           timeLimit: Duration(seconds: 15),
         ),
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('LocationService', 'Failed to get current position', error: e, stackTrace: stackTrace);
       return null;
     }
   }
