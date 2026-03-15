@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:lat_lng_to_timezone/lat_lng_to_timezone.dart' as tzmap;
 import 'package:hijri/hijri_calendar.dart';
+import '../../core/utils/app_logger.dart';
 
 /// Legacy models kept for backwards compatibility with the app architecture
 class AlAdhanTimings {
@@ -31,15 +32,44 @@ class AlAdhanTimings {
     String cleanTime(String time) {
       return time.replaceAll(RegExp(r'\s*\(.*\)'), '').trim();
     }
+
+    /// Validate that a time string matches HH:mm format with valid ranges.
+    bool isValidTime(String time) {
+      if (time.isEmpty) return false;
+      final match = RegExp(r'^(\d{2}):(\d{2})$').firstMatch(time);
+      if (match == null) return false;
+      final hour = int.parse(match.group(1)!);
+      final minute = int.parse(match.group(2)!);
+      return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+    }
+
+    final fajr = cleanTime(json['Fajr'] ?? json['fajr'] ?? '');
+    final sunrise = cleanTime(json['Sunrise'] ?? json['sunrise'] ?? '');
+    final dhuhr = cleanTime(json['Dhuhr'] ?? json['dhuhr'] ?? '');
+    final asr = cleanTime(json['Asr'] ?? json['asr'] ?? '');
+    final maghrib = cleanTime(json['Maghrib'] ?? json['maghrib'] ?? '');
+    final isha = cleanTime(json['Isha'] ?? json['isha'] ?? '');
+    final imsak = cleanTime(json['Imsak'] ?? json['imsak'] ?? '');
+    final midnight = cleanTime(json['Midnight'] ?? json['midnight'] ?? '');
+
+    // Log warnings for any invalid prayer times (all 8 timings)
+    for (final entry in {'Fajr': fajr, 'Sunrise': sunrise, 'Dhuhr': dhuhr,
+        'Asr': asr, 'Maghrib': maghrib, 'Isha': isha,
+        'Imsak': imsak, 'Midnight': midnight}.entries) {
+      if (!isValidTime(entry.value)) {
+        AppLogger.warning('AlAdhanTimings', 'Invalid or missing time for ${entry.key}: "${entry.value}"');
+      }
+    }
+
     return AlAdhanTimings(
-      fajr: cleanTime(json['Fajr'] ?? json['fajr'] ?? ''),
-      sunrise: cleanTime(json['Sunrise'] ?? json['sunrise'] ?? ''),
-      dhuhr: cleanTime(json['Dhuhr'] ?? json['dhuhr'] ?? ''),
-      asr: cleanTime(json['Asr'] ?? json['asr'] ?? ''),
-      maghrib: cleanTime(json['Maghrib'] ?? json['maghrib'] ?? ''),
-      isha: cleanTime(json['Isha'] ?? json['isha'] ?? ''),
-      imsak: cleanTime(json['Imsak'] ?? json['imsak'] ?? ''),
-      midnight: cleanTime(json['Midnight'] ?? json['midnight'] ?? ''),
+      fajr: fajr,
+      sunrise: sunrise,
+      dhuhr: dhuhr,
+      asr: asr,
+      maghrib: maghrib,
+      isha: isha,
+      imsak: imsak,
+      midnight: midnight,
     );
   }
 }
@@ -60,12 +90,23 @@ class AlAdhanMeta {
   });
 
   factory AlAdhanMeta.fromJson(Map<String, dynamic> json) {
+    final latitude = (json['latitude'] ?? 0.0).toDouble();
+    final longitude = (json['longitude'] ?? 0.0).toDouble();
+
+    // Validate coordinate ranges
+    if (latitude < -90 || latitude > 90) {
+      AppLogger.warning('AlAdhanMeta', 'Latitude out of range: $latitude');
+    }
+    if (longitude < -180 || longitude > 180) {
+      AppLogger.warning('AlAdhanMeta', 'Longitude out of range: $longitude');
+    }
+
     return AlAdhanMeta(
       timezone: json['timezone'] ?? '',
       method: json['method']?['name'] ?? json['method'] ?? '',
       school: json['school'] ?? '',
-      latitude: (json['latitude'] ?? 0.0).toDouble(),
-      longitude: (json['longitude'] ?? 0.0).toDouble(),
+      latitude: latitude.clamp(-90.0, 90.0),
+      longitude: longitude.clamp(-180.0, 180.0),
     );
   }
 }
@@ -241,10 +282,10 @@ class PrayerTimesApiService {
     // We also want to correctly set the meta timezone to the resolved one
     final metaTimezoneOffset = nowTimezone.timeZoneName;
 
-    debugPrint('[PrayerTimesApiService] ========== OFFLINE CALCULATION ==========');
-    debugPrint('[PrayerTimesApiService] Lat: $latitude, Lng: $longitude');
-    debugPrint('[PrayerTimesApiService] Timezone: $tzName (Offset: ${utcOffset.inHours}h ${utcOffset.inMinutes.remainder(60)}m)');
-    debugPrint('[PrayerTimesApiService] Method: ${method.nameEn}, School: ${madhab.nameEn}');
+    AppLogger.info('PrayerTimesApiService', '========== OFFLINE CALCULATION ==========');
+    AppLogger.info('PrayerTimesApiService', 'Lat: $latitude, Lng: $longitude');
+    AppLogger.info('PrayerTimesApiService', 'Timezone: $tzName (Offset: ${utcOffset.inHours}h ${utcOffset.inMinutes.remainder(60)}m)');
+    AppLogger.info('PrayerTimesApiService', 'Method: ${method.nameEn}, School: ${madhab.nameEn}');
 
     final coordinates = Coordinates(latitude, longitude);
     final params = method.getParametersForDate(date);
