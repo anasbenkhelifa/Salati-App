@@ -70,20 +70,30 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
                     val selectedAdhanId = selections.optString(prayerKey, "default")
                     Log.d(TAG, "Selected adhan for $prayerKey: $selectedAdhanId")
                     
-                    if (selectedAdhanId != "default" && selectedAdhanId.startsWith("custom_")) {
-                        // Custom adhan - read from custom adhans list
-                        val customAdhansJson = prefs.getString("flutter.custom_adhans", null)
-                        if (customAdhansJson != null) {
-                            val customAdhans = org.json.JSONArray(customAdhansJson)
-                            for (i in 0 until customAdhans.length()) {
-                                val adhan = customAdhans.getJSONObject(i)
-                                if (adhan.getString("id") == selectedAdhanId) {
-                                    adhanPath = adhan.getString("filePath")
-                                    isAsset = adhan.optBoolean("isAsset", false)
-                                    Log.d(TAG, "Found custom adhan: $adhanPath")
-                                    break
+                    when {
+                        selectedAdhanId == "medina" -> {
+                            adhanPath = "assets/audio/medina_adhan.mp3"
+                            isAsset = true
+                            Log.d(TAG, "Using bundled medina adhan")
+                        }
+                        selectedAdhanId != "default" && selectedAdhanId.startsWith("custom_") -> {
+                            // Custom adhan - read from custom adhans list
+                            val customAdhansJson = prefs.getString("flutter.custom_adhans", null)
+                            if (customAdhansJson != null) {
+                                val customAdhans = org.json.JSONArray(customAdhansJson)
+                                for (i in 0 until customAdhans.length()) {
+                                    val adhan = customAdhans.getJSONObject(i)
+                                    if (adhan.getString("id") == selectedAdhanId) {
+                                        adhanPath = adhan.getString("filePath")
+                                        isAsset = adhan.optBoolean("isAsset", false)
+                                        Log.d(TAG, "Found custom adhan: $adhanPath")
+                                        break
+                                    }
                                 }
                             }
+                        }
+                        selectedAdhanId != "default" -> {
+                            Log.w(TAG, "Unknown adhan id '$selectedAdhanId', falling back to default")
                         }
                     }
                 } catch (e: Exception) {

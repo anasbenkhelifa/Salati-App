@@ -12,6 +12,8 @@ import '../../domain/providers/qibla_provider.dart';
 import '../../core/tour/app_tour_service.dart';
 import '../../data/services/analytics_service.dart';
 import '../../domain/providers/prayer_times_api_provider.dart';
+import '../../services/update_service.dart';
+import '../../widgets/update_dialog.dart';
 import '../widgets/rate_app_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -103,9 +105,15 @@ class _AppShellState extends State<AppShell> {
       // Small delay for UI to fully settle, then trigger tour
       Future.delayed(const Duration(milliseconds: 1500), () {
         if (mounted) {
-          AppTourService.showTourIfFirstTime(context, _pageController).then((_) {
+          AppTourService.showTourIfFirstTime(context, _pageController).then((_) async {
             // After tour completes (or is skipped because already done), check rating prompt
-            _checkRatingPrompt();
+            await _checkRatingPrompt();
+
+            // After tour/rating - check for update
+            final shouldUpdate = await UpdateService.isUpdateAvailable();
+            if (mounted && shouldUpdate) {
+              await showUpdateDialog(context);
+            }
           });
         }
       });
