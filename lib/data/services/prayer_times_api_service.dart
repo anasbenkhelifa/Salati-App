@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:adhan/adhan.dart';
 import 'package:intl/intl.dart';
@@ -158,6 +159,11 @@ enum CalculationMethodId {
   final String nameAr;
   const CalculationMethodId(this.id, this.nameEn, this.nameAr);
 
+  /// Whether to apply the GPS-altitude horizon-dip correction. Methods that are
+  /// calibrated to an official published table (Algeria → MAWAQIT/Ministry) use
+  /// sea-level times by convention, so they opt out.
+  bool get appliesElevationCorrection => this != CalculationMethodId.algeria;
+
   CalculationParameters getParametersForDate(DateTime date) {
     switch (this) {
       case CalculationMethodId.mwl:
@@ -190,8 +196,23 @@ enum CalculationMethodId {
       case CalculationMethodId.turkey:
         return CalculationMethod.turkey.getParameters();
       case CalculationMethodId.algeria:
-        // Algerian parameters are typically 18 deg Fajr and 17 deg Isha, exactly matching MWL.
-        return CalculationMethod.muslim_world_league.getParameters();
+        // Calibrated to the official Algerian table (MAWAQIT / Ministry of
+        // Religious Affairs, used by mosques): sea-level astronomical 18°/17°
+        // plus fixed precaution offsets, measured against MAWAQIT for Batna
+        // across the year. Maghrib is a flat +4 min over sea-level sunset every
+        // season — NOT an altitude effect — so this method opts out of the GPS
+        // elevation correction (see appliesElevationCorrection).
+        return CalculationParameters(
+          fajrAngle: 18,
+          ishaAngle: 17,
+          methodAdjustments: PrayerAdjustments(
+            fajr: 1,
+            dhuhr: 1,
+            asr: 1,
+            maghrib: 4,
+            isha: 1,
+          ),
+        );
       case CalculationMethodId.france:
         return CalculationParameters(fajrAngle: 12, ishaAngle: 12);
       case CalculationMethodId.jakim:
@@ -222,6 +243,7 @@ class PrayerTimesApiService {
     required CalculationMethodId method,
     required MadhabId madhab,
     DateTime? date,
+    double elevation = 0,
   }) async {
     date ??= DateTime.now();
 
@@ -249,10 +271,42 @@ class PrayerTimesApiService {
     final coordinates = Coordinates(latitude, longitude);
     final params = method.getParametersForDate(date);
     params.madhab = madhab.adhanMadhab;
-    
+
     // Calculate Prayer Times natively using explicit timezone offset
     final dateComponents = DateComponents.from(date);
     final prayers = PrayerTimes(coordinates, dateComponents, params, utcOffset: utcOffset);
+
+    // ── Altitude (horizon dip) correction ───────────────────────────────────
+    // The adhan package computes sunrise/sunset against a fixed sea-level
+    // horizon (sun centre at -0.833°). At altitude the visible horizon is
+    // depressed, so the sun is seen longer: sunrise is earlier and sunset
+    // (Maghrib) is later. Standard convention (PrayTimes/ITL): the extra
+    // depression is 0.0347·√(elevation_m) degrees. Only sunrise & Maghrib are
+    // affected — Dhuhr (transit), Asr (shadow) and the Fajr/Isha twilight
+    // angles are defined against the true horizon and stay unchanged.
+    DateTime sunriseTime = prayers.sunrise;
+    DateTime maghribTime = prayers.maghrib;
+    final elev = elevation.clamp(0.0, 9000.0);
+    if (elev > 1.0 && method.appliesElevationCorrection) {
+      try {
+        final dip = 0.0347 * sqrt(elev); // degrees
+        final elevParams = method.getParametersForDate(date);
+        elevParams.madhab = madhab.adhanMadhab;
+        // Recompute sunset at the depressed horizon via the maghribAngle lever.
+        elevParams.maghribAngle = (50.0 / 60.0) + dip;
+        final elevPrayers =
+            PrayerTimes(coordinates, dateComponents, elevParams, utcOffset: utcOffset);
+        final delta = elevPrayers.maghrib.difference(prayers.maghrib);
+        // Sanity guard: a genuine dip delay is small and positive.
+        if (delta.inSeconds > 0 && delta.inMinutes < 30) {
+          maghribTime = elevPrayers.maghrib;
+          // Sunrise shifts earlier by the same magnitude (symmetric about noon).
+          sunriseTime = prayers.sunrise.subtract(delta);
+        }
+      } catch (e) {
+        debugPrint('[PrayerTimesApiService] Elevation correction skipped: $e');
+      }
+    }
 
     final formatter = DateFormat('HH:mm');
 
@@ -262,18 +316,18 @@ class PrayerTimesApiService {
     final tomorrowPrayers = PrayerTimes(coordinates, DateComponents.from(tomorrow), params, utcOffset: utcOffset);
     
     // In Islam, night usually starts at Maghrib and ends at Fajr. Midnight is halfway.
-    final nightDuration = tomorrowPrayers.fajr.difference(prayers.maghrib);
-    final midnight = prayers.maghrib.add(Duration(minutes: nightDuration.inMinutes ~/ 2));
+    final nightDuration = tomorrowPrayers.fajr.difference(maghribTime);
+    final midnight = maghribTime.add(Duration(minutes: nightDuration.inMinutes ~/ 2));
 
     // Imsak is typically 10 minutes before Fajr
     final imsak = prayers.fajr.subtract(const Duration(minutes: 10));
 
     final timings = AlAdhanTimings(
       fajr: formatter.format(prayers.fajr),
-      sunrise: formatter.format(prayers.sunrise),
+      sunrise: formatter.format(sunriseTime),
       dhuhr: formatter.format(prayers.dhuhr),
       asr: formatter.format(prayers.asr),
-      maghrib: formatter.format(prayers.maghrib),
+      maghrib: formatter.format(maghribTime),
       isha: formatter.format(prayers.isha),
       imsak: formatter.format(imsak),
       midnight: formatter.format(midnight),

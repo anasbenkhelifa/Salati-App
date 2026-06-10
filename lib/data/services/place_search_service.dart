@@ -58,6 +58,7 @@ class PlaceSearchService {
                   lng: place.lng,
                   cityName: westernDigits(place.cityName),
                   countryName: westernDigits(place.countryName),
+                  isoCountryCode: place.isoCountryCode,
                   displayLabel: westernDigits(place.displayLabel),
                 ),
               )

@@ -129,7 +129,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
           decoration: BoxDecoration(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             // Theme-aware background
-            color: AppTheme.isLightMode ? Colors.white.withOpacity(0.85) : null,
+            color: AppTheme.isLightMode ? Colors.white.withValues(alpha: 0.85) : null,
             gradient:
                 AppTheme.isLightMode
                     ? null
@@ -137,7 +137,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: AppTheme.currentBackgroundGradient.colors.map(
-                        (c) => c.withOpacity(0.92),
+                        (c) => c.withValues(alpha: 0.92),
                       ).toList(),
                     ),
           ),
@@ -237,11 +237,11 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
         decoration: InputDecoration(
           hintText: t(context, 'searchPlaceholder'),
           hintStyle: TextStyle(
-            color: AppTheme.currentTextSecondary.withOpacity(0.5),
+            color: AppTheme.currentTextSecondary.withValues(alpha: 0.5),
           ),
           prefixIcon: Icon(
             Icons.search,
-            color: AppTheme.currentTextSecondary.withOpacity(0.5),
+            color: AppTheme.currentTextSecondary.withValues(alpha: 0.5),
           ),
           suffixIcon:
               _isLoading
@@ -263,7 +263,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
           fillColor:
               AppTheme.isLightMode
                   ? Colors.grey.shade100
-                  : Colors.white.withOpacity(0.08),
+                  : Colors.white.withValues(alpha: 0.08),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
@@ -285,7 +285,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
               ? ''
               : t(context, 'searchRequiresInternet'),
           style: TextStyle(
-            color: AppTheme.currentTextSecondary.withOpacity(0.5),
+            color: AppTheme.currentTextSecondary.withValues(alpha: 0.5),
             fontSize: 14,
           ),
         ),
@@ -297,7 +297,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
         child: Text(
           t(context, 'noResults'),
           style: TextStyle(
-            color: AppTheme.currentTextSecondary.withOpacity(0.5),
+            color: AppTheme.currentTextSecondary.withValues(alpha: 0.5),
             fontSize: 14,
           ),
         ),
@@ -316,13 +316,13 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
           decoration: BoxDecoration(
             color:
                 isSelected
-                    ? AppTheme.currentActiveGlow.withOpacity(0.15)
-                    : Colors.white.withOpacity(0.05),
+                    ? AppTheme.currentActiveGlow.withValues(alpha: 0.15)
+                    : Colors.white.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(12),
             border:
                 isSelected
                     ? Border.all(
-                      color: AppTheme.currentActiveGlow.withOpacity(0.5),
+                      color: AppTheme.currentActiveGlow.withValues(alpha: 0.5),
                       width: 1,
                     )
                     : null,
@@ -358,7 +358,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                     ? Text(
                       place.countryName,
                       style: TextStyle(
-                        color: AppTheme.currentTextSecondary.withOpacity(0.6),
+                        color: AppTheme.currentTextSecondary.withValues(alpha: 0.6),
                         fontSize: 12,
                       ),
                       maxLines: 1,
@@ -408,8 +408,8 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.currentActiveGlow,
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.grey.withOpacity(0.3),
-                disabledForegroundColor: Colors.white.withOpacity(0.5),
+                disabledBackgroundColor: Colors.grey.withValues(alpha: 0.3),
+                disabledForegroundColor: Colors.white.withValues(alpha: 0.5),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),

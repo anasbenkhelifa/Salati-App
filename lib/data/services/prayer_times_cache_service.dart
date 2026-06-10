@@ -9,6 +9,7 @@ import 'analytics_service.dart';
 class CachedAppState {
   final double latitude;
   final double longitude;
+  final double elevation;
   final String cityEn;
   final String cityAr;
   final String countryEn;
@@ -23,6 +24,7 @@ class CachedAppState {
   CachedAppState({
     required this.latitude,
     required this.longitude,
+    required this.elevation,
     required this.cityEn,
     required this.cityAr,
     required this.countryEn,
@@ -66,6 +68,7 @@ class PrayerTimesCacheService {
   static const _keySetupDone = 'cached_setup_done';
   static const _keyLat = 'cached_lat';
   static const _keyLng = 'cached_lng';
+  static const _keyElevation = 'cached_elevation';
   static const _keyCityEn = 'cached_city_en';
   static const _keyCityAr = 'cached_city_ar';
   static const _keyCountryEn = 'cached_country_en';
@@ -115,6 +118,7 @@ class PrayerTimesCacheService {
   Future<void> saveAppState({
     required double latitude,
     required double longitude,
+    double elevation = 0,
     required String cityEn,
     required String cityAr,
     required String countryEn,
@@ -129,6 +133,7 @@ class PrayerTimesCacheService {
 
     await prefs.setDouble(_keyLat, latitude);
     await prefs.setDouble(_keyLng, longitude);
+    await prefs.setDouble(_keyElevation, elevation);
     await prefs.setString(_keyCityEn, cityEn);
     await prefs.setString(_keyCityAr, cityAr);
     await prefs.setString(_keyCountryEn, countryEn);
@@ -169,6 +174,7 @@ class PrayerTimesCacheService {
       return null;
     }
 
+    final elevation = prefs.getDouble(_keyElevation) ?? 0;
     final cityEn = prefs.getString(_keyCityEn) ?? '';
     final cityAr = prefs.getString(_keyCityAr) ?? '';
     final countryEn = prefs.getString(_keyCountryEn) ?? '';
@@ -209,6 +215,7 @@ class PrayerTimesCacheService {
     return CachedAppState(
       latitude: lat,
       longitude: lng,
+      elevation: elevation,
       cityEn: cityEn,
       cityAr: cityAr,
       countryEn: countryEn,
@@ -403,6 +410,8 @@ class PrayerTimesCacheService {
     final prefs = await _preferences;
     await prefs.setDouble(_keyLat, lat);
     await prefs.setDouble(_keyLng, lng);
+    // No GPS altitude for a manually picked city → no horizon-dip correction.
+    await prefs.setDouble(_keyElevation, 0);
     await prefs.setString(_keyCityAr, cityAr);
     await prefs.setString(_keyCityEn, cityEn);
     await prefs.setString(_keyCountryAr, countryAr);

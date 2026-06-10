@@ -91,7 +91,6 @@ const Map<String, Map<String, String>> _strings = {
     'locationUpdated': 'تم تحديث الموقع',
     'updateFailed': 'فشل التحديث - يتم استخدام البيانات المحفوظة',
     // About App
-    'appVersion': 'الإصدار 2.0.4',
     'appFeatures': 'الميزات الرئيسية:',
     'feature1': '• مواقيت صلاة دقيقة للمدن والقرى حول العالم.',
     'feature2': '• دعم العمل بدون إنترنت باستخدام البيانات المحفوظة.',
@@ -195,7 +194,6 @@ const Map<String, Map<String, String>> _strings = {
     'locationUpdated': 'Location updated',
     'updateFailed': 'Update failed - using saved data',
     // About App
-    'appVersion': 'Version 2.0.4',
     'appFeatures': 'Key Features:',
     'feature1': '• Accurate prayer times for cities and villages worldwide.',
     'feature2': '• Offline support using saved local data.',
@@ -299,7 +297,6 @@ const Map<String, Map<String, String>> _strings = {
     'locationUpdated': 'Position mise à jour',
     'updateFailed': 'Échec - utilisation des données sauvegardées',
     // About App
-    'appVersion': 'Version 2.0.4',
     'appFeatures': 'Caractéristiques Principales :',
     'feature1': '• Horaires de prière précis partout dans le monde.',
     'feature2': '• Support hors ligne avec données sauvegardées.',

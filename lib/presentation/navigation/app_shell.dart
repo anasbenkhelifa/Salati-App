@@ -16,6 +16,7 @@ import '../../services/update_service.dart';
 import '../../widgets/update_dialog.dart';
 import '../widgets/rate_app_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/localization/app_locale_provider.dart';
 
 /// Main app shell with floating bottom navigation and swipe navigation
 class AppShell extends StatefulWidget {
@@ -65,15 +66,13 @@ class _AppShellState extends State<AppShell> {
     // Force Flutter to compile blur shaders during a non-visible frame
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    final paint = Paint();
-    canvas.drawRect(const Rect.fromLTWH(0, 0, 1, 1), paint);
+    final blurPaint = Paint()
+      ..imageFilter = ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3);
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 1, 1), blurPaint);
     final picture = recorder.endRecording();
     final image = await picture.toImage(1, 1);
-    
-    // This triggers shader compilation silently
-    final blurPaint = Paint()
-      ..imageFilter = ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3); // Matching our global sigma 3
     image.dispose();
+    picture.dispose();
   }
 
   @override
@@ -120,16 +119,20 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
-  /// Show a rating prompt on the 2nd or 3rd app open
+  /// Show a rating prompt on the 3rd app open, and every 7 opens after that
   Future<void> _checkRatingPrompt() async {
     if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
+    
+    // Check if the user has already successfully submitted a rating
+    final hasRatedApp = prefs.getBool('has_rated_app') ?? false;
+    if (hasRatedApp) return;
+
     final openCount = (prefs.getInt('app_open_count') ?? 0) + 1;
     await prefs.setInt('app_open_count', openCount);
 
-    // Show prompt on 2nd or 3rd open, but only once
-    if (openCount >= 2 && openCount <= 3 && !(prefs.getBool('rating_prompt_shown') ?? false)) {
-      await prefs.setBool('rating_prompt_shown', true);
+    // Show prompt on 3rd open, or every 7 opens after that (e.g. 10, 17, 24)
+    if (openCount == 3 || (openCount > 3 && (openCount - 3) % 7 == 0)) {
       if (!mounted) return;
       // Wait a moment for the app to feel settled
       await Future.delayed(const Duration(seconds: 2));
@@ -139,21 +142,45 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _showRatingPromptDialog() {
-    final isArabic = Directionality.of(context) == TextDirection.rtl;
+    final locale = AppLocaleProvider.of(context).locale.languageCode;
+    
+    String title;
+    String content;
+    String laterText;
+    String rateText;
+    
+    switch (locale) {
+      case 'ar':
+        title = 'هل تعجبك صلاتي؟';
+        content = 'إذا أعجبك التطبيق، يرجى تقييمنا! رأيك يساعدنا كثيراً ⭐';
+        laterText = 'لاحقاً';
+        rateText = 'قيّمنا ⭐';
+        break;
+      case 'fr':
+        title = 'Vous aimez Salati ?';
+        content = 'Si vous aimez l\'application, évaluez-nous ! Votre avis nous aide beaucoup ⭐';
+        laterText = 'Plus tard';
+        rateText = 'Évaluer ⭐';
+        break;
+      default:
+        title = 'Enjoying Salati?';
+        content = 'If you like the app, please rate us! Your feedback helps a lot ⭐';
+        laterText = 'Maybe Later';
+        rateText = 'Rate Us ⭐';
+    }
+    
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.currentSurface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
-          isArabic ? 'هل تعجبك صلاتي؟' : 'Enjoying Salati?',
+          title,
           style: TextStyle(color: AppTheme.currentTextPrimary, fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
         content: Text(
-          isArabic
-              ? 'إذا أعجبك التطبيق، يرجى تقييمنا! رأيك يساعدنا كثيراً ⭐'
-              : 'If you like the app, please rate us! Your feedback helps a lot ⭐',
+          content,
           style: TextStyle(color: AppTheme.currentTextSecondary),
           textAlign: TextAlign.center,
         ),
@@ -162,7 +189,7 @@ class _AppShellState extends State<AppShell> {
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: Text(
-              isArabic ? 'لاحقاً' : 'Maybe Later',
+              laterText,
               style: TextStyle(color: AppTheme.currentTextSecondary),
             ),
           ),
@@ -183,7 +210,7 @@ class _AppShellState extends State<AppShell> {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
             ),
             child: Text(
-              isArabic ? 'قيّمنا ⭐' : 'Rate Us ⭐',
+              rateText,
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),

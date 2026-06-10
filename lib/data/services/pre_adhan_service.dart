@@ -21,10 +21,12 @@ class PreAdhanService {
     return _prefs!;
   }
 
-  /// Check if pre-adhan reminders are globally enabled
+  /// Check if pre-adhan reminders are globally enabled.
+  /// Default TRUE to match the Controls screen toggle (on-by-default) and the
+  /// native scheduler, which only treat it as off when explicitly disabled.
   Future<bool> isEnabled() async {
     final prefs = await _preferences;
-    return prefs.getBool(_keyEnabled) ?? false;
+    return prefs.getBool(_keyEnabled) ?? true;
   }
 
   /// Enable or disable pre-adhan reminders globally

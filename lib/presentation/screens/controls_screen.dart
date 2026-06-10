@@ -281,7 +281,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: AppTheme.currentTextSecondary.withOpacity(0.3),
+                          color: AppTheme.currentTextSecondary.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -353,7 +353,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         color:
             isSelected
-                ? AppTheme.currentActiveGlow.withOpacity(0.1)
+                ? AppTheme.currentActiveGlow.withValues(alpha: 0.1)
                 : Colors.transparent,
         child: Row(
           children: [
@@ -486,7 +486,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppTheme.currentTextSecondary.withOpacity(0.3),
+                    color: AppTheme.currentTextSecondary.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -571,13 +571,13 @@ class _ControlsScreenState extends State<ControlsScreen> {
         decoration: BoxDecoration(
           color:
               isSelected
-                  ? AppTheme.currentActiveGlow.withOpacity(0.1)
+                  ? AppTheme.currentActiveGlow.withValues(alpha: 0.1)
                   : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color:
                 isSelected
-                    ? AppTheme.currentActiveGlow.withOpacity(0.5)
+                    ? AppTheme.currentActiveGlow.withValues(alpha: 0.5)
                     : AppTheme.inactiveBorder,
             width: isSelected ? 1.5 : 1,
           ),
@@ -656,7 +656,7 @@ class _ThemeSelectorSheet extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: AppTheme.currentTextSecondary.withOpacity(0.3),
+              color: AppTheme.currentTextSecondary.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -771,7 +771,7 @@ class _ThemeCard extends StatelessWidget {
               isSelected
                   ? [
                     BoxShadow(
-                      color: AppTheme.currentActiveGlow.withOpacity(0.3),
+                      color: AppTheme.currentActiveGlow.withValues(alpha: 0.3),
                       blurRadius: 12,
                       spreadRadius: 2,
                     ),

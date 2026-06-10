@@ -405,9 +405,9 @@ class AppTourService {
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.12),
+              color: Colors.white.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -426,7 +426,7 @@ class AppTourService {
                 Text(
                   description,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.85),
+                    color: Colors.white.withValues(alpha: 0.85),
                     fontSize: 15,
                     height: 1.4,
                     decoration: TextDecoration.none,
@@ -437,7 +437,7 @@ class AppTourService {
                 Text(
                   continueText,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
+                    color: Colors.white.withValues(alpha: 0.5),
                     fontSize: 12,
                     fontStyle: FontStyle.italic,
                     decoration: TextDecoration.none,

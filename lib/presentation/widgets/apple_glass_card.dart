@@ -75,7 +75,7 @@ class _NoisePainter extends CustomPainter {
     final points = _noiseCache[cacheKey]!;
     final paint =
         Paint()
-          ..color = Colors.white.withOpacity(opacity)
+          ..color = Colors.white.withValues(alpha: opacity)
           ..strokeWidth = 1;
 
     for (final point in points) {

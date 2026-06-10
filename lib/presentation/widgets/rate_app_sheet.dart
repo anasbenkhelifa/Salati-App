@@ -78,6 +78,10 @@ class _RateAppSheetState extends State<RateAppSheet> with SingleTickerProviderSt
     setState(() {
       _isSuccess = true;
     });
+    
+    // Save to SharedPreferences so we don't prompt them again
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('has_rated_app', true);
 
     // Fire-and-forget: save to Firestore in the background
     RatingService.instance.submitRating(

@@ -75,7 +75,7 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
           color:
               AppTheme.isLightMode
                   ? AppTheme.lightDivider
-                  : Colors.white.withOpacity(0.1),
+                  : Colors.white.withValues(alpha: 0.1),
         ),
       ),
       child: Column(
@@ -87,7 +87,7 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: AppTheme.currentTextSecondary.withOpacity(0.3),
+              color: AppTheme.currentTextSecondary.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -201,13 +201,13 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
         decoration: BoxDecoration(
           color:
               isSelected
-                  ? AppTheme.currentActiveGlow.withOpacity(0.15)
+                  ? AppTheme.currentActiveGlow.withValues(alpha: 0.15)
                   : AppTheme.inactiveBackground,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color:
                 isSelected
-                    ? AppTheme.currentActiveGlow.withOpacity(0.4)
+                    ? AppTheme.currentActiveGlow.withValues(alpha: 0.4)
                     : AppTheme.inactiveBorder,
             width: isSelected ? 1.5 : 1,
           ),
@@ -221,10 +221,10 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
               decoration: BoxDecoration(
                 color:
                     isSelected
-                        ? AppTheme.currentActiveGlow.withOpacity(0.2)
+                        ? AppTheme.currentActiveGlow.withValues(alpha: 0.2)
                         : AppTheme.isLightMode
                         ? Colors.grey.shade100
-                        : Colors.white.withOpacity(0.1),
+                        : Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
@@ -258,7 +258,7 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
                     Text(
                       _formatDuration(adhan.duration!),
                       style: TextStyle(
-                        color: AppTheme.currentTextSecondary.withOpacity(0.7),
+                        color: AppTheme.currentTextSecondary.withValues(alpha: 0.7),
                         fontSize: 12,
                       ),
                     ),
@@ -276,12 +276,12 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
                       _playingAdhanId == adhan.id
                           ? AppTheme.currentActiveGlow
                           : AppTheme.isLightMode
-                          ? AppTheme.currentActiveGlow.withOpacity(0.1)
-                          : Colors.white.withOpacity(0.1),
+                          ? AppTheme.currentActiveGlow.withValues(alpha: 0.1)
+                          : Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: AppTheme.currentActiveGlow.withOpacity(
-                      _playingAdhanId == adhan.id ? 1.0 : 0.3,
+                    color: AppTheme.currentActiveGlow.withValues(
+                      alpha: _playingAdhanId == adhan.id ? 1.0 : 0.3,
                     ),
                     width: 1.5,
                   ),
@@ -397,7 +397,7 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
                   color:
                       _applyToAll
                           ? AppTheme.currentActiveGlow
-                          : AppTheme.currentTextSecondary.withOpacity(0.5),
+                          : AppTheme.currentTextSecondary.withValues(alpha: 0.5),
                   width: 2,
                 ),
               ),

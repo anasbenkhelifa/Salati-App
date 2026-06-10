@@ -48,15 +48,6 @@ class LiveNotificationProvider extends ChangeNotifier {
     'العشاء',
   ];
 
-  // Prayer keys for AlertModeService (must match AlertModeService.prayerKeys)
-  static const List<String> _prayerKeys = [
-    'fajr',
-    'dhuhr',
-    'asr',
-    'maghrib',
-    'isha',
-  ];
-
   void updateLanguage(bool isArabic) {
     _isArabic = isArabic;
     _updateNotification();
@@ -152,6 +143,7 @@ class LiveNotificationProvider extends ChangeNotifier {
     // Fallback to API
     final method = await _cacheService.loadMethod();
     final madhab = await _cacheService.loadMadhab();
+    final elevation = cached?.elevation ?? 0;
     final today = DateTime.now();
     final tomorrow = today.add(const Duration(days: 1));
 
@@ -162,6 +154,7 @@ class LiveNotificationProvider extends ChangeNotifier {
         method: method,
         madhab: madhab,
         date: today,
+        elevation: elevation,
       );
 
       _tomorrowTimings = await _apiService.fetchPrayerTimesByCoordinates(
@@ -170,6 +163,7 @@ class LiveNotificationProvider extends ChangeNotifier {
         method: method,
         madhab: madhab,
         date: tomorrow,
+        elevation: elevation,
       );
 
       debugPrint('[LiveNotificationProvider] Timings loaded from API');
@@ -261,13 +255,6 @@ class LiveNotificationProvider extends ChangeNotifier {
       final elapsed = now.difference(lastPrayerTime);
       if (elapsed.inMinutes < _graceWindowMinutes) {
         isGraceWindow = true;
-
-        // Trigger Adhan playback within the first 3 seconds of grace window
-        // This ensures we don't miss the trigger due to timer jitter
-        if (elapsed.inSeconds <= 3 && lastPrayerIndex != null) {
-          final prayerKey = _prayerKeys[lastPrayerIndex];
-          _adhanService.triggerForPrayer(prayerKey, lastPrayerTime);
-        }
       }
     }
 
@@ -413,6 +400,21 @@ class LiveNotificationProvider extends ChangeNotifier {
     _updateTimer?.cancel();
     await ForegroundServiceBridge.stopService();
     _isRunning = false;
+  }
+
+  /// Pause the Dart-side update timer (native service keeps running)
+  void pauseTimer() {
+    _updateTimer?.cancel();
+    _updateTimer = null;
+  }
+
+  /// Resume the Dart-side update timer
+  void resumeTimer() {
+    if (!_isRunning || _updateTimer != null) return;
+    _updateTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _updateNotification();
+    });
+    _updateNotification(); // Immediate update on resume
   }
 
   @override

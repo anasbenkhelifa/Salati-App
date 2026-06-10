@@ -90,7 +90,7 @@ class _QiblaScreenState extends State<QiblaScreen>
           Text(
             t(context, 'qiblaDirectionSubtitle'),
             style: TextStyle(
-              color: AppTheme.currentTextSecondary.withOpacity(0.7),
+              color: AppTheme.currentTextSecondary.withValues(alpha: 0.7),
               fontSize: 14,
             ),
           ),
@@ -158,7 +158,7 @@ class _QiblaScreenState extends State<QiblaScreen>
               t(context, 'locationNotSetDesc'),
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.currentTextSecondary.withOpacity(0.7),
+                color: AppTheme.currentTextSecondary.withValues(alpha: 0.7),
                 fontSize: 14,
               ),
             ),
@@ -191,7 +191,7 @@ class _QiblaScreenState extends State<QiblaScreen>
               t(context, 'noConnectionDesc'),
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.currentTextSecondary.withOpacity(0.7),
+                color: AppTheme.currentTextSecondary.withValues(alpha: 0.7),
                 fontSize: 14,
               ),
             ),
@@ -223,7 +223,7 @@ class _QiblaScreenState extends State<QiblaScreen>
               _provider.errorMessage ?? t(context, 'error'),
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.currentTextSecondary.withOpacity(0.7),
+                color: AppTheme.currentTextSecondary.withValues(alpha: 0.7),
                 fontSize: 14,
               ),
             ),
@@ -348,12 +348,12 @@ class _QiblaScreenState extends State<QiblaScreen>
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.currentActiveGlow.withOpacity(0.4),
+                    color: AppTheme.currentActiveGlow.withValues(alpha: 0.4),
                     blurRadius: 40,
                     spreadRadius: 15,
                   ),
                   BoxShadow(
-                    color: AppTheme.currentActiveGlow.withOpacity(0.2),
+                    color: AppTheme.currentActiveGlow.withValues(alpha: 0.2),
                     blurRadius: 60,
                     spreadRadius: 25,
                   ),
@@ -386,7 +386,7 @@ class _QiblaScreenState extends State<QiblaScreen>
               shape: BoxShape.circle,
               color:
                   isAligned
-                      ? AppTheme.currentActiveGlow.withOpacity(0.15)
+                      ? AppTheme.currentActiveGlow.withValues(alpha: 0.15)
                       : Colors.transparent,
             ),
             child: Builder(
@@ -426,7 +426,7 @@ class _QiblaScreenState extends State<QiblaScreen>
                           color: (isAligned
                                   ? AppTheme.currentActiveGlow
                                   : AppTheme.currentTextPrimary)
-                              .withOpacity(0.7),
+                              .withValues(alpha: 0.7),
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
                         ),
@@ -467,8 +467,8 @@ class _QiblaScreenState extends State<QiblaScreen>
                       isCardinal
                           ? AppTheme.currentTextPrimary
                           : (isMajor
-                              ? AppTheme.currentTextPrimary.withOpacity(0.8)
-                              : AppTheme.currentTextSecondary.withOpacity(0.4)),
+                              ? AppTheme.currentTextPrimary.withValues(alpha: 0.8)
+                              : AppTheme.currentTextSecondary.withValues(alpha: 0.4)),
                 ),
               ),
             );
@@ -499,7 +499,7 @@ class _QiblaScreenState extends State<QiblaScreen>
                   borderRadius: BorderRadius.circular(6),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.currentActiveGlow.withOpacity(0.5),
+                      color: AppTheme.currentActiveGlow.withValues(alpha: 0.5),
                       blurRadius: 10,
                       spreadRadius: 2,
                     ),
@@ -540,7 +540,7 @@ class _TrianglePainter extends CustomPainter {
     if (isAligned) {
       final glowPaint =
           Paint()
-            ..color = AppTheme.currentActiveGlow.withOpacity(0.5)
+            ..color = AppTheme.currentActiveGlow.withValues(alpha: 0.5)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
       canvas.drawPath(path, glowPaint);
     }

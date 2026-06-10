@@ -4,6 +4,7 @@ class PlaceResult {
   final double lng;
   final String cityName;
   final String countryName;
+  final String isoCountryCode;
   final String displayLabel;
 
   const PlaceResult({
@@ -11,6 +12,7 @@ class PlaceResult {
     required this.lng,
     required this.cityName,
     required this.countryName,
+    this.isoCountryCode = '',
     required this.displayLabel,
   });
 
@@ -28,6 +30,7 @@ class PlaceResult {
         '';
 
     final country = address['country'] ?? '';
+    final countryCode = address['country_code'] ?? '';
     final displayName = json['display_name'] ?? '';
 
     // Parse coordinates
@@ -39,6 +42,7 @@ class PlaceResult {
       lng: double.tryParse(lngStr) ?? 0,
       cityName: city.toString(),
       countryName: country.toString(),
+      isoCountryCode: countryCode.toString().toUpperCase(),
       displayLabel: displayName.toString(),
     );
   }

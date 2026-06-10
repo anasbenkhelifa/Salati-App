@@ -103,7 +103,7 @@ class FloatingNavBar extends StatelessWidget {
     final inactiveColor =
         isLightMode
             ? AppTheme.lightTextSecondary
-            : Colors.white.withOpacity(0.6);
+            : Colors.white.withValues(alpha: 0.6);
 
     return Expanded(
       child: InkWell(

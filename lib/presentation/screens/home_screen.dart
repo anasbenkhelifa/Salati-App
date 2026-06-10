@@ -162,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(
                     period,
                     style: TextStyle(
-                      color: AppTheme.currentTextPrimary.withOpacity(0.6),
+                      color: AppTheme.currentTextPrimary.withValues(alpha: 0.6),
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -178,11 +178,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 decoration: BoxDecoration(
                   color:
                       AppTheme.isLightMode
-                          ? AppTheme.currentActiveGlow.withOpacity(0.08)
-                          : AppTheme.currentActiveGlow.withOpacity(0.15),
+                          ? AppTheme.currentActiveGlow.withValues(alpha: 0.08)
+                          : AppTheme.currentActiveGlow.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: AppTheme.currentActiveGlow.withOpacity(0.2),
+                    color: AppTheme.currentActiveGlow.withValues(alpha: 0.2),
                   ),
                 ),
                 child: Text(
@@ -267,10 +267,10 @@ class _HomeScreenState extends State<HomeScreen> {
       key: TourKeyRegistry.instance.prayerDashboardKey,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        color: AppTheme.currentTextPrimary.withOpacity(0.04),
+        color: AppTheme.currentTextPrimary.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppTheme.currentTextSecondary.withOpacity(0.1),
+          color: AppTheme.currentTextSecondary.withValues(alpha: 0.1),
         ),
       ),
       child: Row(
@@ -293,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 prayerStatus.prayerTime,
                 style: TextStyle(
-                  color: AppTheme.currentTextSecondary.withOpacity(0.7),
+                  color: AppTheme.currentTextSecondary.withValues(alpha: 0.7),
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                 ),
@@ -309,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 prayerStatus.countdownSign,
                 style: TextStyle(
-                  color: prayerStatus.color.withOpacity(0.7),
+                  color: prayerStatus.color.withValues(alpha: 0.7),
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -475,14 +475,14 @@ class _HomeScreenState extends State<HomeScreen> {
       height: clockSize,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppTheme.currentTextPrimary.withOpacity(0.02),
+        color: AppTheme.currentTextPrimary.withValues(alpha: 0.02),
         border: Border.all(
-          color: AppTheme.currentTextSecondary.withOpacity(0.2),
+          color: AppTheme.currentTextSecondary.withValues(alpha: 0.2),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 20,
             spreadRadius: 2,
           ),
@@ -502,7 +502,7 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: AppTheme.currentTextSecondary.withOpacity(0.05),
+                  color: AppTheme.currentTextSecondary.withValues(alpha: 0.05),
                   width: 1,
                 ),
               ),
@@ -522,7 +522,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(3),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.currentTextPrimary.withOpacity(0.4),
+                          color: AppTheme.currentTextPrimary.withValues(alpha: 0.4),
                           blurRadius: 4,
                         ),
                       ],
@@ -542,11 +542,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     width: 4,
                     height: 90,
                     decoration: BoxDecoration(
-                      color: AppTheme.currentTextPrimary.withOpacity(0.9),
+                      color: AppTheme.currentTextPrimary.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(2),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.currentTextPrimary.withOpacity(0.3),
+                          color: AppTheme.currentTextPrimary.withValues(alpha: 0.3),
                           blurRadius: 4,
                         ),
                       ],
@@ -572,7 +572,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(1),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.currentActiveGlow.withOpacity(0.6),
+                          color: AppTheme.currentActiveGlow.withValues(alpha: 0.6),
                           blurRadius: 6,
                         ),
                       ],
@@ -590,7 +590,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.5),
+                    color: Colors.black.withValues(alpha: 0.5),
                     blurRadius: 4,
                   ),
                 ],
@@ -621,10 +621,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       decoration: BoxDecoration(
-        color: AppTheme.currentTextPrimary.withOpacity(0.04),
+        color: AppTheme.currentTextPrimary.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppTheme.currentTextSecondary.withOpacity(0.1),
+          color: AppTheme.currentTextSecondary.withValues(alpha: 0.1),
         ),
       ),
       child: Column(
@@ -672,13 +672,13 @@ class _PremiumClockFacePainter extends CustomPainter {
     // Draw tick marks
     final tickPaint =
         Paint()
-          ..color = textColor.withOpacity(0.4)
+          ..color = textColor.withValues(alpha: 0.4)
           ..strokeWidth = 2
           ..strokeCap = StrokeCap.round;
 
     final boldTickPaint =
         Paint()
-          ..color = textColor.withOpacity(0.8)
+          ..color = textColor.withValues(alpha: 0.8)
           ..strokeWidth = 3
           ..strokeCap = StrokeCap.round;
 

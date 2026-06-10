@@ -35,7 +35,7 @@ class PreAdhanReceiver : BroadcastReceiver() {
         
         // Check if pre-adhan is still enabled
         val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        val globalEnabled = prefs.getBoolean("flutter.pre_adhan_enabled", false)
+        val globalEnabled = prefs.getBoolean("flutter.pre_adhan_enabled", true)
         val prayerKey = prayerName.lowercase()
         val prayerEnabled = prefs.getBoolean("flutter.pre_adhan_$prayerKey", true)
         

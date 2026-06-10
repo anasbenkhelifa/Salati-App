@@ -43,6 +43,7 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
   // Location (from cache)
   double? _latitude;
   double? _longitude;
+  double _elevation = 0; // GPS altitude in metres, for horizon-dip correction
   String _cityEn = '';
   String _cityAr = '';
   String _countryEn = '';
@@ -57,6 +58,9 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
   bool _cacheIsToday = false;
   String? _prayerTimesDate;
   Timer? _midnightTimer;
+
+  // Guard against concurrent location refresh calls
+  bool _isRefreshingLocation = false;
 
   // Singleton instance
   static final PrayerTimesApiProvider instance = PrayerTimesApiProvider._internal();
@@ -289,6 +293,7 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
     // Set cached values IMMEDIATELY
     _latitude = cached.latitude;
     _longitude = cached.longitude;
+    _elevation = cached.elevation;
     _cityEn = cached.cityEn;
     _cityAr = cached.cityAr;
     _countryEn = cached.countryEn;
@@ -351,6 +356,7 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
         method: _method,
         madhab: _madhab,
         date: DateTime.now(),
+        elevation: _elevation,
       );
 
       _response = response;
@@ -365,6 +371,9 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
         prayerTimes: response,
         prayerTimesDate: dateStr,
       );
+
+      // Reschedule alarms so they match the freshly calculated times
+      AdhanAlarmService.scheduleAllAlarms();
 
       debugPrint('[PrayerTimesApiProvider] Prayer times refreshed');
     } catch (e) {
@@ -452,8 +461,9 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
 
       _latitude = position.latitude;
       _longitude = position.longitude;
+      _elevation = position.altitude; // metres above sea level (for horizon dip)
       debugPrint(
-        '[PrayerTimesApiProvider] Got position: $_latitude, $_longitude',
+        '[PrayerTimesApiProvider] Got position: $_latitude, $_longitude, alt=${_elevation}m',
       );
 
       // OPTIMIZATION: Resolve location first to get country code
@@ -488,6 +498,7 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
           method: _method,
           madhab: _madhab,
           date: DateTime.now(),
+          elevation: _elevation,
         ),
         // 2. Qibla (from IslamicAPI - included in prayer times response but fetch separately for reliability)
         _qiblaApiService.fetchQiblaDirection(
@@ -506,10 +517,11 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
       _lastUpdatedAt = DateTime.now();
       _prayerTimesDate = today;
 
-      // Save to cache (don't await - run in background)
-      _cacheService.saveAppState(
+      // Save to cache (AWAIT during first-time setup to ensure data persists)
+      await _cacheService.saveAppState(
         latitude: position.latitude,
         longitude: position.longitude,
+        elevation: _elevation,
         cityEn: _cityEn,
         cityAr: _cityAr,
         countryEn: _countryEn,
@@ -553,6 +565,11 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
 
   /// Manually refresh location - ONLY called when user taps "Update Location"
   Future<bool> refreshLocation() async {
+    if (_isRefreshingLocation) {
+      debugPrint('[PrayerTimesApiProvider] Refresh already in progress, ignoring');
+      return false;
+    }
+    _isRefreshingLocation = true;
     debugPrint('[PrayerTimesApiProvider] Manual location refresh requested...');
 
     final previousState = _state;
@@ -576,16 +593,32 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
         throw Exception('Location permission denied');
       }
 
-      // Get fresh GPS location (reduced timeout: 8s)
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium, // Medium is faster
-          timeLimit: Duration(seconds: 8),
-        ),
-      );
+      // Get fresh GPS location (reduced timeout: 8s). If the provider throttles
+      // or times out — common when stationary and tapping repeatedly, the OS
+      // blocks fresh fixes as "too fast"/"too close" — fall back to the last
+      // known position, which is never throttled and accurate enough here.
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium, // Medium is faster
+            timeLimit: Duration(seconds: 8),
+          ),
+        );
+      } catch (e) {
+        debugPrint(
+          '[PrayerTimesApiProvider] Fresh fix failed ($e), using last known...',
+        );
+        position = await Geolocator.getLastKnownPosition();
+      }
+
+      if (position == null) {
+        throw Exception('No location available (fresh fix throttled, no cached fix)');
+      }
 
       _latitude = position.latitude;
       _longitude = position.longitude;
+      _elevation = position.altitude; // metres above sea level (for horizon dip)
 
       // OPTIMIZATION: Resolve location first to get country code
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
@@ -619,6 +652,7 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
           method: _method,
           madhab: _madhab,
           date: DateTime.now(),
+          elevation: _elevation,
         ),
         // 2. Qibla
         _qiblaApiService.fetchQiblaDirection(
@@ -642,6 +676,7 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
       _cacheService.saveAppState(
         latitude: position.latitude,
         longitude: position.longitude,
+        elevation: _elevation,
         cityEn: _cityEn,
         cityAr: _cityAr,
         countryEn: _countryEn,
@@ -674,11 +709,12 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
       return true;
     } catch (e) {
       debugPrint('[PrayerTimesApiProvider] Location refresh failed: $e');
-      // Restore previous state, keep old cached values
       _state = previousState;
       _errorMessage = e.toString();
       notifyListeners();
       return false;
+    } finally {
+      _isRefreshingLocation = false;
     }
   }
 
@@ -742,9 +778,10 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
     required String cityEn,
     required String countryAr,
     required String countryEn,
+    String isoCountryCode = '',
   }) async {
     debugPrint(
-      '[PrayerTimesApiProvider] setManualLocation: $cityEn, $countryEn ($lat, $lng)',
+      '[PrayerTimesApiProvider] setManualLocation: $cityEn, $countryEn ($lat, $lng), iso=$isoCountryCode',
     );
 
     _state = PrayerDataState.loading;
@@ -754,11 +791,24 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
       // Update in-memory state
       _latitude = lat;
       _longitude = lng;
+      _elevation = 0; // manual city: no GPS altitude → no horizon-dip correction
       _cityAr = cityAr.isNotEmpty ? cityAr : cityEn;
       _cityEn = cityEn.isNotEmpty ? cityEn : cityAr;
       _countryAr = countryAr.isNotEmpty ? countryAr : countryEn;
       _countryEn = countryEn.isNotEmpty ? countryEn : countryAr;
       _lastUpdatedAt = DateTime.now();
+
+      // Auto-resolve the calculation method from the chosen country (e.g. an
+      // Algerian city → Algeria method with its calibrated offsets), unless the
+      // user has explicitly picked a method. Mirrors the GPS path. Persist it so
+      // it survives restarts (manual-location cache doesn't store the method).
+      if (isoCountryCode.isNotEmpty) {
+        _isoCountryCode = isoCountryCode;
+      }
+      if (!_isManualMethod && _isoCountryCode.isNotEmpty) {
+        _method = PrayerMethodResolver.resolveFromCountry(_isoCountryCode);
+        await _cacheService.saveMethod(_method, isManual: false);
+      }
 
       // Save to cache with manual source
       await _cacheService.saveManualLocation(

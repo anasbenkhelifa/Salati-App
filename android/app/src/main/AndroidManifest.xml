@@ -108,6 +108,15 @@
             </intent-filter>
         </receiver>
         
+        <!-- Firebase Cloud Messaging: channel + small icon used by the system
+             tray when a notification message arrives while backgrounded. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="general_announcements" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_adhan" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

@@ -81,6 +81,7 @@ class AdhanForegroundService : Service() {
     private var currentPrayerName: String? = null
     private var currentPrayerTime: String? = null
     private var currentIsArabic: Boolean = false
+    private var currentLanguageCode: String = "en"
     
     // Hardware stop listeners - for Power/Volume button detection
     private var screenOffReceiver: BroadcastReceiver? = null
@@ -105,6 +106,7 @@ class AdhanForegroundService : Service() {
     // Prayer names
     private val prayerNamesEn = arrayOf("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha")
     private val prayerNamesAr = arrayOf("الفجر", "الظهر", "العصر", "المغرب", "العشاء")
+    private val prayerNamesFr = arrayOf("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha")
     
     // Hijri month names (Arabic)
     private val hijriMonthsAr = arrayOf(
@@ -260,13 +262,20 @@ class AdhanForegroundService : Service() {
             Log.d(TAG, "Occurrence $occurrenceKey is muted, skipping playback")
             return
         }
-        
+
+        // Guard: adhan already playing — reject duplicate trigger from any source
+        if (isAdhanPlaying) {
+            Log.d(TAG, "Adhan already playing ($currentOccurrenceKey), ignoring duplicate trigger for $occurrenceKey")
+            return
+        }
+
         // Store current playback info
         isAdhanPlaying = true
         currentOccurrenceKey = occurrenceKey
         currentPrayerName = prayerName
         currentPrayerTime = prayerTime
         currentIsArabic = isArabic
+        currentLanguageCode = prefs.getString("flutter.app_language", if (isArabic) "ar" else "en") ?: "en"
         
         // Check max volume override setting
         maxVolumeOverrideEnabled = prefs.getBoolean("flutter.max_volume_override", false)
@@ -673,10 +682,19 @@ class AdhanForegroundService : Service() {
             else -> "🕌"
         }
         
-        val title = if (currentIsArabic) {
-            "$prayerEmoji حان وقت صلاة $currentPrayerName"
-        } else {
-            "$prayerEmoji Time for $currentPrayerName Prayer"
+        val translatedPrayerName = run {
+            val idx = prayerNamesEn.indexOfFirst { it.equals(currentPrayerName, ignoreCase = true) }
+            when (currentLanguageCode) {
+                "ar" -> if (idx != -1) prayerNamesAr[idx] else currentPrayerName
+                "fr" -> if (idx != -1) prayerNamesFr[idx] else currentPrayerName
+                else -> currentPrayerName
+            }
+        }
+        
+        val title = when (currentLanguageCode) {
+            "ar" -> "$prayerEmoji حان وقت صلاة $translatedPrayerName"
+            "fr" -> "$prayerEmoji C'est l'heure de $translatedPrayerName"
+            else -> "$prayerEmoji Time for $currentPrayerName Prayer"
         }
         
         val body = if (currentIsArabic) {
@@ -685,7 +703,11 @@ class AdhanForegroundService : Service() {
             "$currentPrayerTime"
         }
         
-        val subText = if (currentIsArabic) "اضغط لإيقاف الأذان" else "Tap to stop Adhan"
+        val subText = when (currentLanguageCode) {
+            "ar" -> "اضغط لإيقاف الأذان"
+            "fr" -> "Appuyez pour arrêter l'Adhan"
+            else -> "Tap to stop Adhan"
+        }
         
         // Create STOP action with more visible icon
         val stopIntent = Intent(this, AdhanActionReceiver::class.java).apply {
@@ -695,7 +717,11 @@ class AdhanForegroundService : Service() {
             this, 200, stopIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val stopLabel = if (currentIsArabic) "⏹ إيقاف" else "⏹ Stop"
+        val stopLabel = when (currentLanguageCode) {
+            "ar" -> "⏹ إيقاف"
+            "fr" -> "⏹ Arrêter"
+            else -> "⏹ Stop"
+        }
         
         // Open app intent
         val openAppIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {

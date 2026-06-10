@@ -38,6 +38,8 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   Map<String, AlertMode> _alertModes = {};
   static const _prayerKeys = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
+  bool _isLocationRefreshing = false;
+
   @override
   void initState() {
     super.initState();
@@ -180,7 +182,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
               'We need your location to calculate accurate prayer times for your area.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.currentTextSecondary.withOpacity(0.7),
+                color: AppTheme.currentTextSecondary.withValues(alpha: 0.7),
                 fontSize: 14,
               ),
             ),
@@ -213,7 +215,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                   },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
-                    side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,
@@ -254,7 +256,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
               'Please enable GPS to get accurate prayer times.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.currentTextSecondary.withOpacity(0.7),
+                color: AppTheme.currentTextSecondary.withValues(alpha: 0.7),
                 fontSize: 14,
               ),
             ),
@@ -287,7 +289,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                   },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
-                    side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,
@@ -328,7 +330,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
               _provider.errorMessage ?? 'Please check your internet connection',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.currentTextSecondary.withOpacity(0.7),
+                color: AppTheme.currentTextSecondary.withValues(alpha: 0.7),
                 fontSize: 14,
               ),
             ),
@@ -438,12 +440,12 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [bannerColor.withOpacity(0.3), bannerColor.withOpacity(0.1)],
+          colors: [bannerColor.withValues(alpha: 0.3), bannerColor.withValues(alpha: 0.1)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: bannerColor.withOpacity(0.4), width: 1.5),
+        border: Border.all(color: bannerColor.withValues(alpha: 0.4), width: 1.5),
       ),
       child: Row(
         children: [
@@ -596,7 +598,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.2),
+                  color: Colors.orange.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -624,32 +626,36 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     BuildContext context,
     bool isArabic,
   ) async {
-    // Show loading
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(t(context, 'updatingLocation')),
-        duration: const Duration(seconds: 1),
-        backgroundColor: AppTheme.currentActiveGlow,
+    if (_isLocationRefreshing) return;
+    _isLocationRefreshing = true;
+
+    final statusNotifier = ValueNotifier<_GpsToastStatus>(_GpsToastStatus.loading);
+    final cityNotifier = ValueNotifier<String>('');
+
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => _GpsToast(
+        status: statusNotifier,
+        city: cityNotifier,
+        isArabic: isArabic,
       ),
     );
 
-    setState(() {}); // Shows loading in provider
+    Overlay.of(context).insert(entry);
 
     final success = await _provider.refreshLocation();
 
     if (mounted) {
-      setState(() {});
+      cityNotifier.value = _provider.getCityOnly(isArabic);
+      statusNotifier.value =
+          success ? _GpsToastStatus.success : _GpsToastStatus.error;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success
-                ? t(context, 'locationUpdated')
-                : t(context, 'updateFailed'),
-          ),
-          backgroundColor: success ? Colors.green : Colors.orange,
-        ),
-      );
+      await Future.delayed(const Duration(milliseconds: 2400));
+      entry.remove();
+      statusNotifier.dispose();
+      cityNotifier.dispose();
+      _isLocationRefreshing = false;
+      setState(() {});
     }
   }
 
@@ -665,6 +671,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
         cityEn: result.cityName,
         countryAr: result.countryName,
         countryEn: result.countryName,
+        isoCountryCode: result.isoCountryCode,
       );
 
       if (mounted) {
@@ -743,14 +750,14 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
               color:
                   AppTheme.isLightMode
                       ? (isNext
-                          ? AppTheme.currentActiveGlow.withOpacity(0.08)
+                          ? AppTheme.currentActiveGlow.withValues(alpha: 0.08)
                           : Colors.white)
-                      : Colors.white.withOpacity(isNext ? 0.15 : 0.08),
+                      : Colors.white.withValues(alpha: isNext ? 0.15 : 0.08),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color:
                     isNext
-                        ? AppTheme.currentActiveGlow.withOpacity(0.3)
+                        ? AppTheme.currentActiveGlow.withValues(alpha: 0.3)
                         : AppTheme.isLightMode
                         ? AppTheme.lightDivider
                         : AppTheme.inactiveBorder,
@@ -760,7 +767,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                   isNext
                       ? [
                         BoxShadow(
-                          color: AppTheme.currentActiveGlow.withOpacity(0.15),
+                          color: AppTheme.currentActiveGlow.withValues(alpha: 0.15),
                           blurRadius: 20,
                           spreadRadius: 2,
                         ),
@@ -768,7 +775,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                       : AppTheme.isLightMode
                       ? [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
+                          color: Colors.black.withValues(alpha: 0.04),
                           blurRadius: 4,
                           offset: const Offset(0, 1),
                         ),
@@ -808,10 +815,10 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.purple.withOpacity(0.2),
+                            color: Colors.purple.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: Colors.purple.withOpacity(0.4),
+                              color: Colors.purple.withValues(alpha: 0.4),
                             ),
                           ),
                           child: Text(
@@ -835,7 +842,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                       Text(
                         timeStr,
                         style: TextStyle(
-                          color: AppTheme.currentTextSecondary.withOpacity(0.7),
+                          color: AppTheme.currentTextSecondary.withValues(alpha: 0.7),
                           fontSize: 14,
                         ),
                       ),
@@ -849,8 +856,8 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                           Text(
                             countdownParts.sign,
                             style: TextStyle(
-                              color: AppTheme.currentActiveGlow.withOpacity(
-                                0.7,
+                              color: AppTheme.currentActiveGlow.withValues(
+                                alpha: 0.7,
                               ),
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -929,5 +936,240 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       default:
         return timings.fajr;
     }
+  }
+}
+
+// ─── GPS toast helpers ────────────────────────────────────────────────────────
+
+enum _GpsToastStatus { loading, success, error }
+
+class _GpsToast extends StatefulWidget {
+  final ValueNotifier<_GpsToastStatus> status;
+  final ValueNotifier<String> city;
+  final bool isArabic;
+
+  const _GpsToast({
+    required this.status,
+    required this.city,
+    required this.isArabic,
+  });
+
+  @override
+  State<_GpsToast> createState() => _GpsToastState();
+}
+
+class _GpsToastState extends State<_GpsToast> with TickerProviderStateMixin {
+  late final AnimationController _slideCtrl;
+  late final AnimationController _pulseCtrl;
+  late final Animation<Offset> _slideAnim;
+  late final Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _slideCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, 2),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOutCubic));
+
+    _pulseAnim = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+
+    _slideCtrl.forward();
+    widget.status.addListener(_rebuild);
+    widget.city.addListener(_rebuild);
+  }
+
+  void _rebuild() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    widget.status.removeListener(_rebuild);
+    widget.city.removeListener(_rebuild);
+    _slideCtrl.dispose();
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  Color get _accentColor {
+    switch (widget.status.value) {
+      case _GpsToastStatus.loading:
+        return AppTheme.currentActiveGlow;
+      case _GpsToastStatus.success:
+        return const Color(0xFF4CAF50);
+      case _GpsToastStatus.error:
+        return const Color(0xFFFF9800);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = widget.status.value;
+    final city = widget.city.value;
+    final isArabic = widget.isArabic;
+
+    return Positioned(
+      bottom: MediaQuery.of(context).padding.bottom + 28,
+      left: 20,
+      right: 20,
+      child: SlideTransition(
+        position: _slideAnim,
+        child: Material(
+          type: MaterialType.transparency,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            decoration: BoxDecoration(
+              color: AppTheme.isLightMode
+                  ? Colors.white.withValues(alpha: 0.96)
+                  : const Color(0xFF1A2740).withValues(alpha: 0.92),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: _accentColor.withValues(alpha: 0.35),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _accentColor.withValues(alpha: 0.18),
+                  blurRadius: 24,
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 12,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Directionality(
+              textDirection:
+                  isArabic ? TextDirection.rtl : TextDirection.ltr,
+              child: Row(
+                children: [
+                  _buildIconSlot(status),
+                  const SizedBox(width: 14),
+                  Expanded(child: _buildTextSlot(status, city, isArabic)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIconSlot(_GpsToastStatus status) {
+    if (status == _GpsToastStatus.loading) {
+      return AnimatedBuilder(
+        animation: _pulseAnim,
+        builder: (_, __) => Opacity(
+          opacity: _pulseAnim.value,
+          child: _iconContainer(
+            icon: Icons.gps_fixed,
+            color: AppTheme.currentActiveGlow,
+          ),
+        ),
+      );
+    }
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 280),
+      switchInCurve: Curves.easeOutBack,
+      transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+      child: _iconContainer(
+        key: ValueKey(status),
+        icon: status == _GpsToastStatus.success
+            ? Icons.check_circle_outline_rounded
+            : Icons.warning_amber_rounded,
+        color: _accentColor,
+      ),
+    );
+  }
+
+  Widget _iconContainer({
+    Key? key,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      key: key,
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withValues(alpha: 0.12),
+      ),
+      child: Icon(icon, color: color, size: 22),
+    );
+  }
+
+  Widget _buildTextSlot(
+    _GpsToastStatus status,
+    String city,
+    bool isArabic,
+  ) {
+    late String title;
+    late String subtitle;
+
+    switch (status) {
+      case _GpsToastStatus.loading:
+        title = isArabic ? 'جاري تحديد موقعك...' : 'Finding your location…';
+        subtitle = isArabic ? 'يرجى الانتظار' : 'Please wait';
+        break;
+      case _GpsToastStatus.success:
+        title = city.isNotEmpty
+            ? city
+            : (isArabic ? 'تم تحديد الموقع' : 'Location found');
+        subtitle = isArabic ? 'تم تحديث أوقات الصلاة' : 'Prayer times updated';
+        break;
+      case _GpsToastStatus.error:
+        title = isArabic ? 'تعذّر تحديد الموقع' : 'Location unavailable';
+        subtitle = isArabic
+            ? 'يتم استخدام البيانات المحفوظة'
+            : 'Using saved data';
+        break;
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 240),
+      child: Column(
+        key: ValueKey(status),
+        crossAxisAlignment: isArabic
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: AppTheme.currentTextPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: AppTheme.currentTextSecondary.withValues(alpha: 0.65),
+              fontSize: 12,
+              height: 1.2,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

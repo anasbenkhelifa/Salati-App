@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/theme/app_theme.dart';
@@ -30,6 +31,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final AdhanPlaybackService _adhanService = AdhanPlaybackService();
   bool _isAdhanTesting = false;
   int _selectedPrayerIndex = 0; // 0=Fajr, 1=Dhuhr, 2=Asr, 3=Maghrib, 4=Isha
+  String _appVersion = '';
 
   @override
   void initState() {
@@ -39,6 +41,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     QiblaProvider.instance?.initialize();
     // Listen to theme changes to rebuild when theme switches
     AppThemeProvider.instance.addListener(_onThemeChange);
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _appVersion = info.version;
+      });
+    }
   }
 
   @override
@@ -274,7 +286,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 color:
                     AppTheme.isLightMode
                         ? Colors.grey.shade100
-                        : Colors.white.withOpacity(0.1),
+                        : Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppTheme.currentDivider),
               ),
@@ -334,7 +346,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ? 'اضغط للاختبار كأن وقت الصلاة قد حان'
                   : 'Tap to simulate as if prayer time has arrived',
               style: TextStyle(
-                color: AppTheme.currentTextSecondary.withOpacity(0.7),
+                color: AppTheme.currentTextSecondary.withValues(alpha: 0.7),
                 fontSize: 12,
               ),
             ),
@@ -433,13 +445,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     decoration: BoxDecoration(
                       color:
                           controller.locale.languageCode == 'ar'
-                              ? AppTheme.currentActiveGlow.withOpacity(0.2)
+                              ? AppTheme.currentActiveGlow.withValues(alpha: 0.2)
                               : AppTheme.inactiveBackground,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color:
                             controller.locale.languageCode == 'ar'
-                                ? AppTheme.currentActiveGlow.withOpacity(0.5)
+                                ? AppTheme.currentActiveGlow.withValues(alpha: 0.5)
                                 : AppTheme.inactiveBorder,
                         width: 1.5,
                       ),
@@ -472,13 +484,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     decoration: BoxDecoration(
                       color:
                           controller.locale.languageCode == 'fr'
-                              ? AppTheme.currentActiveGlow.withOpacity(0.2)
+                              ? AppTheme.currentActiveGlow.withValues(alpha: 0.2)
                               : AppTheme.inactiveBackground,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color:
                             controller.locale.languageCode == 'fr'
-                                ? AppTheme.currentActiveGlow.withOpacity(0.5)
+                                ? AppTheme.currentActiveGlow.withValues(alpha: 0.5)
                                 : AppTheme.inactiveBorder,
                         width: 1.5,
                       ),
@@ -511,13 +523,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     decoration: BoxDecoration(
                       color:
                           controller.locale.languageCode == 'en'
-                              ? AppTheme.currentActiveGlow.withOpacity(0.2)
+                              ? AppTheme.currentActiveGlow.withValues(alpha: 0.2)
                               : AppTheme.inactiveBackground,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color:
                             controller.locale.languageCode == 'en'
-                                ? AppTheme.currentActiveGlow.withOpacity(0.5)
+                                ? AppTheme.currentActiveGlow.withValues(alpha: 0.5)
                                 : AppTheme.inactiveBorder,
                         width: 1.5,
                       ),
@@ -557,7 +569,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Text(
             t(context, 'designedBy'),
             style: TextStyle(
-              color: AppTheme.currentTextSecondary.withOpacity(0.4),
+              color: AppTheme.currentTextSecondary.withValues(alpha: 0.4),
               fontSize: 12,
             ),
           ),
@@ -607,7 +619,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Text(
                         'Anas',
                         style: TextStyle(
-                          color: AppTheme.currentTextSecondary.withOpacity(0.6),
+                          color: AppTheme.currentTextSecondary.withValues(alpha: 0.6),
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
@@ -624,6 +636,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showAboutDialog(BuildContext context) {
+    final localeCode = AppLocaleProvider.of(context).locale.languageCode;
+    final versionLabel =
+        localeCode == 'ar' ? 'الإصدار $_appVersion' : 'Version $_appVersion';
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -637,7 +653,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 20,
                   spreadRadius: 5,
                 ),
@@ -656,7 +672,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       gradient: LinearGradient(
                         colors: [
                           AppTheme.currentActiveGlow,
-                          AppTheme.currentActiveGlow.withOpacity(0.7),
+                          AppTheme.currentActiveGlow.withValues(alpha: 0.7),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -664,7 +680,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.currentActiveGlow.withOpacity(0.4),
+                          color: AppTheme.currentActiveGlow.withValues(alpha: 0.4),
                           blurRadius: 15,
                           spreadRadius: 2,
                         ),
@@ -691,9 +707,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   // Version
                   Text(
-                    t(context, 'appVersion'),
+                    versionLabel,
                     style: TextStyle(
-                      color: AppTheme.currentTextSecondary.withOpacity(0.6),
+                      color: AppTheme.currentTextSecondary.withValues(alpha: 0.6),
                       fontSize: 14,
                     ),
                   ),
@@ -715,7 +731,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppTheme.currentActiveGlow.withOpacity(0.1),
+                      color: AppTheme.currentActiveGlow.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Column(
@@ -752,7 +768,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // Divider
                   Container(
                     height: 1,
-                    color: AppTheme.currentTextSecondary.withOpacity(0.1),
+                    color: AppTheme.currentTextSecondary.withValues(alpha: 0.1),
                   ),
                   const SizedBox(height: 20),
 
@@ -760,7 +776,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text(
                     t(context, 'developedByHeart'),
                     style: TextStyle(
-                      color: AppTheme.currentTextSecondary.withOpacity(0.5),
+                      color: AppTheme.currentTextSecondary.withValues(alpha: 0.5),
                       fontSize: 12,
                     ),
                   ),
@@ -783,10 +799,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: AppTheme.currentActiveGlow.withOpacity(0.1),
+                        color: AppTheme.currentActiveGlow.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: AppTheme.currentActiveGlow.withOpacity(0.3),
+                          color: AppTheme.currentActiveGlow.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Row(

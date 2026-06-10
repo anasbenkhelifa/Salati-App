@@ -56,12 +56,14 @@ class _NotificationManagerState extends State<NotificationManager>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // DO NOT refresh location on resume - use cache only
-    // This is intentional for offline-first behavior
     if (state == AppLifecycleState.resumed && _initialized) {
-      // Just update the notification language if it changed
+      // Resume Dart-side timer and update language
       final isArabic = mounted ? AppLocaleProvider.of(context).isArabic : false;
       _notificationProvider.updateLanguage(isArabic);
+      _notificationProvider.resumeTimer();
+    } else if (state == AppLifecycleState.paused && _initialized) {
+      // Pause Dart-side timer — native service handles updates independently
+      _notificationProvider.pauseTimer();
     }
   }
 

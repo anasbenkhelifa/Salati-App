@@ -185,19 +185,19 @@ class AppTheme {
 
   /// Current divider color
   static Color get currentDivider =>
-      isLightMode ? lightDivider : Colors.white.withOpacity(0.1);
+      isLightMode ? lightDivider : Colors.white.withValues(alpha: 0.1);
 
   /// Inactive background (for unselected boxes, cards) - subtle but visible
   static Color get inactiveBackground =>
-      isLightMode ? const Color(0xFFF1F5F9) : Colors.white.withOpacity(0.05);
+      isLightMode ? const Color(0xFFF1F5F9) : Colors.white.withValues(alpha: 0.05);
 
   /// Inactive border color - for unselected items
   static Color get inactiveBorder =>
-      isLightMode ? lightDivider : Colors.white.withOpacity(0.1);
+      isLightMode ? lightDivider : Colors.white.withValues(alpha: 0.1);
 
   /// Icon secondary color - for subtle icons
   static Color get iconSecondary =>
-      isLightMode ? lightTextSecondary : Colors.white.withOpacity(0.5);
+      isLightMode ? lightTextSecondary : Colors.white.withValues(alpha: 0.5);
 
   // Glass card decoration - theme aware
   static BoxDecoration glassDecoration({
@@ -207,13 +207,13 @@ class AppTheme {
   }) {
     if (isLightMode) {
       return BoxDecoration(
-        color: Colors.white.withOpacity(opacity ?? 0.85),
+        color: Colors.white.withValues(alpha: opacity ?? 0.85),
         borderRadius: shape == BoxShape.circle ? null : BorderRadius.circular(borderRadius),
         shape: shape,
-        border: Border.all(color: lightDivider.withOpacity(0.5), width: 1),
+        border: Border.all(color: lightDivider.withValues(alpha: 0.5), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -223,13 +223,13 @@ class AppTheme {
       // Unified minimal opacity (very transparent), but Special Edition gets a boost for visibility
       final defaultOpacity = isIslamicSpecialMode ? 0.15 : ((isIslamicMode || isIslamicGreenMode) ? 0.08 : 0.05);
       return BoxDecoration(
-        color: Colors.white.withOpacity(opacity ?? defaultOpacity),
+        color: Colors.white.withValues(alpha: opacity ?? defaultOpacity),
         borderRadius: shape == BoxShape.circle ? null : BorderRadius.circular(borderRadius),
         shape: shape,
-        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

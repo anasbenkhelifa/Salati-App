@@ -129,13 +129,15 @@ object AdhanAlarmScheduler {
     ) {
         val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         
-        // Check if pre-adhan is globally enabled
-        val globalEnabled = prefs.getBoolean("flutter.pre_adhan_enabled", false)
+        // Check if pre-adhan is globally enabled. Default TRUE to match the
+        // toggle's on-by-default display in the Controls screen (the key is not
+        // written until the user flips the switch).
+        val globalEnabled = prefs.getBoolean("flutter.pre_adhan_enabled", true)
         if (!globalEnabled) {
             Log.d(TAG, "Pre-adhan disabled globally, skipping for $prayerName")
             return
         }
-        
+
         // Check if this specific prayer has reminder enabled
         val prayerKey = prayerName.lowercase()
         val prayerEnabled = prefs.getBoolean("flutter.pre_adhan_$prayerKey", true)
@@ -143,9 +145,10 @@ object AdhanAlarmScheduler {
             Log.d(TAG, "Pre-adhan disabled for $prayerName, skipping")
             return
         }
-        
-        // Get reminder minutes (default 15)
-        val minutes = prefs.getInt("flutter.pre_adhan_minutes_$prayerKey", 15)
+
+        // Get reminder minutes (default 15). Flutter stores ints as Long, so
+        // read as Long to avoid a ClassCastException if the value was set.
+        val minutes = prefs.getLong("flutter.pre_adhan_minutes_$prayerKey", 15L).toInt()
         
         // Schedule the pre-adhan alarm
         schedulePreAdhanAlarm(context, prayerId, prayerName, prayerEpochMillis, minutes)

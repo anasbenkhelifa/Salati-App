@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter devices *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(adb devices *)",
+      "Bash(flutter build *)",
+      "Bash(adb -s R5CY8135CEM install -r build/app/outputs/flutter-apk/app-release.apk)",
+      "Bash(adb -s R5CY8135CEM logcat -c)",
+      "Bash(timeout 60 adb -s R5CY8135CEM logcat -v time flutter:I System.err:W ActivityThread:W \"*:S\")",
+      "Bash(timeout 45 adb -s R5CY8135CEM logcat -v brief)",
+      "Read(//home/anas/.pub-cache/**)",
+      "Bash(find / -type d -path \"*adhan*/lib\")",
+      "Bash(flutter analyze *)",
+      "Bash(timeout 40 adb -s R5CY8135CEM logcat -v brief)",
+      "Bash(adb -s R5CY8135CEM shell monkey -p com.example.adhan_app -c android.intent.category.LAUNCHER 1)",
+      "Bash(timeout 60 adb -s R5CY8135CEM logcat -v brief)",
+      "WebSearch"
+    ]
+  }
+}

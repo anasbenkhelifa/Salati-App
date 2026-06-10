@@ -14,6 +14,7 @@ import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'data/services/analytics_service.dart';
+import 'data/services/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,10 +27,14 @@ void main() async {
   AnalyticsService.instance.logAppOpened();
   AnalyticsService.instance.setUserProperties();
 
+  // Register the device for push notifications (FCM) — non-blocking.
+  PushNotificationService.instance.initialize();
+
   // Initialize date formatting and theme in parallel
   await Future.wait([
     initializeDateFormatting('ar'),
     initializeDateFormatting('en'),
+    initializeDateFormatting('fr'),
     AppThemeProvider.instance.initialize(),
     AdhanSelectionService.instance.initialize(),
   ]);
@@ -88,7 +93,7 @@ class _AdhanAppState extends State<AdhanApp> {
 
             // Locale from controller
             locale: _localeController.locale,
-            supportedLocales: const [Locale('ar'), Locale('en')],
+            supportedLocales: const [Locale('ar'), Locale('en'), Locale('fr')],
 
             // Localization delegates for proper MaterialLocalizations
             localizationsDelegates: const [
