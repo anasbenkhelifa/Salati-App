@@ -22,7 +22,7 @@ class AppTourService {
   static bool _isRunning = false;
 
   /// Total spotlight steps (for the progress dots).
-  static const int _totalSteps = 8;
+  static const int _totalSteps = 9;
 
   /// Whether the tour is currently active (used by AppShell for PopScope).
   static bool get isRunning => _isRunning;
@@ -192,7 +192,36 @@ class AppTourService {
       lang: lang,
     );
 
-    // ── Step 3: Location Header ──
+    // ── Step 3: Hijri Calendar chip ──
+    if (!context.mounted || !_isRunning) {
+      _isRunning = false;
+      return;
+    }
+
+    await _showSingleStep(
+      context,
+      key: keys.hijriChipKey,
+      stepIndex: 2,
+      icon: Icons.calendar_month,
+      title: _l(
+        lang,
+        ar: 'التقويم الهجري',
+        fr: 'Calendrier hégirien',
+        en: 'Hijri Calendar',
+      ),
+      description: _l(
+        lang,
+        ar: 'اضغط على شارة التاريخ لفتح تقويم هجري كامل مع التاريخ الميلادي المقابل.',
+        fr:
+            'Touchez la date pour ouvrir un calendrier hégirien complet avec les équivalents grégoriens.',
+        en:
+            'Tap the date chip to open a full Hijri calendar with Gregorian equivalents.',
+      ),
+      contentAlign: ContentAlign.bottom,
+      lang: lang,
+    );
+
+    // ── Step 4: Location Header ──
     await _navigateToPage(pageController, 2);
     if (!context.mounted || !_isRunning) {
       _isRunning = false;
@@ -202,7 +231,7 @@ class AppTourService {
     await _showSingleStep(
       context,
       key: keys.locationHeaderKey,
-      stepIndex: 2,
+      stepIndex: 3,
       icon: Icons.location_on,
       title: _l(lang, ar: 'الموقع', fr: 'Votre Position', en: 'Your Location'),
       description: _l(
@@ -226,7 +255,7 @@ class AppTourService {
     await _showSingleStep(
       context,
       key: keys.prayerAlertModeKey,
-      stepIndex: 3,
+      stepIndex: 4,
       icon: Icons.notifications_active,
       title: _l(
         lang,
@@ -253,7 +282,7 @@ class AppTourService {
     await _showSingleStep(
       context,
       key: keys.prayerCardKey,
-      stepIndex: 4,
+      stepIndex: 5,
       icon: Icons.music_note,
       title: _l(
         lang,
@@ -281,7 +310,7 @@ class AppTourService {
     await _showSingleStep(
       context,
       key: keys.controlsTileKey,
-      stepIndex: 5,
+      stepIndex: 6,
       icon: Icons.tune,
       title: _l(lang, ar: 'لوحة التحكم', fr: 'Contrôles', en: 'Controls'),
       description: _l(
@@ -314,7 +343,7 @@ class AppTourService {
     await _showSingleStep(
       context,
       key: keys.themeTileKey,
-      stepIndex: 6,
+      stepIndex: 7,
       icon: Icons.palette,
       title: _l(lang, ar: 'المظهر', fr: 'Thème', en: 'App Theme'),
       description: _l(
@@ -323,7 +352,9 @@ class AppTourService {
         fr: 'Choisissez entre Nuit, Clair, Islamique Bleu ou Vert.',
         en: 'Choose Night, Light, Islamic Blue, or Islamic Green.',
       ),
-      contentAlign: ContentAlign.bottom,
+      // The theme tile sits low on the Controls screen — placing the card
+      // below it pushed it half off-screen; above keeps it fully visible
+      contentAlign: ContentAlign.top,
       lang: lang,
     );
 
@@ -342,7 +373,7 @@ class AppTourService {
     await _showSingleStep(
       context,
       key: keys.languageTileKey,
-      stepIndex: 7,
+      stepIndex: 8,
       icon: Icons.translate,
       title: _l(lang, ar: 'اللغة', fr: 'Langue', en: 'Language'),
       description: _l(

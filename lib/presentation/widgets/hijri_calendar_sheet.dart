@@ -51,7 +51,9 @@ class _HijriCalendarSheetState extends State<HijriCalendarSheet> {
   ];
 
   // Week starts on Sunday; Directionality flips the row for Arabic.
-  static const List<String> _weekdaysAr = ['أحد', 'إثن', 'ثلا', 'أرب', 'خمي', 'جمع', 'سبت'];
+  static const List<String> _weekdaysAr = [
+    'الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت',
+  ];
   static const List<String> _weekdaysEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   static const List<String> _weekdaysFr = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
@@ -282,15 +284,19 @@ class _HijriCalendarSheetState extends State<HijriCalendarSheet> {
         children: labels.map((label) {
           final isJumua = label == labels[5]; // Friday column
           return Expanded(
-            child: Center(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: isJumua
-                      ? AppTheme.currentActiveGlow
-                      : AppTheme.currentTextSecondary.withValues(alpha: 0.7),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: isJumua
+                        ? AppTheme.currentActiveGlow
+                        : AppTheme.currentTextSecondary.withValues(alpha: 0.7),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),

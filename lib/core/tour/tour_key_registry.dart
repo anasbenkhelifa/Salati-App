@@ -12,6 +12,7 @@ class TourKeyRegistry {
 
   // Home page
   final GlobalKey prayerDashboardKey = GlobalKey(debugLabel: 'tour_dashboard');
+  final GlobalKey hijriChipKey = GlobalKey(debugLabel: 'tour_hijri_chip');
 
   // Prayer Times page
   final GlobalKey locationHeaderKey = GlobalKey(debugLabel: 'tour_location');

@@ -169,30 +169,37 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              // Hijri Date — tap to open the full Hijri calendar
+              // Hijri Date — tap to open the full Hijri calendar.
+              // Styled as a button (gradient fill, glow, chevron) so it
+              // reads as clickable, not just a label.
               PressableScale(
+                key: TourKeyRegistry.instance.hijriChipKey,
                 onTap: () => HijriCalendarSheet.show(context),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
+                    horizontal: 12,
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color:
-                        AppTheme.isLightMode
-                            ? AppTheme.currentActiveGlow.withValues(alpha: 0.08)
-                            : AppTheme.currentActiveGlow.withValues(alpha: 0.15),
+                    gradient: LinearGradient(
+                      colors: AppTheme.currentAccentGradient.colors
+                          .map((c) => c.withValues(
+                              alpha: AppTheme.isLightMode ? 0.14 : 0.24))
+                          .toList(),
+                    ),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: AppTheme.currentActiveGlow.withValues(alpha: 0.2),
+                      color: AppTheme.currentActiveGlow.withValues(alpha: 0.5),
+                      width: 1.2,
                     ),
+                    boxShadow: AppTheme.glowShadow(intensity: 0.35),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         Icons.calendar_month,
-                        size: 13,
+                        size: 14,
                         color: AppTheme.currentActiveGlow,
                       ),
                       const SizedBox(width: 6),
@@ -201,8 +208,15 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: TextStyle(
                           color: AppTheme.currentActiveGlow,
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
                         ),
+                      ),
+                      const SizedBox(width: 3),
+                      Icon(
+                        Icons.expand_more,
+                        size: 14,
+                        color:
+                            AppTheme.currentActiveGlow.withValues(alpha: 0.8),
                       ),
                     ],
                   ),
