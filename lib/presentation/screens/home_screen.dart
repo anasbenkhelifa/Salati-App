@@ -13,6 +13,8 @@ import '../widgets/apple_glass_card.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/crescent_loader.dart';
 import '../widgets/location_picker_sheet.dart';
+import '../widgets/pressable_scale.dart';
+import '../widgets/hijri_calendar_sheet.dart';
 import '../../data/services/bilingual_location_service.dart';
 import 'package:provider/provider.dart';
 
@@ -167,28 +169,42 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              // Hijri Date
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color:
-                      AppTheme.isLightMode
-                          ? AppTheme.currentActiveGlow.withValues(alpha: 0.08)
-                          : AppTheme.currentActiveGlow.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppTheme.currentActiveGlow.withValues(alpha: 0.2),
+              // Hijri Date — tap to open the full Hijri calendar
+              PressableScale(
+                onTap: () => HijriCalendarSheet.show(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
                   ),
-                ),
-                child: Text(
-                  dateStr,
-                  style: TextStyle(
-                    color: AppTheme.currentActiveGlow,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                  decoration: BoxDecoration(
+                    color:
+                        AppTheme.isLightMode
+                            ? AppTheme.currentActiveGlow.withValues(alpha: 0.08)
+                            : AppTheme.currentActiveGlow.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppTheme.currentActiveGlow.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.calendar_month,
+                        size: 13,
+                        color: AppTheme.currentActiveGlow,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        dateStr,
+                        style: TextStyle(
+                          color: AppTheme.currentActiveGlow,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

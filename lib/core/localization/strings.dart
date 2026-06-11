@@ -46,6 +46,8 @@ const Map<String, Map<String, String>> _strings = {
         'لضمان تشغيل الأذان في وقته حتى عندما يكون التطبيق مغلقاً، اسمح لصلاتي بالعمل في الخلفية دون قيود البطارية.',
     'allow': 'السماح',
     'later': 'لاحقاً',
+    'hijriCalendar': 'التقويم الهجري',
+    'today': 'اليوم',
     'searchRequiresInternet': 'البحث يحتاج إنترنت',
     // Theme
     'nightMode': 'الوضع الداكن',
@@ -157,6 +159,8 @@ const Map<String, Map<String, String>> _strings = {
         'To make sure the adhan always plays on time — even when the app is closed — allow Salati to run in the background without battery restrictions.',
     'allow': 'Allow',
     'later': 'Later',
+    'hijriCalendar': 'Hijri Calendar',
+    'today': 'Today',
     'searchRequiresInternet': 'Search requires internet',
     // Theme
     'nightMode': 'Night Mode',
@@ -268,6 +272,8 @@ const Map<String, Map<String, String>> _strings = {
         'Pour que l\'adhan sonne toujours à l\'heure, même application fermée, autorisez Salati à fonctionner en arrière-plan sans restriction de batterie.',
     'allow': 'Autoriser',
     'later': 'Plus tard',
+    'hijriCalendar': 'Calendrier hégirien',
+    'today': 'Aujourd\'hui',
     'searchRequiresInternet': 'La recherche nécessite Internet',
     // Theme
     'nightMode': 'Mode Nuit',

@@ -471,6 +471,10 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
   /// without this, a retry could start a second setup mid-flight.
   bool _setupInProgress = false;
 
+  /// Whether setup has already auto-requested location permission this
+  /// session (Android only allows two denials before blocking the dialog).
+  bool _hasRequestedLocationPermission = false;
+
   /// First time setup - requires GPS and network
   Future<void> _firstTimeSetup() async {
     if (_setupInProgress) {
@@ -515,6 +519,17 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
     var permission = await Geolocator.checkPermission();
     debugPrint('[PrayerTimesApiProvider] Current permission: $permission');
     if (permission == LocationPermission.denied) {
+      // Auto-request only ONCE per session. Android permanently blocks the
+      // dialog after two denials, and the resume-retry used to fire a second
+      // request right after the user denied the first — burning both prompts
+      // and leaving the GPS button dead ("location unavailable") forever.
+      if (_hasRequestedLocationPermission) {
+        _state = PrayerDataState.permissionDenied;
+        _errorMessage = 'Location permission denied';
+        notifyListeners();
+        return;
+      }
+      _hasRequestedLocationPermission = true;
       debugPrint('[PrayerTimesApiProvider] Requesting permission...');
       // Timeout: a request colliding with another permission dialog can
       // hang forever; recover instead of freezing first-run
@@ -697,8 +712,13 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
+      if (permission == LocationPermission.deniedForever) {
+        // Android won't show the dialog anymore (two denials) — take the
+        // user to app settings where they can grant it manually
+        await Geolocator.openAppSettings();
+        throw Exception('Location permission permanently denied');
+      }
+      if (permission == LocationPermission.denied) {
         throw Exception('Location permission denied');
       }
 
