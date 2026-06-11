@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/localization/strings.dart';
 import '../../core/localization/app_locale_provider.dart';
 import '../../data/models/place_result.dart';
 import '../../data/services/place_search_service.dart';
+import 'app_sheet.dart';
 
 /// Modal bottom sheet for searching and selecting a location
 /// Returns the selected PlaceResult or null if cancelled
@@ -14,11 +14,8 @@ class LocationPickerSheet extends StatefulWidget {
 
   /// Show the location picker and return selected place (or null)
   static Future<PlaceResult?> show(BuildContext context) {
-    return showModalBottomSheet<PlaceResult>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
+    return AppSheet.show<PlaceResult>(
+      context,
       builder: (_) => const LocationPickerSheet(),
     );
   }
@@ -30,6 +27,7 @@ class LocationPickerSheet extends StatefulWidget {
 class _LocationPickerSheetState extends State<LocationPickerSheet> {
   final PlaceSearchService _searchService = PlaceSearchService();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
 
   List<PlaceResult> _results = [];
   PlaceResult? _selectedPlace;
@@ -37,25 +35,17 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
   bool _hasError = false;
   Timer? _debounceTimer;
 
-  bool _isAnimating = true;
-
   @override
   void initState() {
     super.initState();
-    // Bottom sheet animation duration is typically ~300-350ms
-    Future.delayed(const Duration(milliseconds: 350), () {
-      if (mounted) {
-        setState(() {
-          _isAnimating = false;
-        });
-      }
-    });
+    _searchFocus.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _debounceTimer?.cancel();
     _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -124,153 +114,99 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
       textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
       child: Material(
         type: MaterialType.transparency,
-        child: Container(
-          height: MediaQuery.of(context).size.height * 0.75,
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            // Theme-aware background
-            color: AppTheme.isLightMode ? Colors.white.withValues(alpha: 0.85) : null,
-            gradient:
-                AppTheme.isLightMode
-                    ? null
-                    : LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: AppTheme.currentBackgroundGradient.colors.map(
-                        (c) => c.withValues(alpha: 0.92),
-                      ).toList(),
-                    ),
-          ),
-          child: ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            child:
-                AppTheme.isLightMode
-                    ? Column(
-                      children: [
-                        // Header
-                        _buildHeader(context, isArabic),
+        child: AppSheet(
+          maxHeightFactor: 0.78,
+          child: Column(
+            children: [
+              SheetHeader(
+                icon: Icons.location_on,
+                title: t(context, 'selectLocation'),
+                trailing: IconButton(
+                  icon: Icon(
+                    Icons.close,
+                    color: AppTheme.currentTextSecondary,
+                  ),
+                  onPressed: _cancel,
+                ),
+              ),
 
-                        // Search field
-                        _buildSearchField(context, isArabic),
+              _buildSearchField(context, isArabic),
 
-                        // Results list
-                        Expanded(child: _buildResultsList(context, isArabic)),
+              // Results list
+              Expanded(child: _buildResultsList(context, isArabic)),
 
-                        // Footer buttons
-                        _buildFooter(context, isArabic),
-                      ],
-                    )
-                    : _isAnimating
-                        ? Column(
-                            children: [
-                              // Header
-                              _buildHeader(context, isArabic),
-      
-                              // Search field
-                              _buildSearchField(context, isArabic),
-      
-                              // Results list
-                              Expanded(child: _buildResultsList(context, isArabic)),
-      
-                              // Footer buttons
-                              _buildFooter(context, isArabic),
-                            ],
-                          )
-                        : RepaintBoundary(
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
-                              child: Column(
-                                children: [
-                                  // Header
-                                  _buildHeader(context, isArabic),
-        
-                                  // Search field
-                                  _buildSearchField(context, isArabic),
-        
-                                  // Results list
-                                  Expanded(child: _buildResultsList(context, isArabic)),
-        
-                                  // Footer buttons
-                                  _buildFooter(context, isArabic),
-                                ],
-                              ),
-                            ),
-                          ),
+              // Footer buttons
+              _buildFooter(context, isArabic),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isArabic) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              t(context, 'selectLocation'),
-              style: TextStyle(
-                color: AppTheme.currentTextPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          IconButton(
-            icon: Icon(Icons.close, color: AppTheme.currentTextSecondary),
-            onPressed: _cancel,
-          ),
-        ],
-      ),
-    );
-  }
-
+  /// Glass search field with an accent glow when focused.
   Widget _buildSearchField(BuildContext context, bool isArabic) {
+    final glow = AppTheme.currentActiveGlow;
+    final focused = _searchFocus.hasFocus;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      child: TextField(
-        controller: _searchController,
-        textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
-        onChanged: (query) => _onSearchChanged(query, isArabic),
-        style: TextStyle(color: AppTheme.currentTextPrimary),
-        decoration: InputDecoration(
-          hintText: t(context, 'searchPlaceholder'),
-          hintStyle: TextStyle(
-            color: AppTheme.currentTextSecondary.withValues(alpha: 0.5),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: focused
+                ? glow.withValues(alpha: 0.7)
+                : (AppTheme.isLightMode
+                    ? AppTheme.lightDivider
+                    : Colors.white.withValues(alpha: 0.12)),
+            width: focused ? 1.5 : 1,
           ),
-          prefixIcon: Icon(
-            Icons.search,
-            color: AppTheme.currentTextSecondary.withValues(alpha: 0.5),
-          ),
-          suffixIcon:
-              _isLoading
-                  ? Padding(
+          boxShadow: focused ? AppTheme.glowShadow(intensity: 0.5) : null,
+        ),
+        child: TextField(
+          controller: _searchController,
+          focusNode: _searchFocus,
+          textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+          onChanged: (query) => _onSearchChanged(query, isArabic),
+          style: TextStyle(color: AppTheme.currentTextPrimary),
+          decoration: InputDecoration(
+            hintText: t(context, 'searchPlaceholder'),
+            hintStyle: TextStyle(
+              color: AppTheme.currentTextSecondary.withValues(alpha: 0.5),
+            ),
+            prefixIcon: Icon(
+              Icons.search,
+              color: focused
+                  ? glow
+                  : AppTheme.currentTextSecondary.withValues(alpha: 0.5),
+            ),
+            suffixIcon: _isLoading
+                ? Padding(
                     padding: const EdgeInsets.all(12),
                     child: SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppTheme.currentActiveGlow,
-                        ),
+                        valueColor: AlwaysStoppedAnimation<Color>(glow),
                       ),
                     ),
                   )
-                  : null,
-          filled: true,
-          fillColor:
-              AppTheme.isLightMode
-                  ? Colors.grey.shade100
-                  : Colors.white.withValues(alpha: 0.08),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
+                : null,
+            filled: true,
+            fillColor: AppTheme.isLightMode
+                ? AppTheme.inactiveBackground
+                : Colors.white.withValues(alpha: 0.07),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
           ),
         ),
       ),
@@ -279,99 +215,45 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
 
   Widget _buildResultsList(BuildContext context, bool isArabic) {
     if (_hasError && _results.isEmpty) {
-      return Center(
-        child: Text(
-          _searchController.text.isEmpty
-              ? ''
-              : t(context, 'searchRequiresInternet'),
-          style: TextStyle(
-            color: AppTheme.currentTextSecondary.withValues(alpha: 0.5),
-            fontSize: 14,
-          ),
-        ),
+      return _buildEmptyState(
+        icon: Icons.wifi_off_rounded,
+        message: _searchController.text.isEmpty
+            ? ''
+            : t(context, 'searchRequiresInternet'),
       );
     }
 
     if (_results.isEmpty && _searchController.text.isNotEmpty && !_isLoading) {
-      return Center(
-        child: Text(
-          t(context, 'noResults'),
-          style: TextStyle(
-            color: AppTheme.currentTextSecondary.withValues(alpha: 0.5),
-            fontSize: 14,
-          ),
-        ),
+      return _buildEmptyState(
+        icon: Icons.search_off_rounded,
+        message: t(context, 'noResults'),
+      );
+    }
+
+    if (_results.isEmpty) {
+      // Idle state before any search: a soft hint instead of blank space
+      return _buildEmptyState(
+        icon: Icons.travel_explore,
+        message: t(context, 'searchPlaceholder'),
       );
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       itemCount: _results.length,
       itemBuilder: (context, index) {
         final place = _results[index];
         final isSelected = _selectedPlace == place;
 
-        return Container(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          decoration: BoxDecoration(
-            color:
-                isSelected
-                    ? AppTheme.currentActiveGlow.withValues(alpha: 0.15)
-                    : Colors.white.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(12),
-            border:
-                isSelected
-                    ? Border.all(
-                      color: AppTheme.currentActiveGlow.withValues(alpha: 0.5),
-                      width: 1,
-                    )
-                    : null,
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 4,
-            ),
-            leading: Icon(
-              Icons.location_on_outlined,
-              color:
-                  isSelected
-                      ? AppTheme.currentActiveGlow
-                      : AppTheme.currentTextSecondary,
-            ),
-            title: Text(
-              place.cityName.isNotEmpty
-                  ? place.cityName
-                  : place.displayLabel.split(',').first,
-              style: TextStyle(
-                color:
-                    isSelected
-                        ? AppTheme.currentActiveGlow
-                        : AppTheme.currentTextPrimary,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle:
-                place.countryName.isNotEmpty
-                    ? Text(
-                      place.countryName,
-                      style: TextStyle(
-                        color: AppTheme.currentTextSecondary.withValues(alpha: 0.6),
-                        fontSize: 12,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    )
-                    : null,
-            trailing:
-                isSelected
-                    ? Icon(
-                      Icons.check_circle,
-                      color: AppTheme.currentActiveGlow,
-                    )
-                    : null,
+        return StaggerIn(
+          index: index.clamp(0, 12),
+          child: SheetTile(
+            icon: isSelected ? Icons.location_on : Icons.location_on_outlined,
+            title: place.cityName.isNotEmpty
+                ? place.cityName
+                : place.displayLabel.split(',').first,
+            subtitle: place.countryName.isNotEmpty ? place.countryName : null,
+            selected: isSelected,
             onTap: () => _selectPlace(place),
           ),
         );
@@ -379,43 +261,69 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
     );
   }
 
+  Widget _buildEmptyState({required IconData icon, required String message}) {
+    if (message.isEmpty) return const SizedBox.shrink();
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppTheme.currentActiveGlow.withValues(alpha: 0.08),
+              border: Border.all(
+                color: AppTheme.currentActiveGlow.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: AppTheme.currentActiveGlow.withValues(alpha: 0.7),
+              size: 32,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppTheme.currentTextSecondary.withValues(alpha: 0.6),
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFooter(BuildContext context, bool isArabic) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: AppTheme.currentDivider)),
+        border: Border(
+          top: BorderSide(
+            color: AppTheme.currentActiveGlow.withValues(alpha: 0.15),
+          ),
+        ),
       ),
       child: Row(
         children: [
           Expanded(
-            child: OutlinedButton(
+            child: SheetSecondaryButton(
+              label: t(context, 'cancel'),
               onPressed: _cancel,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.currentTextSecondary,
-                side: BorderSide(color: AppTheme.currentDivider),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(t(context, 'cancel')),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: ElevatedButton(
+            child: GradientButton(
+              label: t(context, 'confirm'),
+              icon: Icons.check_rounded,
               onPressed: _selectedPlace != null ? _confirm : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.currentActiveGlow,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.grey.withValues(alpha: 0.3),
-                disabledForegroundColor: Colors.white.withValues(alpha: 0.5),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(t(context, 'confirm')),
             ),
           ),
         ],

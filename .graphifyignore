@@ -1,0 +1,8 @@
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.mp3
+android/
+ios/
+build/

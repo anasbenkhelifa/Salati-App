@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_motion.dart';
 import '../../core/localization/strings.dart';
 import '../../core/localization/app_locale_provider.dart';
 import '../../data/services/adhan_selection_service.dart';
 import '../../data/models/adhan_option.dart';
+import 'app_sheet.dart';
 
 /// Bottom sheet for selecting adhan for a prayer
 class AdhanSelectionSheet extends StatefulWidget {
@@ -27,10 +29,8 @@ class AdhanSelectionSheet extends StatefulWidget {
     VoidCallback? onChanged,
   }) {
     HapticFeedback.lightImpact();
-    return showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+    return AppSheet.show(
+      context,
       builder:
           (context) => AdhanSelectionSheet(
             prayerKey: prayerKey,
@@ -64,109 +64,64 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
     final allAdhans = _service.allAdhans;
     final customAdhans = _service.customAdhans;
 
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.7,
-      ),
-      decoration: BoxDecoration(
-        color: AppTheme.isLightMode ? Colors.white : AppTheme.nightPrimaryNavy,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border.all(
-          color:
-              AppTheme.isLightMode
-                  ? AppTheme.lightDivider
-                  : Colors.white.withValues(alpha: 0.1),
-        ),
-      ),
+    // Stagger index counter so every visible row cascades in order
+    int stagger = 0;
+
+    return AppSheet(
+      maxHeightFactor: 0.7,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppTheme.currentTextSecondary.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(2),
-            ),
+          SheetHeader(
+            icon: Icons.mosque,
+            title: t(context, 'selectAdhan'),
+            subtitle: widget.prayerName,
           ),
-
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.music_note,
-                  color: AppTheme.currentActiveGlow,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        t(context, 'selectAdhan'),
-                        style: TextStyle(
-                          color: AppTheme.currentTextPrimary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        widget.prayerName,
-                        style: TextStyle(
-                          color: AppTheme.currentTextSecondary,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          Divider(color: AppTheme.currentDivider),
 
           // Adhan list
           Flexible(
             child: ListView(
               shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               children: [
-                // Built-in adhans section
-                _buildSectionHeader(t(context, 'defaultAdhan')),
-                ...allAdhans.where((a) => !a.isCustom).map((adhan) => 
-                  _buildAdhanTile(
-                    adhan,
-                    selectedAdhan.id == adhan.id,
-                    isArabic,
-                  )
-                ).toList(),
+                _buildSectionHeader(t(context, 'defaultAdhan'), stagger++),
+                ...allAdhans.where((a) => !a.isCustom).map(
+                      (adhan) => StaggerIn(
+                        index: stagger++,
+                        child: _buildAdhanTile(
+                          adhan,
+                          selectedAdhan.id == adhan.id,
+                          isArabic,
+                        ),
+                      ),
+                    ),
 
                 // Custom adhans section
                 if (customAdhans.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  _buildSectionHeader(t(context, 'customAdhans')),
+                  const SizedBox(height: 12),
+                  _buildSectionHeader(t(context, 'customAdhans'), stagger++),
                   ...customAdhans.map(
-                    (adhan) => _buildAdhanTile(
-                      adhan,
-                      selectedAdhan.id == adhan.id,
-                      isArabic,
+                    (adhan) => StaggerIn(
+                      index: stagger++,
+                      child: _buildAdhanTile(
+                        adhan,
+                        selectedAdhan.id == adhan.id,
+                        isArabic,
+                      ),
                     ),
                   ),
                 ],
 
                 // Add custom adhan button
-                const SizedBox(height: 16),
-                _buildAddCustomButton(context),
+                const SizedBox(height: 12),
+                StaggerIn(index: stagger++, child: _buildAddCustomButton(context)),
 
                 // Apply to all checkbox
-                const SizedBox(height: 8),
-                _buildApplyToAllCheckbox(context),
+                const SizedBox(height: 6),
+                StaggerIn(
+                  index: stagger++,
+                  child: _buildApplyToAllRow(context),
+                ),
 
                 const SizedBox(height: 16),
               ],
@@ -177,151 +132,101 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, left: 4),
-      child: Text(
-        title,
-        style: TextStyle(
-          color: AppTheme.currentTextSecondary,
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAdhanTile(AdhanOption adhan, bool isSelected, bool isArabic) {
-    return GestureDetector(
-      onTap: () => _selectAdhan(adhan),
-      onLongPress: adhan.isCustom ? () => _showDeleteDialog(adhan) : null,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color:
-              isSelected
-                  ? AppTheme.currentActiveGlow.withValues(alpha: 0.15)
-                  : AppTheme.inactiveBackground,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color:
-                isSelected
-                    ? AppTheme.currentActiveGlow.withValues(alpha: 0.4)
-                    : AppTheme.inactiveBorder,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
+  Widget _buildSectionHeader(String title, int staggerIndex) {
+    return StaggerIn(
+      index: staggerIndex,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8, left: 4, right: 4, top: 4),
         child: Row(
           children: [
-            // Icon
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color:
-                    isSelected
-                        ? AppTheme.currentActiveGlow.withValues(alpha: 0.2)
-                        : AppTheme.isLightMode
-                        ? Colors.grey.shade100
-                        : Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                adhan.isCustom ? Icons.library_music : Icons.mosque,
-                color:
-                    isSelected
-                        ? AppTheme.currentActiveGlow
-                        : AppTheme.currentTextSecondary,
-                size: 20,
+            Text(
+              title,
+              style: TextStyle(
+                color: AppTheme.currentActiveGlow.withValues(alpha: 0.9),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
               ),
             ),
-            const SizedBox(width: 14),
-            // Name
+            const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isArabic ? adhan.nameAr : adhan.name,
-                    style: TextStyle(
-                      color:
-                          isSelected
-                              ? AppTheme.currentActiveGlow
-                              : AppTheme.currentTextPrimary,
-                      fontSize: 16,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.w500,
-                    ),
-                  ),
-                  if (adhan.duration != null)
-                    Text(
-                      _formatDuration(adhan.duration!),
-                      style: TextStyle(
-                        color: AppTheme.currentTextSecondary.withValues(alpha: 0.7),
-                        fontSize: 12,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            // Play button
-            GestureDetector(
-              onTap: () => _togglePlayPreview(adhan),
               child: Container(
-                width: 36,
-                height: 36,
+                height: 1,
                 decoration: BoxDecoration(
-                  color:
-                      _playingAdhanId == adhan.id
-                          ? AppTheme.currentActiveGlow
-                          : AppTheme.isLightMode
-                          ? AppTheme.currentActiveGlow.withValues(alpha: 0.1)
-                          : Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: AppTheme.currentActiveGlow.withValues(
-                      alpha: _playingAdhanId == adhan.id ? 1.0 : 0.3,
-                    ),
-                    width: 1.5,
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.currentActiveGlow.withValues(alpha: 0.35),
+                      AppTheme.currentActiveGlow.withValues(alpha: 0.0),
+                    ],
                   ),
-                ),
-                child: Icon(
-                  _playingAdhanId == adhan.id ? Icons.stop : Icons.play_arrow,
-                  color:
-                      _playingAdhanId == adhan.id
-                          ? Colors.white
-                          : AppTheme.currentActiveGlow,
-                  size: 20,
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            // Checkmark
-            if (isSelected)
-              Icon(
-                Icons.check_circle,
-                color: AppTheme.currentActiveGlow,
-                size: 24,
-              ),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildAdhanTile(AdhanOption adhan, bool isSelected, bool isArabic) {
+    return SheetTile(
+      icon: adhan.isCustom ? Icons.library_music : Icons.mosque,
+      title: isArabic ? adhan.nameAr : adhan.name,
+      subtitle: adhan.duration != null ? _formatDuration(adhan.duration!) : null,
+      selected: isSelected,
+      onTap: () => _selectAdhan(adhan),
+      onLongPress: adhan.isCustom ? () => _showDeleteDialog(adhan) : null,
+      trailing: _buildPlayButton(adhan),
+    );
+  }
+
+  /// Circular preview button; fills with the accent gradient while playing.
+  Widget _buildPlayButton(AdhanOption adhan) {
+    final isPlaying = _playingAdhanId == adhan.id;
+    final glow = AppTheme.currentActiveGlow;
+
+    return GestureDetector(
+      onTap: () => _togglePlayPreview(adhan),
+      child: AnimatedContainer(
+        duration: AppMotion.fast,
+        curve: AppMotion.pop,
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          gradient: isPlaying ? AppTheme.currentAccentGradient : null,
+          color: isPlaying ? null : glow.withValues(alpha: 0.10),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: glow.withValues(alpha: isPlaying ? 0.0 : 0.4),
+            width: 1.5,
+          ),
+          boxShadow: isPlaying ? AppTheme.glowShadow(intensity: 0.8) : null,
+        ),
+        child: Icon(
+          isPlaying ? Icons.stop_rounded : Icons.play_arrow_rounded,
+          color: isPlaying
+              ? (AppTheme.currentAccentGradient.colors.first
+                          .computeLuminance() >
+                      0.5
+                  ? Colors.black87
+                  : Colors.white)
+              : glow,
+          size: 22,
+        ),
+      ),
+    );
+  }
+
   Widget _buildAddCustomButton(BuildContext context) {
+    final glow = AppTheme.currentActiveGlow;
     return GestureDetector(
       onTap: _isLoading ? null : _addCustomAdhan,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: AppTheme.inactiveBackground,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppTheme.inactiveBorder,
-            style: BorderStyle.solid,
-          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: glow.withValues(alpha: 0.45), width: 1.2),
+          color: glow.withValues(alpha: 0.06),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -330,22 +235,15 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
               SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppTheme.currentActiveGlow,
-                ),
+                child: CircularProgressIndicator(strokeWidth: 2, color: glow),
               )
             else
-              Icon(
-                Icons.add_circle_outline,
-                color: AppTheme.currentActiveGlow,
-                size: 22,
-              ),
+              Icon(Icons.add_circle_outline, color: glow, size: 22),
             const SizedBox(width: 10),
             Text(
               t(context, 'addCustomAdhan'),
               style: TextStyle(
-                color: AppTheme.currentActiveGlow,
+                color: glow,
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
@@ -356,8 +254,9 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
     );
   }
 
-  Widget _buildApplyToAllCheckbox(BuildContext context) {
+  Widget _buildApplyToAllRow(BuildContext context) {
     final selectedAdhan = _service.getSelectedAdhan(widget.prayerKey);
+    final glow = AppTheme.currentActiveGlow;
 
     return GestureDetector(
       onTap: () async {
@@ -373,7 +272,7 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(t(context, 'applyToAllPrayers')),
-                backgroundColor: AppTheme.currentActiveGlow,
+                backgroundColor: glow,
                 duration: const Duration(seconds: 1),
               ),
             );
@@ -384,27 +283,26 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         child: Row(
           children: [
-            Container(
-              width: 22,
-              height: 22,
+            AnimatedContainer(
+              duration: AppMotion.fast,
+              curve: AppMotion.pop,
+              width: 23,
+              height: 23,
               decoration: BoxDecoration(
-                color:
-                    _applyToAll
-                        ? AppTheme.currentActiveGlow
-                        : Colors.transparent,
-                borderRadius: BorderRadius.circular(6),
+                gradient: _applyToAll ? AppTheme.currentAccentGradient : null,
+                borderRadius: BorderRadius.circular(7),
                 border: Border.all(
-                  color:
-                      _applyToAll
-                          ? AppTheme.currentActiveGlow
-                          : AppTheme.currentTextSecondary.withValues(alpha: 0.5),
+                  color: _applyToAll
+                      ? Colors.transparent
+                      : AppTheme.currentTextSecondary.withValues(alpha: 0.5),
                   width: 2,
                 ),
+                boxShadow:
+                    _applyToAll ? AppTheme.glowShadow(intensity: 0.5) : null,
               ),
-              child:
-                  _applyToAll
-                      ? const Icon(Icons.check, color: Colors.white, size: 16)
-                      : null,
+              child: _applyToAll
+                  ? const Icon(Icons.check, color: Colors.white, size: 16)
+                  : null,
             ),
             const SizedBox(width: 12),
             Text(
@@ -507,7 +405,10 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
       builder:
           (context) => AlertDialog(
             backgroundColor:
-                AppTheme.isLightMode ? Colors.white : AppTheme.nightPrimaryNavy,
+                AppTheme.isLightMode ? Colors.white : AppTheme.currentSurface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
             title: Text(
               t(context, 'deleteAdhan'),
               style: TextStyle(color: AppTheme.currentTextPrimary),

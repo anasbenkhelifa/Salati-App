@@ -15,7 +15,16 @@
       "Bash(timeout 40 adb -s R5CY8135CEM logcat -v brief)",
       "Bash(adb -s R5CY8135CEM shell monkey -p com.example.adhan_app -c android.intent.category.LAUNCHER 1)",
       "Bash(timeout 60 adb -s R5CY8135CEM logcat -v brief)",
-      "WebSearch"
+      "WebSearch",
+      "PowerShell(flutter analyze *)",
+      "PowerShell(flutter test *)",
+      "PowerShell($env:JAVA_HOME = 'C:\\\\Program Files\\\\Android\\\\Android Studio\\\\jbr'; .\\\\gradlew.bat :app:compileDebugKotlin --console=plain -q \"-Dorg.gradle.java.home=C:\\\\Program Files\\\\Android\\\\Android Studio\\\\jbr\"; if \\($?\\) { 'KOTLIN OK' })",
+      "PowerShell(cd E:\\\\Salati-App\\\\android; $env:JAVA_HOME = 'C:\\\\Program Files\\\\Android\\\\Android Studio\\\\jbr'; .\\\\gradlew.bat :app:compileDebugKotlin --console=plain \"-Dorg.gradle.java.home=C:\\\\Program Files\\\\Android\\\\Android Studio\\\\jbr\" 2>&1 | Select-String -Pattern 'error|warning|BUILD|FAILED' | Select-Object -First 20)",
+      "PowerShell(cd E:\\\\Salati-App\\\\android; $env:JAVA_HOME = 'C:\\\\Program Files\\\\Android\\\\Android Studio\\\\jbr'; .\\\\gradlew.bat :app:compileDebugKotlin --console=plain -q \"-Dorg.gradle.java.home=C:\\\\Program Files\\\\Android\\\\Android Studio\\\\jbr\"; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(flutter build *)",
+      "PowerShell(Set-Location E:\\\\Salati-App; $out = flutter analyze 2>$null | Out-String; $out -split \"`n\" | Where-Object { $_ -match ' error ' }; \"analyze done\")",
+      "Bash(git add *)",
+      "Bash(git commit -m 'v3.0.0 — full UI redesign, offline-exact alarms, first-run fixes *)"
     ]
   }
 }

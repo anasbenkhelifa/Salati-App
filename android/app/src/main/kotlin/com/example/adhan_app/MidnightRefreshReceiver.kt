@@ -84,13 +84,11 @@ class MidnightRefreshReceiver : BroadcastReceiver() {
         Log.d(TAG, "Midnight refresh triggered!")
         
         try {
-            // 1. Reschedule all prayer alarms for today
+            // 1. Reschedule all prayer alarms for today (also re-arms the
+            //    tomorrow-Fajr fallback as backup)
             AdhanAlarmScheduler.scheduleAllTodayAlarms(context)
-            
-            // 2. Schedule tomorrow's Fajr as backup (in case today's last prayer passes)
-            AdhanAlarmScheduler.scheduleTomorrowFajr(context)
-            
-            // 3. Restart the foreground service to refresh notification
+
+            // 2. Restart the foreground service to refresh notification
             val serviceIntent = Intent(context, AdhanForegroundService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(serviceIntent)

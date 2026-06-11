@@ -19,33 +19,39 @@ class AppTheme {
     colors: [Color(0xFF0D1B2A), Color(0xFF1B263B), Color(0xFF0D1B2A)],
   );
 
-  // ========== LIGHT MODE COLORS ==========
-  static const Color lightBackground = Color(0xFFF8FAFC);
+  // ========== LIGHT MODE COLORS (Andalusian daylight) ==========
+  // Warm parchment/ivory background with deep cobalt zellige-blue accents.
+  // The old palette (clinical white + washed-out sky blue) had poor accent
+  // contrast; cobalt passes comfortably on ivory and white cards.
+  static const Color lightBackground = Color(0xFFFAF6EE);
   static const Color lightSurface = Color(0xFFFFFFFF);
-  static const Color lightAccentBlue = Color(0xFF2196F3);
+  static const Color lightAccentBlue = Color(0xFF1D5FBF);
   static const Color lightGlassTint = Color(0x0A000000);
-  static const Color lightTextPrimary = Color(0xFF1A1A1A);
-  static const Color lightTextSecondary = Color(0xFF6B7280);
-  static const Color lightActiveGlow = Color(0xFF64B5F6);
-  static const Color lightDivider = Color(0xFFE5E7EB);
+  static const Color lightTextPrimary = Color(0xFF26221A);
+  static const Color lightTextSecondary = Color(0xFF6E6757);
+  static const Color lightActiveGlow = Color(0xFF1D5FBF);
+  static const Color lightDivider = Color(0xFFE6DEC9);
   static const LinearGradient lightBackgroundGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFFF8FAFC), Color(0xFFEFF6FF), Color(0xFFF8FAFC)],
+    colors: [Color(0xFFFBF8F1), Color(0xFFF2EBDB), Color(0xFFFBF8F1)],
   );
 
-  // ========== ISLAMIC MODE COLORS ==========
-  static const Color islamicPrimaryNavy = Color(0xFF0F1B2A); // Matches the dark blue of the generated pattern
-  static const Color islamicSecondaryNavy = Color(0xFF192B45); // Slightly lighter for surfaces
-  static const Color islamicAccentGold = Color(0xFF5599FF); // Reusing the active glow blue for accent
+  // ========== ISLAMIC MODE COLORS (Andalusian lapis & gold) ==========
+  // Deep royal lapis blue with warm gold accents — the classic Andalusian
+  // zellige palette. Distinct from Night (slate navy + cyan) and from
+  // Special (black + bright gold).
+  static const Color islamicPrimaryNavy = Color(0xFF0C1A3E); // Deep lapis
+  static const Color islamicSecondaryNavy = Color(0xFF16294F); // Lighter lapis surface
+  static const Color islamicAccentGold = Color(0xFFE8BC63); // Warm Andalusian gold
   static const Color islamicGlassWhite = Color(0x40FFFFFF); // Increased opacity (25%)
   static const Color islamicTextPrimary = Color(0xFFFFFFFF);
   static const Color islamicTextSecondary = Color(0xCCFFFFFF);
-  static const Color islamicActiveGlow = Color(0xFF4FC3F7); // Keeping the cyan/blue glow
+  static const Color islamicActiveGlow = Color(0xFFF0C97E); // Gold glow
   static const LinearGradient islamicBackgroundGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFF0A1220), Color(0xFF14243B), Color(0xFF0A1220)], // Very deep backdrop for the image
+    colors: [Color(0xFF0A1633), Color(0xFF142A5C), Color(0xFF0A1633)], // Royal lapis depth
   );
 
   // ========== ISLAMIC GREEN MODE COLORS ==========
@@ -103,22 +109,10 @@ class AppTheme {
     return nightBackgroundGradient;
   }
 
-  /// Current background image (only used in Islamic mode)
+  /// Current background image (only the Special luxury theme keeps a static
+  /// image; Blue/Green Islamic themes use the procedural living background
+  /// like Night mode for the animated lattice + aurora effects)
   static DecorationImage? get currentBackgroundImage {
-    if (isIslamicMode) {
-      return const DecorationImage(
-        image: AssetImage('assets/images/islamic_bg_pattern.webp'),
-        fit: BoxFit.cover, 
-        opacity: 0.6, // Blend the pattern smoothly with the gradient underneath
-      );
-    }
-    if (isIslamicGreenMode) {
-      return const DecorationImage(
-        image: AssetImage('assets/images/islamic_bg_pattern_green.webp'),
-        fit: BoxFit.cover,
-        opacity: 0.6,
-      );
-    }
     if (isIslamicSpecialMode) {
       return const DecorationImage(
         image: AssetImage('assets/images/islamic_bg_pattern_special.webp'),
@@ -183,13 +177,94 @@ class AppTheme {
     return nightGlassWhite;
   }
 
+  // ========== ACCENT GRADIENTS (rings, pills, progress) ==========
+  static const LinearGradient nightAccentGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF4FC3F7), Color(0xFF1E88E5)],
+  );
+  static const LinearGradient lightAccentGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF2E6FD0), Color(0xFF1A4C9E)],
+  );
+  static const LinearGradient islamicAccentGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFF0C97E), Color(0xFFC9963F)],
+  );
+  static const LinearGradient islamicGreenAccentGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF1ABC9C), Color(0xFF0E8C73)],
+  );
+  static const LinearGradient islamicSpecialAccentGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFFFD700), Color(0xFFB8860B)],
+  );
+
+  /// Current accent gradient based on theme
+  static LinearGradient get currentAccentGradient {
+    if (isLightMode) return lightAccentGradient;
+    if (isIslamicMode) return islamicAccentGradient;
+    if (isIslamicGreenMode) return islamicGreenAccentGradient;
+    if (isIslamicSpecialMode) return islamicSpecialAccentGradient;
+    return nightAccentGradient;
+  }
+
+  /// Theme-tinted outer glow for active/highlighted cards.
+  /// [intensity] scales the alpha (0..1); pass a custom [color] to override.
+  static List<BoxShadow> glowShadow({Color? color, double intensity = 1.0}) {
+    final glow = color ?? currentActiveGlow;
+    final alphaScale = isLightMode ? 0.5 : 1.0; // softer in light mode
+    return [
+      BoxShadow(
+        color: glow.withValues(alpha: 0.25 * intensity * alphaScale),
+        blurRadius: 24,
+        spreadRadius: -2,
+      ),
+      BoxShadow(
+        color: glow.withValues(alpha: 0.12 * intensity * alphaScale),
+        blurRadius: 48,
+        spreadRadius: 2,
+      ),
+    ];
+  }
+
+  /// "Lit edge" gradient for glass borders: bright at the top where the
+  /// imaginary light source hits, fading out toward the bottom.
+  static LinearGradient get borderHighlightGradient {
+    if (isLightMode) {
+      return LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white.withValues(alpha: 0.9),
+          lightDivider.withValues(alpha: 0.4),
+        ],
+      );
+    }
+    final accentTint = isIslamicSpecialMode
+        ? islamicSpecialAccentGold
+        : Colors.white;
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        accentTint.withValues(alpha: isIslamicSpecialMode ? 0.45 : 0.35),
+        Colors.white.withValues(alpha: 0.06),
+      ],
+    );
+  }
+
   /// Current divider color
   static Color get currentDivider =>
       isLightMode ? lightDivider : Colors.white.withValues(alpha: 0.1);
 
   /// Inactive background (for unselected boxes, cards) - subtle but visible
   static Color get inactiveBackground =>
-      isLightMode ? const Color(0xFFF1F5F9) : Colors.white.withValues(alpha: 0.05);
+      isLightMode ? const Color(0xFFF5F0E4) : Colors.white.withValues(alpha: 0.05);
 
   /// Inactive border color - for unselected items
   static Color get inactiveBorder =>
@@ -210,12 +285,13 @@ class AppTheme {
         color: Colors.white.withValues(alpha: opacity ?? 0.85),
         borderRadius: shape == BoxShape.circle ? null : BorderRadius.circular(borderRadius),
         shape: shape,
-        border: Border.all(color: lightDivider.withValues(alpha: 0.5), width: 1),
+        border: Border.all(color: lightDivider.withValues(alpha: 0.8), width: 1),
         boxShadow: [
+          // Warm-tinted shadow so cards lift off the parchment background
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: const Color(0xFF8A7A55).withValues(alpha: 0.10),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
         ],
       );
@@ -236,6 +312,25 @@ class AppTheme {
         ],
       );
     }
+  }
+
+  /// Display style for clock digits, countdowns and other numerals.
+  /// Space Grotesk gives the futuristic geometric look; tabular figures
+  /// keep ticking digits from jittering horizontally. Digits are always
+  /// Western (westernDigits), so no Arabic glyph support is needed here.
+  static TextStyle displayDigits({
+    double fontSize = 32,
+    Color? color,
+    FontWeight fontWeight = FontWeight.bold,
+    double letterSpacing = 0.5,
+  }) {
+    return GoogleFonts.spaceGrotesk(
+      fontSize: fontSize,
+      color: color ?? currentTextPrimary,
+      fontWeight: fontWeight,
+      letterSpacing: letterSpacing,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
   }
 
   // Base text theme with Tajawal font

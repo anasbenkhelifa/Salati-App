@@ -57,7 +57,7 @@ class ForegroundServiceBridge {
   /// Check if the service is currently running
   static Future<bool> isRunning() async {
     try {
-      final result = await _channel.invokeMethod('isRunning');
+      final result = await _channel.invokeMethod('isServiceRunning');
       return result == true;
     } catch (e) {
       debugPrint('[ForegroundServiceBridge] isRunning error: $e');

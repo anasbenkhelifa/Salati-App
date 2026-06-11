@@ -75,6 +75,7 @@ class PrayerTimesCacheService {
   static const _keyCountryAr = 'cached_country_ar';
   static const _keyPrayerTimesJson = 'cached_prayer_times_json';
   static const _keyPrayerTimesDate = 'cached_prayer_times_date';
+  static const _keyPrayerTimesByDate = 'cached_prayer_times_by_date';
   static const _keyMethodId = 'cached_method_id';
   static const _keyIsManualMethod = 'cached_is_manual_method';
   static const _keyMadhabId = 'cached_madhab_id';
@@ -244,6 +245,40 @@ class PrayerTimesCacheService {
     debugPrint(
       '[PrayerTimesCacheService] Prayer times updated for $prayerTimesDate',
     );
+  }
+
+  /// Save the multi-day prayer times map: { 'yyyy-MM-dd': {'Fajr': 'HH:mm', ...} }
+  ///
+  /// The native side (AdhanAlarmScheduler / AdhanForegroundService /
+  /// PrayerWidgetProvider) reads this under `flutter.cached_prayer_times_by_date`
+  /// so alarms stay exact for weeks while fully offline. Replaces the previous
+  /// map wholesale so it never grows unbounded.
+  Future<void> savePrayerTimesByDate(
+    Map<String, Map<String, String>> timingsByDate,
+  ) async {
+    final prefs = await _preferences;
+    await prefs.setString(_keyPrayerTimesByDate, jsonEncode(timingsByDate));
+    debugPrint(
+      '[PrayerTimesCacheService] Multi-day prayer times saved '
+      '(${timingsByDate.length} days)',
+    );
+  }
+
+  /// Load the multi-day prayer times map (null if never cached)
+  Future<Map<String, Map<String, String>>?> loadPrayerTimesByDate() async {
+    final prefs = await _preferences;
+    final json = prefs.getString(_keyPrayerTimesByDate);
+    if (json == null) return null;
+    try {
+      final decoded = jsonDecode(json) as Map<String, dynamic>;
+      return decoded.map(
+        (date, timings) =>
+            MapEntry(date, Map<String, String>.from(timings as Map)),
+      );
+    } catch (e) {
+      debugPrint('[PrayerTimesCacheService] Error parsing multi-day cache: $e');
+      return null;
+    }
   }
 
   // ========== SETTINGS (legacy support) ==========

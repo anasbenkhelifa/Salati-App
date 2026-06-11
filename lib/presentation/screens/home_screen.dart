@@ -11,6 +11,7 @@ import '../../domain/providers/prayer_times_api_provider.dart';
 import '../../data/services/prayer_times_api_service.dart';
 import '../widgets/apple_glass_card.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/crescent_loader.dart';
 import 'package:provider/provider.dart';
 
 /// Home screen with LIVE clock, Hijri date, and Prayer Status
@@ -151,12 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Text(
                     '$hourStr:$minuteStr',
-                    style: TextStyle(
-                      color: AppTheme.currentTextPrimary,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
+                    style: AppTheme.displayDigits(fontSize: 32, letterSpacing: 1),
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -199,8 +195,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const Spacer(),
 
-          // Row 2: Premium Analog Clock Centerpiece
-          _buildPremiumAnalogClock(),
+          // Row 2: Premium Analog Clock Centerpiece with prayer progress ring
+          _buildClockCenterpiece(),
 
           const Spacer(),
 
@@ -253,7 +249,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (response == null) {
       return const SizedBox(
         height: 100,
-        child: Center(child: CircularProgressIndicator()),
+        child: Center(child: CrescentLoader()),
       );
     }
 
@@ -317,10 +313,9 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(width: 4),
               Text(
                 prayerStatus.countdownTime,
-                style: TextStyle(
-                  color: prayerStatus.color,
+                style: AppTheme.displayDigits(
                   fontSize: 32,
-                  fontWeight: FontWeight.bold,
+                  color: prayerStatus.color,
                   letterSpacing: 1,
                 ),
               ),
@@ -461,6 +456,60 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Fraction of the interval between the previous and next prayer that
+  /// has already elapsed (0..1), or null when prayer data isn't loaded.
+  double? _prayerIntervalProgress() {
+    final response = _prayerProvider.response;
+    if (response == null) return null;
+    final today = DateTime(_now.year, _now.month, _now.day);
+    final times = _getPrayerTimes(response.timings, today);
+    if (times.length < 5) return null;
+
+    DateTime? prev;
+    DateTime? next;
+    for (final t in times) {
+      if (_now.isBefore(t)) {
+        next = t;
+        break;
+      }
+      prev = t;
+    }
+    // Before Fajr: count from yesterday's Isha. After Isha: to tomorrow's Fajr.
+    prev ??= times[4].subtract(const Duration(days: 1));
+    next ??= times[0].add(const Duration(days: 1));
+
+    final total = next.difference(prev).inSeconds;
+    if (total <= 0) return null;
+    return (_now.difference(prev).inSeconds / total).clamp(0.0, 1.0);
+  }
+
+  /// Analog clock wrapped in the prayer-interval progress ring.
+  Widget _buildClockCenterpiece() {
+    const ringSize = 268.0;
+    final progress = _prayerIntervalProgress();
+
+    return SizedBox(
+      width: ringSize,
+      height: ringSize,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          if (progress != null)
+            CustomPaint(
+              size: const Size(ringSize, ringSize),
+              painter: _PrayerProgressRingPainter(
+                progress: progress,
+                colors: AppTheme.currentAccentGradient.colors,
+                trackColor:
+                    AppTheme.currentTextSecondary.withValues(alpha: 0.12),
+              ),
+            ),
+          _buildPremiumAnalogClock(),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPremiumAnalogClock() {
     final hourAngle =
         ((_now.hour % 12) + _now.minute / 60 + _now.second / 3600) *
@@ -468,7 +517,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final minuteAngle = (_now.minute + _now.second / 60) * (2 * math.pi / 60);
     final secondAngle = _now.second * (2 * math.pi / 60);
 
-    final clockSize = 250.0;
+    final clockSize = 240.0;
 
     return Container(
       width: clockSize,
@@ -657,6 +706,70 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+}
+
+/// Ring around the clock showing how far the day has progressed between
+/// the previous prayer and the next one. Gradient stroke with a glowing
+/// head dot at the leading edge.
+class _PrayerProgressRingPainter extends CustomPainter {
+  final double progress;
+  final List<Color> colors;
+  final Color trackColor;
+
+  _PrayerProgressRingPainter({
+    required this.progress,
+    required this.colors,
+    required this.trackColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const stroke = 5.0;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - stroke) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    // Track
+    final trackPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..color = trackColor;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    if (progress <= 0) return;
+
+    // Progress arc: starts at 12 o'clock, sweeps clockwise
+    const startAngle = -math.pi / 2;
+    final sweep = 2 * math.pi * progress;
+    final arcPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..shader = SweepGradient(
+        colors: [colors.first, colors.last, colors.first],
+        transform: const GradientRotation(startAngle),
+      ).createShader(rect);
+    canvas.drawArc(rect, startAngle, sweep, false, arcPaint);
+
+    // Glowing head dot at the leading edge
+    final headAngle = startAngle + sweep;
+    final head = Offset(
+      center.dx + radius * math.cos(headAngle),
+      center.dy + radius * math.sin(headAngle),
+    );
+    final glowPaint = Paint()
+      ..color = colors.last.withValues(alpha: 0.7)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7);
+    canvas.drawCircle(head, 7, glowPaint);
+    canvas.drawCircle(head, 4.5, Paint()..color = colors.first);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PrayerProgressRingPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.colors != colors ||
+        oldDelegate.trackColor != trackColor;
   }
 }
 

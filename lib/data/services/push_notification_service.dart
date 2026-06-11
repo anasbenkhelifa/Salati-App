@@ -44,10 +44,16 @@ class PushNotificationService {
       // Register the background handler before anything else.
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-      // Ask for notification permission (Android 13+, iOS). On Android this is
-      // the same POST_NOTIFICATIONS grant the local-notification flow uses, so
-      // if it's already granted this is a no-op.
-      await _fcm.requestPermission();
+      // iOS only: ask for push permission. On Android this would fire the
+      // POST_NOTIFICATIONS dialog from main() — OUTSIDE the sequenced
+      // permission flow — colliding with the geolocator request and leaving
+      // geolocator's "request in progress" flag stuck until app restart
+      // (first-run froze with no location dialog). Android's notification
+      // permission is requested by NotificationManager instead, and that
+      // grant covers FCM too (same POST_NOTIFICATIONS permission).
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        await _fcm.requestPermission();
+      }
 
       // Set up the local-notifications plugin + channel for foreground display.
       await _local.initialize(

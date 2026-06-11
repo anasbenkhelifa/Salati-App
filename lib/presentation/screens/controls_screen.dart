@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_theme_provider.dart';
+import '../widgets/pressable_scale.dart';
 import '../../core/localization/strings.dart';
 import '../../core/localization/app_locale_provider.dart';
 import '../../core/tour/tour_key_registry.dart';
@@ -686,6 +687,7 @@ class _ThemeSelectorSheet extends StatelessWidget {
                 icon: Icons.dark_mode_rounded,
                 isSelected: currentMode == AppThemeMode.night,
                 previewGradient: AppTheme.nightBackgroundGradient,
+                accent: AppTheme.nightActiveGlow,
                 onTap: () {
                   HapticFeedback.selectionClick();
                   AppThemeProvider.instance.setTheme(AppThemeMode.night);
@@ -698,18 +700,20 @@ class _ThemeSelectorSheet extends StatelessWidget {
                 icon: Icons.light_mode_rounded,
                 isSelected: currentMode == AppThemeMode.light,
                 previewGradient: AppTheme.lightBackgroundGradient,
+                accent: AppTheme.lightAccentBlue,
                 onTap: () {
                   HapticFeedback.selectionClick();
                   AppThemeProvider.instance.setTheme(AppThemeMode.light);
                   Navigator.pop(context);
                 },
               ),
-              // Islamic (Blue)
+              // Islamic (Blue) — Andalusian lapis & gold
               _ThemeCard(
                 title: t(context, 'islamicMode'),
                 icon: Icons.mosque_outlined,
                 isSelected: currentMode == AppThemeMode.islamic,
                 previewGradient: AppTheme.islamicBackgroundGradient,
+                accent: AppTheme.islamicActiveGlow,
                 onTap: () {
                   HapticFeedback.selectionClick();
                   AppThemeProvider.instance.setTheme(AppThemeMode.islamic);
@@ -722,6 +726,7 @@ class _ThemeSelectorSheet extends StatelessWidget {
                 icon: Icons.mosque_outlined,
                 isSelected: currentMode == AppThemeMode.islamicGreen,
                 previewGradient: AppTheme.islamicGreenBackgroundGradient,
+                accent: AppTheme.islamicGreenActiveGlow,
                 onTap: () {
                   HapticFeedback.selectionClick();
                   AppThemeProvider.instance.setTheme(AppThemeMode.islamicGreen);
@@ -743,6 +748,7 @@ class _ThemeCard extends StatelessWidget {
   final IconData icon;
   final bool isSelected;
   final LinearGradient previewGradient;
+  final Color accent;
   final VoidCallback onTap;
 
   const _ThemeCard({
@@ -750,12 +756,13 @@ class _ThemeCard extends StatelessWidget {
     required this.icon,
     required this.isSelected,
     required this.previewGradient,
+    required this.accent,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressableScale(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -780,13 +787,13 @@ class _ThemeCard extends StatelessWidget {
         ),
         child: Column(
           children: [
+            // Icon tinted in the theme's accent so each card telegraphs
+            // its palette (gold for Islamic, cyan for Night, ...)
             Icon(
               icon,
               size: 36,
-              color:
-                  previewGradient == AppTheme.lightBackgroundGradient
-                      ? AppTheme.lightTextPrimary
-                      : AppTheme.nightTextPrimary,
+              color: accent,
+              shadows: [Shadow(color: accent.withValues(alpha: 0.6), blurRadius: 12)],
             ),
             const SizedBox(height: 12),
             Text(

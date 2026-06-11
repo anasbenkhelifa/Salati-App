@@ -26,7 +26,7 @@ flutter pub run flutter_launcher_icons
 
 ## Architecture
 
-**Salati** is a Flutter Android app (v2.0.7+) for Islamic prayer times. It supports Arabic, English, and French with full RTL/LTR switching.
+**Salati** is a Flutter Android app (v3.0+) for Islamic prayer times. It supports Arabic, English, and French with full RTL/LTR switching.
 
 ### Layer structure (`lib/`)
 
@@ -62,11 +62,12 @@ A `FloatingNavBar` syncs with the `PageController`. Pages are wrapped in `_KeepA
 
 ### Glassmorphism rendering
 
-`AppShell` uses a split-layer approach to avoid expensive nested `BackdropFilter` calls:
-- **Layer 1 (static)**: A full-screen `BackdropFilter` with `sigma 3.0` that never moves.
-- **Layer 2 (content)**: `PageView` slides over it. `GlassStyle(isBlurLayer: false)` signals glass widgets inside to skip their own blur.
+There is NO screen-wide `BackdropFilter`. The frosted look is achieved without per-frame blur:
+- **LivingBackground** (`lib/presentation/widgets/living_background.dart`): animated rosette pattern + auroras. The pattern's softening blur is *baked* into a cached `ui.Image` (re-baked only on size/theme change); ambient repaints are throttled to ~30fps.
+- **Content layer**: `PageView` slides over the background. `GlassStyle(isBlurLayer: false)` signals glass widgets inside to skip their own blur — glass cards are just translucent fills + gradient borders over the already-soft background.
+- The Special theme's static pattern image is blurred once via `ImageFiltered` (raster-cached), not `BackdropFilter`.
 
-Never add another `BackdropFilter` inside the page content — use `GlassStyle` context instead.
+Never add a `BackdropFilter` anywhere that sits above `LivingBackground` in long-lived UI — the background animates every frame, so the blur would recompute continuously (this caused real lag in sheets before). Small, short-lived blurs in modal overlays/tooltips are acceptable.
 
 ### Localization
 

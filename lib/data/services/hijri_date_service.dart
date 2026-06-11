@@ -123,8 +123,8 @@ class HijriDateService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('hijri_offset', offsetDays);
       
-      // Auto-refresh the 7-day Android cache so live notification updates instantly
-      await cacheNext7Days();
+      // Auto-refresh the multi-day Android cache so live notification updates instantly
+      await cacheUpcomingDays();
     } catch (e) {
       debugPrint('[HijriDateService] Error saving offset: $e');
     }
@@ -139,20 +139,36 @@ class HijriDateService {
     return getHijriDate(adjustedGregorian);
   }
 
-  /// Cache the next 7 days of Hijri dates to SharedPreferences.
-  /// Bug 4 Fix: The native Android Foreground Service relies entirely on this cache being present 
-  /// (under flutter.hijri_date_YYYY-MM-DD keys). Without it, the Android service falls back to a 
+  /// Number of days of Hijri dates to pre-cache for the native Android side.
+  /// Matches the 30-day prayer times cache so both stay accurate offline
+  /// for the same window.
+  static const int daysToCacheAhead = 30;
+
+  /// Cache the next [daysToCacheAhead] days of Hijri dates to SharedPreferences.
+  /// Bug 4 Fix: The native Android Foreground Service relies entirely on this cache being present
+  /// (under flutter.hijri_date_YYYY-MM-DD keys). Without it, the Android service falls back to a
   /// crude mathematical Gregorian->Hijri converter that breaks and reads as 2 months behind.
-  Future<void> cacheNext7Days() async {
+  Future<void> cacheUpcomingDays() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now();
 
+      // Prune per-date entries for days that have already passed so the
+      // prefs file doesn't grow forever (each refresh writes 30 new keys).
+      final todayKey =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      for (final key in prefs.getKeys()) {
+        if (key.startsWith('hijri_date_') &&
+            key.substring('hijri_date_'.length).compareTo(todayKey) < 0) {
+          await prefs.remove(key);
+        }
+      }
+
       // Write precisely formatted JSON strings identically to the old UmmahAPI format
-      for (int i = 0; i < 7; i++) {
+      for (int i = 0; i < daysToCacheAhead; i++) {
         final date = now.add(Duration(days: i));
         final key = 'hijri_date_${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-        
+
         final hijriDate = await getAdjustedHijriDate(date);
         if (hijriDate != null) {
           final jsonString = jsonEncode({
@@ -165,12 +181,12 @@ class HijriDateService {
           await prefs.setString(key, jsonString);
         }
       }
-      
+
       // Keep legacy timestamp for Android fallback mechanics
       await prefs.setInt('cached_hijri_updated_at', DateTime.now().millisecondsSinceEpoch);
-      debugPrint('[HijriDateService] Pre-cached 7 days of Hijri dates for native Android Service');
+      debugPrint('[HijriDateService] Pre-cached $daysToCacheAhead days of Hijri dates for native Android Service');
     } catch (e) {
-      debugPrint('[HijriDateService] Error caching next 7 days: $e');
+      debugPrint('[HijriDateService] Error caching upcoming Hijri days: $e');
     }
   }
 

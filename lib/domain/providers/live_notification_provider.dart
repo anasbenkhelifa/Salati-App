@@ -25,6 +25,10 @@ class LiveNotificationProvider extends ChangeNotifier {
   String _locationName = '';
   bool _isArabic = false;
   bool _isRunning = false;
+  // Tracks whether we've already asked the native service to stop (dynamic
+  // mode hides the notification outside its display window) so the 1-second
+  // timer doesn't re-send stopService on every tick
+  bool _serviceStopRequested = false;
 
   // 0: Disabled, 1: Static, 2: Dynamic
   int _liveNotifMode = 1;
@@ -57,13 +61,17 @@ class LiveNotificationProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _liveNotifMode = prefs.getInt('live_notification_mode') ?? 1;
 
-    if (_liveNotifMode != 0 && !_isRunning && _locationName != null) {
+    if (_liveNotifMode != 0 && !_isRunning) {
       // Reboot the service completely since it was dead
+      final cached = await _cacheService.loadAppState();
       await start(
-        locationName: _locationName!,
+        locationName:
+            _locationName.isNotEmpty
+                ? _locationName
+                : (cached?.getCityOnly(_isArabic) ?? ''),
         isArabic: _isArabic,
-        latitude: 0, // It will reload from cached timings anyway
-        longitude: 0,
+        latitude: cached?.latitude ?? 0,
+        longitude: cached?.longitude ?? 0,
       );
     } else {
       _updateNotification();
@@ -91,8 +99,8 @@ class LiveNotificationProvider extends ChangeNotifier {
     _hijriDate = await _hijriService.getAdjustedHijriDate(startDate);
     _lastDateKey = '${startDate.year}-${startDate.month}-${startDate.day}';
 
-    // Bug 4 Fix: Ensure the Android Foreground Service has the next 7 days cached
-    await _hijriService.cacheNext7Days();
+    // Bug 4 Fix: Ensure the Android Foreground Service has upcoming days cached
+    await _hijriService.cacheUpcomingDays();
 
     // Initialize Adhan playback service
     await _adhanService.initialize();
@@ -137,10 +145,16 @@ class LiveNotificationProvider extends ChangeNotifier {
     if (cached?.prayerTimes != null) {
       _todayTimings = cached!.prayerTimes;
       debugPrint('[LiveNotificationProvider] Loaded timings from cache');
+    }
+
+    // Prefer cached coordinates - callers may pass (0,0) when restarting
+    final lat = cached?.latitude ?? latitude;
+    final lng = cached?.longitude ?? longitude;
+    if (cached == null && latitude == 0 && longitude == 0) {
+      debugPrint('[LiveNotificationProvider] No cache and no coordinates');
       return;
     }
 
-    // Fallback to API
     final method = await _cacheService.loadMethod();
     final madhab = await _cacheService.loadMadhab();
     final elevation = cached?.elevation ?? 0;
@@ -148,25 +162,27 @@ class LiveNotificationProvider extends ChangeNotifier {
     final tomorrow = today.add(const Duration(days: 1));
 
     try {
-      _todayTimings = await _apiService.fetchPrayerTimesByCoordinates(
-        latitude: latitude,
-        longitude: longitude,
+      _todayTimings ??= await _apiService.fetchPrayerTimesByCoordinates(
+        latitude: lat,
+        longitude: lng,
         method: method,
         madhab: madhab,
         date: today,
         elevation: elevation,
       );
 
+      // Always compute tomorrow's timings (offline calculation) so the
+      // countdown can roll over to tomorrow's Fajr after Isha
       _tomorrowTimings = await _apiService.fetchPrayerTimesByCoordinates(
-        latitude: latitude,
-        longitude: longitude,
+        latitude: lat,
+        longitude: lng,
         method: method,
         madhab: madhab,
         date: tomorrow,
         elevation: elevation,
       );
 
-      debugPrint('[LiveNotificationProvider] Timings loaded from API');
+      debugPrint('[LiveNotificationProvider] Timings loaded');
     } catch (e) {
       debugPrint('[LiveNotificationProvider] Error loading timings: $e');
     }
@@ -198,9 +214,12 @@ class LiveNotificationProvider extends ChangeNotifier {
   void _updateNotification() {
     if (_todayTimings == null) return;
 
-    // Mode 0: Disabled
+    // Mode 0: Disabled - stop fully so the 1-second timer doesn't keep
+    // spamming stopService on every tick
     if (_liveNotifMode == 0) {
-      ForegroundServiceBridge.stopService();
+      if (_isRunning) {
+        stop();
+      }
       return;
     }
 
@@ -218,8 +237,8 @@ class LiveNotificationProvider extends ChangeNotifier {
             '[LiveNotificationProvider] Hijri date refreshed for $currentDateKey: ${date.formatEnglish()}',
           );
 
-          // Refresh the 7-day cache for Android service, then update notification
-          _hijriService.cacheNext7Days().then((_) {
+          // Refresh the multi-day cache for Android service, then update notification
+          _hijriService.cacheUpcomingDays().then((_) {
             _updateNotification();
           });
         }
@@ -292,7 +311,10 @@ class LiveNotificationProvider extends ChangeNotifier {
       }
 
       if (!shouldShow) {
-        ForegroundServiceBridge.stopService();
+        if (!_serviceStopRequested) {
+          _serviceStopRequested = true;
+          ForegroundServiceBridge.stopService();
+        }
         return;
       }
     }
@@ -308,7 +330,9 @@ class LiveNotificationProvider extends ChangeNotifier {
       useTomorrow: useTomorrow,
     );
 
-    // Update via foreground service bridge
+    // Update via foreground service bridge (restarts the native service if
+    // it was stopped while hidden in dynamic mode)
+    _serviceStopRequested = false;
     ForegroundServiceBridge.updateNotification(title: title, body: body);
   }
 

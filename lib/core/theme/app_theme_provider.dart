@@ -24,7 +24,8 @@ class AppThemeProvider extends ChangeNotifier {
 
   AppThemeProvider._();
 
-  AppThemeMode _mode = AppThemeMode.islamicGreen;
+  // Default: Islamic Blue (Andalusian lapis & gold) — the app's signature look
+  AppThemeMode _mode = AppThemeMode.islamic;
   bool _initialized = false;
 
   /// Current theme mode
@@ -49,7 +50,7 @@ class AppThemeProvider extends ChangeNotifier {
       if (savedMode != null) {
         _mode = AppThemeMode.values.firstWhere(
           (m) => m.name == savedMode,
-          orElse: () => AppThemeMode.islamicGreen,
+          orElse: () => AppThemeMode.islamic,
         );
         debugPrint('[AppThemeProvider] Loaded theme: $_mode');
       }

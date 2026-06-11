@@ -157,6 +157,16 @@ class AdhanForegroundService : Service() {
             }
             ACTION_START_ADHAN -> {
                 Log.d(TAG, "Starting Adhan playback")
+                // Must enter foreground state immediately: this service may have
+                // been launched via startForegroundService() by the alarm receiver,
+                // and skipping startForeground() (e.g. muted/duplicate occurrence)
+                // would crash with ForegroundServiceDidNotStartInTimeException.
+                // When an adhan is already playing we're foregrounded with the
+                // "playing" notification - don't replace it with the countdown.
+                if (!isAdhanPlaying) {
+                    startForegroundWithCachedData()
+                }
+
                 val prayerName = intent.getStringExtra(EXTRA_PRAYER_NAME) ?: ""
                 val prayerTime = intent.getStringExtra(EXTRA_PRAYER_TIME) ?: ""
                 val isArabic = intent.getBooleanExtra(EXTRA_IS_ARABIC, false)
@@ -164,6 +174,17 @@ class AdhanForegroundService : Service() {
                 val adhanPath = intent.getStringExtra(EXTRA_ADHAN_PATH) ?: "assets/audio/adhan.mp3"
                 val isAsset = intent.getBooleanExtra(EXTRA_IS_ASSET, true)
                 startAdhanPlayback(prayerName, prayerTime, isArabic, occurrenceKey, adhanPath, isAsset)
+
+                if (isLiveNotificationEnabled()) {
+                    // Keep the countdown ticking once playback ends
+                    startTicker()
+                } else if (!isAdhanPlaying) {
+                    // Playback was skipped (muted/duplicate/error) and the user
+                    // doesn't want the live notification - don't linger
+                    stopForeground(true)
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
             }
             else -> {
                 // Start or restart service - load from cache immediately
@@ -179,10 +200,19 @@ class AdhanForegroundService : Service() {
     
     override fun onDestroy() {
         Log.d(TAG, "Service destroyed")
-        stopAdhanPlayback()
+        stopAdhanPlayback(isServiceStopping = true)
         stopTicker()
         instance = null
         super.onDestroy()
+    }
+
+    /**
+     * Whether the user has the persistent live countdown notification enabled
+     * (same flag BootReceiver/MainActivity use)
+     */
+    private fun isLiveNotificationEnabled(): Boolean {
+        return getSharedPreferences("adhan_live_prefs", Context.MODE_PRIVATE)
+            .getBoolean("live_notification_enabled", false)
     }
     
     private fun startTicker() {
@@ -327,7 +357,7 @@ class AdhanForegroundService : Service() {
                                 start()
                             }
                         } catch (e: Exception) {
-                            Log.e(TAG, "Error starting playback after delay: \${e.message}")
+                            Log.e(TAG, "Error starting playback after delay: ${e.message}")
                         }
                     }, 400)
                 }
@@ -349,6 +379,10 @@ class AdhanForegroundService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "Error starting Adhan playback: ${e.message}")
             isAdhanPlaying = false
+            currentOccurrenceKey = null
+            currentPrayerName = null
+            currentPrayerTime = null
+            restoreAlarmVolumeIfOverridden()
             return
         }
         
@@ -381,7 +415,40 @@ class AdhanForegroundService : Service() {
         currentPrayerName = null
         currentPrayerTime = null
         
-        // Restore volume if max override was enabled
+        restoreAlarmVolumeIfOverridden()
+
+        // Cancel the playing notification
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.cancel(NOTIFICATION_ID_PLAYING)
+
+        if (!isServiceStopping) {
+            if (isLiveNotificationEnabled()) {
+                try {
+                    // Revert to normal countdown notification using startForeground
+                    val content = computeNotificationContent()
+                    val (title, body) = content
+                    val notification = buildNotification(title, body)
+                    startForeground(NOTIFICATION_ID, notification)
+                    Log.d(TAG, "Reverted to countdown notification")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error reverting notification: ${e.message}")
+                }
+            } else {
+                // User has the live notification disabled - don't leave a stale
+                // countdown behind after the Adhan finishes
+                Log.d(TAG, "Live notification disabled - stopping service after Adhan")
+                stopTicker()
+                stopForeground(true)
+                manager.cancel(NOTIFICATION_ID)
+                stopSelf()
+            }
+        }
+    }
+
+    /**
+     * Restore the user's alarm volume if the max-volume override changed it
+     */
+    private fun restoreAlarmVolumeIfOverridden() {
         if (maxVolumeOverrideEnabled && savedAlarmVolume >= 0) {
             try {
                 val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -391,23 +458,6 @@ class AdhanForegroundService : Service() {
                 Log.e(TAG, "Error restoring volume: ${e.message}")
             }
             savedAlarmVolume = -1
-        }
-        
-        // Cancel the playing notification
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.cancel(NOTIFICATION_ID_PLAYING)
-        
-        if (!isServiceStopping) {
-            try {
-                // Revert to normal countdown notification using startForeground
-                val content = computeNotificationContent()
-                val (title, body) = content
-                val notification = buildNotification(title, body)
-                startForeground(NOTIFICATION_ID, notification)
-                Log.d(TAG, "Reverted to countdown notification")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error reverting notification: ${e.message}")
-            }
         }
     }
     
@@ -810,17 +860,15 @@ class AdhanForegroundService : Service() {
      * Returns Pair(title, body)
      */
     private fun computeNotificationContent(): Pair<String, String> {
-        // Read cache
-        val prayerTimesJson = prefs.getString("flutter.cached_prayer_times_json", null)
-        val cachedDate = prefs.getString("flutter.cached_prayer_times_date", null)
         val isArabic = prefs.getString("flutter.app_language", "ar") == "ar"
         val cityAr = prefs.getString("flutter.cached_city_ar", "") ?: ""
         val cityEn = prefs.getString("flutter.cached_city_en", "") ?: ""
-        
-        val cacheExists = !prayerTimesJson.isNullOrEmpty()
-        Log.d(TAG, "SERVICE TICK: cacheExists=$cacheExists, cachedDate=$cachedDate")
-        
-        if (!cacheExists) {
+
+        // Today's timings: exact per-date entry from the multi-day cache,
+        // legacy single-day projection as fallback
+        val timings = AdhanAlarmScheduler.getTimingsForDate(this, Calendar.getInstance())
+
+        if (timings == null) {
             // No cache - show setup message
             return if (isArabic) {
                 Pair("افتح التطبيق لإكمال الإعداد", "لم يتم تحديد الموقع وأوقات الصلاة")
@@ -828,25 +876,17 @@ class AdhanForegroundService : Service() {
                 Pair("Open the app to finish setup", "Location & prayer times not cached yet")
             }
         }
-        
-        // Parse prayer times
-        val timings = parsePrayerTimes(prayerTimesJson!!)
-        if (timings == null) {
-            return if (isArabic) {
-                Pair("خطأ في البيانات", "أعد تحديث أوقات الصلاة")
-            } else {
-                Pair("Data error", "Please refresh prayer times")
-            }
-        }
-        
+
         // Build title: city + hijri date
         val city = if (isArabic) cityAr.ifEmpty { cityEn } else cityEn.ifEmpty { cityAr }
         val hijriDate = getHijriDateString(isArabic)
         val title = if (city.isNotEmpty()) "$city • $hijriDate" else hijriDate
-        
-        // Compute prayer status
+
+        // Compute prayer status (tomorrow's entry feeds the post-Isha rollover)
+        val tomorrowCal = Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, 1) }
+        val tomorrowTimings = AdhanAlarmScheduler.getTimingsForDate(this, tomorrowCal)
         val now = Calendar.getInstance()
-        val prayerStatus = computePrayerStatus(timings, now, isArabic)
+        val prayerStatus = computePrayerStatus(timings, now, isArabic, tomorrowTimings)
         
         Log.d(TAG, "TICK: nextPrayer=${prayerStatus.prayerName}, remaining=${prayerStatus.countdown}, grace=${prayerStatus.isGrace}")
         
@@ -854,28 +894,6 @@ class AdhanForegroundService : Service() {
         val body = "${prayerStatus.prayerName} ${prayerStatus.prayerTime} | ${prayerStatus.countdown}"
         
         return Pair(title, body)
-    }
-    
-    /**
-     * Parse prayer times JSON to get timings map
-     */
-    private fun parsePrayerTimes(json: String): Map<String, String>? {
-        return try {
-            val root = JSONObject(json)
-            val data = root.optJSONObject("data") ?: root
-            val timings = data.optJSONObject("timings") ?: return null
-            
-            mapOf(
-                "Fajr" to (timings.optString("Fajr", "05:00") ?: "05:00"),
-                "Dhuhr" to (timings.optString("Dhuhr", "12:00") ?: "12:00"),
-                "Asr" to (timings.optString("Asr", "15:30") ?: "15:30"),
-                "Maghrib" to (timings.optString("Maghrib", "18:00") ?: "18:00"),
-                "Isha" to (timings.optString("Isha", "19:30") ?: "19:30")
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Error parsing prayer times: $e")
-            null
-        }
     }
     
     /**
@@ -953,7 +971,12 @@ class AdhanForegroundService : Service() {
     /**
      * Compute prayer status: name, time, countdown, color indicator
      */
-    private fun computePrayerStatus(timings: Map<String, String>, now: Calendar, isArabic: Boolean): PrayerStatus {
+    private fun computePrayerStatus(
+        timings: Map<String, String>,
+        now: Calendar,
+        isArabic: Boolean,
+        tomorrowTimings: Map<String, String>? = null
+    ): PrayerStatus {
         val prayerKeys = arrayOf("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha")
         val prayerNames = if (isArabic) prayerNamesAr else prayerNamesEn
         
@@ -1010,11 +1033,26 @@ class AdhanForegroundService : Service() {
             }
         }
         
-        // If all prayers passed, next is tomorrow's Fajr
+        // If all prayers passed, next is tomorrow's Fajr - use tomorrow's
+        // exact time when the multi-day cache has it
         if (nextPrayerIndex == null) {
             nextPrayerIndex = 0
-            nextPrayerTime = prayerCalendars[0].first.apply {
-                add(Calendar.DAY_OF_YEAR, 1)
+            val tomorrowFajrStr = tomorrowTimings?.get("Fajr")
+            nextPrayerTime = if (!tomorrowFajrStr.isNullOrEmpty()) {
+                val parts = tomorrowFajrStr.split(":")
+                val hour = parts.getOrElse(0) { "5" }.trim().split(" ")[0].toIntOrNull() ?: 5
+                val minute = parts.getOrElse(1) { "0" }.trim().split(" ")[0].toIntOrNull() ?: 0
+                Calendar.getInstance().apply {
+                    add(Calendar.DAY_OF_YEAR, 1)
+                    set(Calendar.HOUR_OF_DAY, hour)
+                    set(Calendar.MINUTE, minute)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+            } else {
+                prayerCalendars[0].first.apply {
+                    add(Calendar.DAY_OF_YEAR, 1)
+                }
             }
         }
         

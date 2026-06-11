@@ -4,6 +4,7 @@ import '../data/services/notification_service.dart';
 import '../data/services/prayer_times_cache_service.dart';
 import '../data/services/hijri_date_service.dart';
 import 'core/localization/app_locale_provider.dart';
+import 'domain/providers/prayer_times_api_provider.dart';
 
 /// Widget that manages the live notification lifecycle
 /// Uses CACHE-ONLY for notification - NO GPS or network calls
@@ -82,6 +83,16 @@ class _NotificationManagerState extends State<NotificationManager>
     debugPrint(
       '[NotificationManager] Notification permission: $_hasPermission',
     );
+
+    // STEP 4: First run only — now that the notification permission flow
+    // has settled, run location setup. Sequencing the two dialogs
+    // (notification → location) prevents the collision that froze the
+    // app on a fresh install.
+    try {
+      await PrayerTimesApiProvider.instance.ensureFirstTimeSetup();
+    } catch (e) {
+      debugPrint('[NotificationManager] First-time setup failed: $e');
+    }
 
     // Load from CACHE ONLY - no GPS, no network
     await _startFromCache();

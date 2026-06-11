@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/tour/tour_key_registry.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/localization/strings.dart';
@@ -7,6 +8,7 @@ import '../../core/localization/western_digits.dart';
 import '../../core/localization/app_locale_provider.dart';
 import '../../domain/providers/qibla_provider.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/crescent_loader.dart';
 
 /// Qibla compass screen with smooth animated rotation and on-target glow
 class QiblaScreen extends StatefulWidget {
@@ -21,10 +23,18 @@ class _QiblaScreenState extends State<QiblaScreen>
   final QiblaProvider _provider = QiblaProvider();
   double _currentDialTurns = 0;
 
+  // Alignment moment: ripple animation + one-shot haptic on lock-on
+  late final AnimationController _pulseController;
+  bool _wasAligned = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    );
     _initializeQibla();
   }
 
@@ -49,6 +59,17 @@ class _QiblaScreenState extends State<QiblaScreen>
 
   void _onProviderUpdate() {
     if (mounted) {
+      // Alignment moment: haptic confirmation + start/stop the ripple
+      final aligned = _provider.isAligned;
+      if (aligned && !_wasAligned) {
+        HapticFeedback.mediumImpact();
+        _pulseController.repeat();
+      } else if (!aligned && _wasAligned) {
+        _pulseController.stop();
+        _pulseController.reset();
+      }
+      _wasAligned = aligned;
+
       setState(() {
         _currentDialTurns = _provider.dialRotationRadians / (2 * math.pi);
       });
@@ -64,6 +85,7 @@ class _QiblaScreenState extends State<QiblaScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _pulseController.dispose();
     _provider.removeListener(_onProviderUpdate);
     _provider.dispose();
     super.dispose();
@@ -121,7 +143,7 @@ class _QiblaScreenState extends State<QiblaScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(color: AppTheme.currentActiveGlow),
+          const CrescentLoader(),
           const SizedBox(height: 16),
           Text(
             t(context, 'loading'),
@@ -359,6 +381,36 @@ class _QiblaScreenState extends State<QiblaScreen>
                   ),
                 ],
               ),
+            ),
+          // Expanding ripple rings while locked onto the Qibla
+          if (isAligned)
+            AnimatedBuilder(
+              animation: _pulseController,
+              builder: (context, _) {
+                Widget ring(double phase) {
+                  final v = (_pulseController.value + phase) % 1.0;
+                  return Transform.scale(
+                    scale: 1.0 + 0.28 * v,
+                    child: Container(
+                      width: 280,
+                      height: 280,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppTheme.currentActiveGlow
+                              .withValues(alpha: 0.55 * (1 - v)),
+                          width: 2.5,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [ring(0.0), ring(0.5)],
+                );
+              },
             ),
           // Animated rotating compass dial
           AnimatedRotation(

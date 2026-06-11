@@ -20,6 +20,9 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
         const val EXTRA_PRAYER_TIME = "prayer_time"
         const val EXTRA_SCHEDULED_TIME = "scheduled_time"
         const val EXTRA_OCCURRENCE_KEY = "occurrence_key"
+
+        private const val NATIVE_PREFS_NAME = "adhan_live_prefs"
+        private const val KEY_LAST_FIRED_OCCURRENCE = "last_fired_occurrence"
     }
     
     override fun onReceive(context: Context, intent: Intent?) {
@@ -40,7 +43,23 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             Log.e(TAG, "Invalid alarm data, ignoring")
             return
         }
-        
+
+        // Deduplicate: the regular alarm and the tomorrow-Fajr fallback can both
+        // fire for the same occurrence (possibly ~1 minute apart). The occurrence
+        // key is date-scoped, so a repeat means this prayer was already handled.
+        // TEST_ alarms are exempt so repeated manual tests still work.
+        val nativePrefs = context.getSharedPreferences(NATIVE_PREFS_NAME, Context.MODE_PRIVATE)
+        if (occurrenceKey.isNotEmpty() && !occurrenceKey.startsWith("TEST_")) {
+            val lastFired = nativePrefs.getString(KEY_LAST_FIRED_OCCURRENCE, null)
+            if (lastFired == occurrenceKey) {
+                Log.d(TAG, "Occurrence $occurrenceKey already fired, skipping duplicate alarm")
+                // Still keep the alarm chain alive
+                AdhanAlarmScheduler.scheduleNextAlarm(context)
+                return
+            }
+            nativePrefs.edit().putString(KEY_LAST_FIRED_OCCURRENCE, occurrenceKey).apply()
+        }
+
         // Acquire a partial wake lock to ensure we complete our work
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         val wakeLock = powerManager.newWakeLock(
@@ -50,6 +69,10 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
         wakeLock.acquire(10 * 1000L) // 10 seconds max
         
         try {
+            // Keep the alarm chain alive no matter which alert mode runs below
+            // (silent/vibrate used to return early and skip rescheduling)
+            AdhanAlarmScheduler.scheduleNextAlarm(context)
+
             // Get language preference from SharedPreferences
             val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
             val isArabic = prefs.getString("flutter.app_language", "ar") == "ar"
@@ -163,10 +186,7 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             }
             
             Log.d(TAG, "AdhanForegroundService started for $prayerName with adhan: $adhanPath")
-            
-            // Reschedule the next alarm after this one fires
-            AdhanAlarmScheduler.scheduleNextAlarm(context)
-            
+
         } catch (e: Exception) {
             Log.e(TAG, "Error starting Adhan service: ${e.message}", e)
         } finally {

@@ -19,6 +19,14 @@ object AdhanAlarmScheduler {
     
     const val TAG = "AdhanAlarmScheduler"
     private const val ALARM_REQUEST_CODE_BASE = 5000
+    // Request code for the tomorrow-Fajr fallback alarm (kept separate from the
+    // regular per-prayer codes so the real Fajr alarm doesn't overwrite it)
+    private const val TOMORROW_FAJR_REQUEST_CODE = ALARM_REQUEST_CODE_BASE + 1000
+    // Native prefs (shared with BootReceiver/MainActivity) used to remember
+    // which date the fallback alarm targets, so it can be cancelled when a
+    // real alarm for that same day is scheduled
+    private const val NATIVE_PREFS_NAME = "adhan_live_prefs"
+    private const val KEY_FALLBACK_FAJR_DATE = "fallback_fajr_date"
     
     // Prayer IDs for alarm identification
     const val PRAYER_FAJR = 0
@@ -113,9 +121,53 @@ object AdhanAlarmScheduler {
         }
         
         Log.d(TAG, "Scheduled $prayerName alarm for ${Date(epochMillis)}")
-        
+
+        // A real Fajr alarm supersedes the tomorrow-Fajr fallback for the same
+        // day. Cancel the fallback so it can't fire a second Adhan at
+        // yesterday's (slightly drifted) Fajr time.
+        if (prayerId == PRAYER_FAJR) {
+            cancelTomorrowFajrIfSameDay(context, epochMillis)
+        }
+
         // Also schedule pre-adhan reminder if enabled
         schedulePreAdhanIfEnabled(context, prayerId, prayerName, epochMillis)
+    }
+
+    /**
+     * Cancel the tomorrow-Fajr fallback alarm if it targets the same day as a
+     * real Fajr alarm that was just scheduled.
+     */
+    private fun cancelTomorrowFajrIfSameDay(context: Context, realFajrEpochMillis: Long) {
+        val prefs = context.getSharedPreferences(NATIVE_PREFS_NAME, Context.MODE_PRIVATE)
+        val fallbackDate = prefs.getString(KEY_FALLBACK_FAJR_DATE, null) ?: return
+
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val realAlarmDate = dateFormat.format(Date(realFajrEpochMillis))
+
+        if (fallbackDate == realAlarmDate) {
+            cancelTomorrowFajr(context)
+            Log.d(TAG, "Cancelled tomorrow-Fajr fallback for $fallbackDate (real Fajr alarm scheduled)")
+        }
+    }
+
+    /**
+     * Cancel the tomorrow-Fajr fallback alarm unconditionally.
+     */
+    fun cancelTomorrowFajr(context: Context) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, AdhanAlarmReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            TOMORROW_FAJR_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        alarmManager.cancel(pendingIntent)
+
+        context.getSharedPreferences(NATIVE_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .remove(KEY_FALLBACK_FAJR_DATE)
+            .apply()
     }
     
     /**
@@ -303,12 +355,15 @@ object AdhanAlarmScheduler {
     }
     
     /**
-     * Cancel all prayer alarms
+     * Cancel all prayer alarms, including pre-adhan reminders and the
+     * tomorrow-Fajr fallback
      */
     fun cancelAllAlarms(context: Context) {
         for (i in 0..4) {
             cancelAlarm(context, i)
+            cancelPreAdhanAlarm(context, i)
         }
+        cancelTomorrowFajr(context)
         Log.d(TAG, "Cancelled all prayer alarms")
     }
     
@@ -317,18 +372,10 @@ object AdhanAlarmScheduler {
      */
     fun scheduleNextAlarm(context: Context) {
         Log.d(TAG, "Scheduling next alarm from cache...")
-        
-        val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        val prayerTimesJson = prefs.getString("flutter.cached_prayer_times_json", null)
-        
-        if (prayerTimesJson.isNullOrEmpty()) {
-            Log.w(TAG, "No cached prayer times, cannot schedule")
-            return
-        }
-        
-        val timings = parsePrayerTimes(prayerTimesJson)
+
+        val timings = getTimingsForDate(context, Calendar.getInstance())
         if (timings == null) {
-            Log.e(TAG, "Failed to parse prayer times")
+            Log.w(TAG, "No cached prayer times, cannot schedule")
             return
         }
         
@@ -378,18 +425,10 @@ object AdhanAlarmScheduler {
      */
     fun scheduleAllTodayAlarms(context: Context) {
         Log.d(TAG, "Scheduling all today's alarms from cache...")
-        
-        val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        val prayerTimesJson = prefs.getString("flutter.cached_prayer_times_json", null)
-        
-        if (prayerTimesJson.isNullOrEmpty()) {
-            Log.w(TAG, "No cached prayer times")
-            return
-        }
-        
-        val timings = parsePrayerTimes(prayerTimesJson)
+
+        val timings = getTimingsForDate(context, Calendar.getInstance())
         if (timings == null) {
-            Log.e(TAG, "Failed to parse prayer times")
+            Log.w(TAG, "No cached prayer times")
             return
         }
         
@@ -407,10 +446,54 @@ object AdhanAlarmScheduler {
                 scheduledCount++
             }
         }
-        
+
         Log.d(TAG, "Scheduled $scheduledCount alarms for today")
+
+        // Keep the overnight fallback armed for tomorrow's Fajr (the real Fajr
+        // alarm scheduled above only covers today)
+        scheduleTomorrowFajr(context)
     }
     
+    /**
+     * Get the five prayer timings for a specific calendar date.
+     *
+     * Primary source: the multi-day cache written by Flutter
+     * (`flutter.cached_prayer_times_by_date`, ~30 days of exact per-date
+     * times) so alarms stay accurate for weeks while fully offline.
+     * Fallback: the legacy single-day cache projected onto the requested
+     * date (the pre-multi-day behavior, ~1 min drift per unopened day).
+     */
+    fun getTimingsForDate(context: Context, date: Calendar): Map<String, String>? {
+        val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val dateKey = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(date.time)
+
+        val byDateJson = prefs.getString("flutter.cached_prayer_times_by_date", null)
+        if (!byDateJson.isNullOrEmpty()) {
+            try {
+                val dayJson = JSONObject(byDateJson).optJSONObject(dateKey)
+                if (dayJson != null) {
+                    val timings = mapOf(
+                        "Fajr" to dayJson.optString("Fajr", ""),
+                        "Dhuhr" to dayJson.optString("Dhuhr", ""),
+                        "Asr" to dayJson.optString("Asr", ""),
+                        "Maghrib" to dayJson.optString("Maghrib", ""),
+                        "Isha" to dayJson.optString("Isha", "")
+                    )
+                    if (timings.values.none { it.isEmpty() }) {
+                        return timings
+                    }
+                }
+                Log.d(TAG, "No multi-day entry for $dateKey, using legacy cache")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error parsing multi-day cache: $e")
+            }
+        }
+
+        val legacyJson = prefs.getString("flutter.cached_prayer_times_json", null)
+        if (legacyJson.isNullOrEmpty()) return null
+        return parsePrayerTimes(legacyJson)
+    }
+
     /**
      * Parse prayer times JSON to map
      */
@@ -482,21 +565,16 @@ object AdhanAlarmScheduler {
      */
     fun scheduleTomorrowFajr(context: Context) {
         Log.d(TAG, "Scheduling tomorrow's Fajr alarm...")
-        
-        val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        val prayerTimesJson = prefs.getString("flutter.cached_prayer_times_json", null)
-        
-        if (prayerTimesJson.isNullOrEmpty()) {
+
+        // Use tomorrow's exact entry from the multi-day cache when available;
+        // the legacy fallback inside getTimingsForDate projects today's time
+        val tomorrowCal = Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, 1) }
+        val timings = getTimingsForDate(context, tomorrowCal)
+        if (timings == null) {
             Log.w(TAG, "No cached prayer times for tomorrow's Fajr")
             return
         }
-        
-        val timings = parsePrayerTimes(prayerTimesJson)
-        if (timings == null) {
-            Log.e(TAG, "Failed to parse prayer times for tomorrow's Fajr")
-            return
-        }
-        
+
         val fajrTimeStr = timings["Fajr"]
         if (fajrTimeStr.isNullOrEmpty()) {
             Log.e(TAG, "No Fajr time in cache")
@@ -509,9 +587,8 @@ object AdhanAlarmScheduler {
             return
         }
         
-        // Use a special request code for tomorrow's Fajr (offset by 1000)
-        val requestCode = ALARM_REQUEST_CODE_BASE + PRAYER_FAJR + 1000
-        
+        val requestCode = TOMORROW_FAJR_REQUEST_CODE
+
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val tomorrow = Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, 1) }
         val occurrenceKey = "Fajr_${dateFormat.format(tomorrow.time)}"
@@ -547,6 +624,13 @@ object AdhanAlarmScheduler {
             )
         }
         
+        // Remember which day this fallback targets so it can be cancelled when
+        // a real Fajr alarm for the same day is scheduled (prevents double Adhan)
+        context.getSharedPreferences(NATIVE_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_FALLBACK_FAJR_DATE, dateFormat.format(tomorrow.time))
+            .apply()
+
         Log.d(TAG, "Scheduled tomorrow's Fajr for ${Date(tomorrowFajrEpoch)} (key: $occurrenceKey)")
     }
 }

@@ -56,87 +56,82 @@ class PrayerWidgetProvider : AppWidgetProvider() {
     ) {
         val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         val isArabic = prefs.getString("flutter.app_language", "ar") == "ar"
-        
-        // Get cached prayer times
-        val prayerTimesJson = prefs.getString("flutter.cached_prayer_times_json", null)
-        
+
+        // Today's timings: exact per-date entry from the multi-day cache,
+        // legacy single-day projection as fallback
+        val timings = AdhanAlarmScheduler.getTimingsForDate(context, Calendar.getInstance())
+
         val views = RemoteViews(context.packageName, R.layout.prayer_widget)
-        
-        if (prayerTimesJson != null) {
+
+        if (timings != null) {
             try {
-                val json = JSONObject(prayerTimesJson)
-                // Cache format: { "data": { "timings": { "Fajr": "05:30", ... } } }
-                val dataJson = json.optJSONObject("data")
-                val timingsJson = dataJson?.optJSONObject("timings")
-                
-                if (timingsJson != null) {
-                    val now = Calendar.getInstance()
-                    val prayerOrder = arrayOf("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha")
-                    
-                    var nextPrayer: String? = null
-                    var nextPrayerTime: String? = null
-                    var nextPrayerCal: Calendar? = null
-                    
-                    // Find next prayer
-                    for (prayer in prayerOrder) {
-                        val timeStr = timingsJson.optString(prayer, "")
-                        if (timeStr.isNotEmpty()) {
-                            val prayerCal = parseTime(timeStr, now)
-                            if (prayerCal != null && prayerCal.after(now)) {
-                                nextPrayer = prayer
-                                nextPrayerTime = timeStr
-                                nextPrayerCal = prayerCal
-                                break
-                            }
+                val now = Calendar.getInstance()
+                val prayerOrder = arrayOf("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha")
+
+                var nextPrayer: String? = null
+                var nextPrayerTime: String? = null
+                var nextPrayerCal: Calendar? = null
+
+                // Find next prayer
+                for (prayer in prayerOrder) {
+                    val timeStr = timings[prayer] ?: ""
+                    if (timeStr.isNotEmpty()) {
+                        val prayerCal = parseTime(timeStr, now)
+                        if (prayerCal != null && prayerCal.after(now)) {
+                            nextPrayer = prayer
+                            nextPrayerTime = timeStr
+                            nextPrayerCal = prayerCal
+                            break
                         }
                     }
-                    
-                    // If no prayer found today, use tomorrow's Fajr
-                    if (nextPrayer == null) {
-                        nextPrayer = "Fajr"
-                        nextPrayerTime = timingsJson.optString("Fajr", "05:00")
-                        // Calculate tomorrow's Fajr
-                        val tomorrow = Calendar.getInstance().apply {
-                            add(Calendar.DAY_OF_MONTH, 1)
-                        }
-                        nextPrayerCal = parseTime(nextPrayerTime!!, tomorrow)
-                    }
-                    
-                    // Update views
-                    val displayName = if (isArabic) prayerNamesAr[nextPrayer] ?: nextPrayer else nextPrayer
-                    val emoji = prayerEmojis[nextPrayer] ?: "🕌"
-                    
-                    // Update "Next Prayer" label
-                    views.setTextViewText(R.id.next_prayer_label, 
-                        if (isArabic) "الصلاة القادمة" else "Next Prayer")
-                    
-                    views.setTextViewText(R.id.prayer_emoji, emoji)
-                    views.setTextViewText(R.id.prayer_name, displayName)
-                    views.setTextViewText(R.id.prayer_time, nextPrayerTime)
-                    
-                    // Calculate countdown
-                    if (nextPrayerCal != null) {
-                        val diffMs = nextPrayerCal.timeInMillis - now.timeInMillis
-                        if (diffMs > 0) {
-                            val hours = diffMs / (1000 * 60 * 60)
-                            val mins = (diffMs / (1000 * 60)) % 60
-                            
-                            val countdownText = if (isArabic) {
-                                if (hours > 0) "بعد ${hours}س ${mins}د" else "بعد ${mins} دقيقة"
-                            } else {
-                                if (hours > 0) "in ${hours}h ${mins}m" else "in ${mins}m"
-                            }
-                            views.setTextViewText(R.id.countdown, countdownText)
-                        } else {
-                            views.setTextViewText(R.id.countdown, "")
-                        }
-                    }
-                    
-                    Log.d(TAG, "Widget updated: $nextPrayer at $nextPrayerTime")
-                } else {
-                    Log.e(TAG, "No timings found in cache JSON")
-                    setNoDataView(views, isArabic)
                 }
+
+                // If no prayer found today, use tomorrow's Fajr (exact entry
+                // from the multi-day cache when available)
+                if (nextPrayer == null) {
+                    val tomorrow = Calendar.getInstance().apply {
+                        add(Calendar.DAY_OF_MONTH, 1)
+                    }
+                    val tomorrowTimings =
+                        AdhanAlarmScheduler.getTimingsForDate(context, tomorrow)
+                    nextPrayer = "Fajr"
+                    nextPrayerTime =
+                        tomorrowTimings?.get("Fajr")?.ifEmpty { null }
+                            ?: timings["Fajr"] ?: "05:00"
+                    nextPrayerCal = parseTime(nextPrayerTime, tomorrow)
+                }
+
+                // Update views
+                val displayName = if (isArabic) prayerNamesAr[nextPrayer] ?: nextPrayer else nextPrayer
+                val emoji = prayerEmojis[nextPrayer] ?: "🕌"
+
+                // Update "Next Prayer" label
+                views.setTextViewText(R.id.next_prayer_label,
+                    if (isArabic) "الصلاة القادمة" else "Next Prayer")
+
+                views.setTextViewText(R.id.prayer_emoji, emoji)
+                views.setTextViewText(R.id.prayer_name, displayName)
+                views.setTextViewText(R.id.prayer_time, nextPrayerTime)
+
+                // Calculate countdown
+                if (nextPrayerCal != null) {
+                    val diffMs = nextPrayerCal.timeInMillis - now.timeInMillis
+                    if (diffMs > 0) {
+                        val hours = diffMs / (1000 * 60 * 60)
+                        val mins = (diffMs / (1000 * 60)) % 60
+
+                        val countdownText = if (isArabic) {
+                            if (hours > 0) "بعد ${hours}س ${mins}د" else "بعد ${mins} دقيقة"
+                        } else {
+                            if (hours > 0) "in ${hours}h ${mins}m" else "in ${mins}m"
+                        }
+                        views.setTextViewText(R.id.countdown, countdownText)
+                    } else {
+                        views.setTextViewText(R.id.countdown, "")
+                    }
+                }
+
+                Log.d(TAG, "Widget updated: $nextPrayer at $nextPrayerTime")
             } catch (e: Exception) {
                 Log.e(TAG, "Error parsing prayer times: ${e.message}")
                 setNoDataView(views, isArabic)

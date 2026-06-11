@@ -6,11 +6,15 @@ import '../screens/prayer_times_screen.dart';
 import '../screens/settings_screen.dart';
 import '../widgets/floating_nav_bar.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/living_background.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_theme_provider.dart';
 import '../../domain/providers/qibla_provider.dart';
 import '../../core/tour/app_tour_service.dart';
+import '../../core/theme/app_motion.dart';
 import '../../data/services/analytics_service.dart';
+import '../../data/services/hijri_date_service.dart';
+import '../../data/services/islamic_event_service.dart';
 import '../../domain/providers/prayer_times_api_provider.dart';
 import '../../services/update_service.dart';
 import '../../widgets/update_dialog.dart';
@@ -46,11 +50,18 @@ class _AppShellState extends State<AppShell> {
 
   bool _tourTriggered = false;
 
+  /// Aurora tint for special occasions (Ramadan/Eid), null otherwise
+  Color? _eventTint;
+
+  /// Startup veil: fades/scales out after the first frame for a soft landing
+  bool _startupRevealDone = false;
+
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentIndex);
     AppShell.activePageController = _pageController;
+    _loadEventTint();
     // Listen to theme changes
     AppThemeProvider.instance.addListener(_onThemeChange);
     // Listen to prayer data state for tour & rating prompt
@@ -60,6 +71,24 @@ class _AppShellState extends State<AppShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _tryTriggerTourAndRatingPrompt();
     });
+  }
+
+  /// Warm the auroras during Ramadan (amber) and Eid (festive gold).
+  Future<void> _loadEventTint() async {
+    try {
+      final hijri =
+          await HijriDateService().getAdjustedHijriDate(DateTime.now());
+      if (hijri == null || !mounted) return;
+      Color? tint;
+      if (IslamicEventService.isEid(hijri)) {
+        tint = const Color(0xFFFFD27D);
+      } else if (IslamicEventService.isRamadan(hijri)) {
+        tint = const Color(0xFFFFB347);
+      }
+      if (tint != null) setState(() => _eventTint = tint);
+    } catch (_) {
+      // Cosmetic only — ignore failures
+    }
   }
 
   Future<void> _warmUpShaders() async {
@@ -258,23 +287,45 @@ class _AppShellState extends State<AppShell> {
     return PopScope(
       canPop: !AppTourService.isRunning,
       child: Scaffold(
-        body: Container(
+        // AnimatedContainer lerps the gradient, so switching themes
+        // crossfades the whole background instead of snapping
+        body: AnimatedContainer(
+          duration: const Duration(milliseconds: 700),
+          curve: Curves.easeInOut,
           decoration: BoxDecoration(
             gradient: AppTheme.currentBackgroundGradient,
-            image: AppTheme.currentBackgroundImage,
           ),
           child: Stack(
             children: [
-              // 1. Static Full-Screen Blur Layer - NEVER moves!
-              Positioned.fill(
-                child: RepaintBoundary(
-                  child: BackdropFilter(
-                    filter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3),
-                    child: Container(color: Colors.transparent),
+              // 0a. Special theme's pattern image. ImageFiltered over a
+              // STATIC child is blurred once and cached by the raster cache
+              // — unlike the old screen-wide BackdropFilter, which re-blurred
+              // every frame because the living background animates beneath it.
+              if (AppTheme.currentBackgroundImage != null)
+                Positioned.fill(
+                  child: RepaintBoundary(
+                    child: ImageFiltered(
+                      imageFilter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+                      child: Image.asset(
+                        'assets/images/islamic_bg_pattern_special.webp',
+                        fit: BoxFit.cover,
+                        opacity: const AlwaysStoppedAnimation(0.65),
+                      ),
+                    ),
                   ),
                 ),
+
+              // 0b. Living background: drifting rosette pattern + aurora
+              // glows. The pattern's softening is baked into its cached
+              // image, so NO global BackdropFilter is needed above it —
+              // that filter used to re-blur the whole screen every frame.
+              Positioned.fill(
+                child: LivingBackground(
+                  pageController: _pageController,
+                  eventTint: _eventTint,
+                ),
               ),
-              
+
               // 2. Sliding Content Layer - just colored boxes, NO BackdropFilter inside
               Padding(
                 padding: const EdgeInsets.only(bottom: bottomPadding),
@@ -295,7 +346,34 @@ class _AppShellState extends State<AppShell> {
                               : const ClampingScrollPhysics(),       // Prevents overscroll glow issues
                           onPageChanged: _onPageChanged,
                           itemCount: _pages.length,
-                          itemBuilder: (context, index) => _pages[index],
+                          // Pages scale down + fade slightly as they leave
+                          // center, giving the swipe a layered depth feel.
+                          // Transform/opacity only — children stay stable.
+                          itemBuilder: (context, index) {
+                            return AnimatedBuilder(
+                              animation: _pageController,
+                              builder: (context, child) {
+                                double delta = 0;
+                                if (_pageController.hasClients &&
+                                    _pageController
+                                        .position.haveDimensions) {
+                                  delta = ((_pageController.page ??
+                                              _currentIndex.toDouble()) -
+                                          index)
+                                      .abs()
+                                      .clamp(0.0, 1.0);
+                                }
+                                return Opacity(
+                                  opacity: 1.0 - 0.35 * delta,
+                                  child: Transform.scale(
+                                    scale: 1.0 - 0.06 * delta,
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: _pages[index],
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -304,6 +382,49 @@ class _AppShellState extends State<AppShell> {
               ),
               // Floating nav bar - synced with PageView
               FloatingNavBar(currentIndex: _currentIndex, onTap: _onNavTapped),
+
+              // Startup reveal: a veil matching the background that fades
+              // and zooms away right after launch — a soft landing instead
+              // of content popping in.
+              if (!_startupRevealDone)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: 1),
+                      duration: const Duration(milliseconds: 900),
+                      curve: AppMotion.enter,
+                      onEnd: () =>
+                          setState(() => _startupRevealDone = true),
+                      builder: (context, v, _) {
+                        return Opacity(
+                          opacity: 1 - v,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: AppTheme.currentBackgroundGradient,
+                            ),
+                            child: Center(
+                              child: Transform.scale(
+                                scale: 1 + 0.6 * v,
+                                child: Icon(
+                                  Icons.mosque,
+                                  size: 72,
+                                  color: AppTheme.currentActiveGlow,
+                                  shadows: [
+                                    Shadow(
+                                      color: AppTheme.currentActiveGlow
+                                          .withValues(alpha: 0.8),
+                                      blurRadius: 32,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

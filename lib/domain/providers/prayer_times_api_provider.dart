@@ -10,6 +10,7 @@ import '../../data/services/qibla_api_service.dart';
 import '../../data/services/adhan_alarm_service.dart';
 import '../../notification_manager.dart';
 import '../../data/services/prayer_method_resolver.dart';
+import '../../data/services/hijri_date_service.dart';
 import 'qibla_provider.dart';
 
 /// State for the prayer times data
@@ -80,10 +81,14 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // If setup failed earlier (GPS was off or permission denied), retry now
-      // because the user may have just enabled GPS or granted permission in settings
-      if (_state == PrayerDataState.locationDisabled ||
-          _state == PrayerDataState.permissionDenied) {
+      // If setup failed earlier (GPS off, permission denied, or the location
+      // permission request collided with the notification dialog on first
+      // run), retry now — the user may have just granted permission, and
+      // dismissing any permission dialog triggers a resume.
+      if (!_setupInProgress &&
+          (_state == PrayerDataState.locationDisabled ||
+              _state == PrayerDataState.permissionDenied ||
+              (_state == PrayerDataState.error && _response == null))) {
         debugPrint('[PrayerTimesApiProvider] App resumed — retrying setup...');
         _firstTimeSetup();
         return;
@@ -267,14 +272,35 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
       // PHASE B: Refresh in background if needed (unawaited)
       _refreshIfNeeded();
     } else {
-      // FIRST RUN: Need GPS + network (loading state is fine here)
+      // FIRST RUN: Need GPS + network. Never awaited here — main() awaits
+      // initialize(), and blocking would hold runApp() hostage behind the
+      // permission dialog (black screen). The setup itself is triggered by
+      // NotificationManager via ensureFirstTimeSetup() AFTER the
+      // notification-permission flow settles, so the two permission dialogs
+      // never collide. The timer is a safety net in case that path fails.
       debugPrint(
-        '[PrayerTimesApiProvider] FIRST RUN - requesting permissions...',
+        '[PrayerTimesApiProvider] FIRST RUN - waiting for permission flow...',
       );
       _state = PrayerDataState.loading;
       notifyListeners();
-      await _firstTimeSetup();
+      Timer(const Duration(seconds: 10), () {
+        if (_state == PrayerDataState.loading && _response == null) {
+          debugPrint(
+            '[PrayerTimesApiProvider] Fallback: starting first-time setup',
+          );
+          unawaited(_firstTimeSetup());
+        }
+      });
     }
+  }
+
+  /// Run first-time setup if it hasn't completed yet. Called by
+  /// NotificationManager once the notification permission flow settles,
+  /// sequencing the permission dialogs (notification → location).
+  Future<void> ensureFirstTimeSetup() async {
+    final setupDone = await _cacheService.isSetupDone();
+    if (setupDone) return;
+    await _firstTimeSetup();
   }
 
   /// Phase A: Load from cache immediately and notify UI - NO network calls
@@ -339,6 +365,52 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
     _refreshPrayerTimesOnly(_latitude!, _longitude!, today);
   }
 
+  /// Number of days to pre-calculate ahead so alarms stay exact while the
+  /// phone is fully offline and the app isn't opened
+  static const int _daysToCacheAhead = 30;
+
+  /// Pre-calculate prayer times for the next [_daysToCacheAhead] days and
+  /// store them date-keyed for the native side (alarms, foreground service,
+  /// widget). Pure offline math - no network involved.
+  ///
+  /// Must complete BEFORE alarms are (re)scheduled so the native scheduler
+  /// reads fresh data.
+  Future<void> _cacheMultiDayPrayerTimes(double lat, double lng) async {
+    try {
+      final byDate = <String, Map<String, String>>{};
+      final dateFormat = DateFormat('yyyy-MM-dd');
+      final start = DateTime.now();
+
+      for (int i = 0; i < _daysToCacheAhead; i++) {
+        final date = DateTime(start.year, start.month, start.day + i);
+        final response = await _apiService.fetchPrayerTimesByCoordinates(
+          latitude: lat,
+          longitude: lng,
+          method: _method,
+          madhab: _madhab,
+          date: date,
+          elevation: _elevation,
+        );
+        byDate[dateFormat.format(date)] = {
+          'Fajr': response.timings.fajr,
+          'Sunrise': response.timings.sunrise,
+          'Dhuhr': response.timings.dhuhr,
+          'Asr': response.timings.asr,
+          'Maghrib': response.timings.maghrib,
+          'Isha': response.timings.isha,
+        };
+      }
+
+      await _cacheService.savePrayerTimesByDate(byDate);
+
+      // Keep the Hijri per-date cache in sync with the same offline window,
+      // even when the live notification (its other refresher) is disabled
+      await HijriDateService().cacheUpcomingDays();
+    } catch (e) {
+      debugPrint('[PrayerTimesApiProvider] Multi-day cache failed: $e');
+    }
+  }
+
   /// Refresh only prayer times using cached location (no GPS)
   Future<void> _refreshPrayerTimesOnly(
     double lat,
@@ -372,6 +444,10 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
         prayerTimesDate: dateStr,
       );
 
+      // Refresh the 30-day offline cache BEFORE rescheduling so the native
+      // scheduler picks up exact per-date times
+      await _cacheMultiDayPrayerTimes(lat, lng);
+
       // Reschedule alarms so they match the freshly calculated times
       AdhanAlarmService.scheduleAllAlarms();
 
@@ -391,8 +467,34 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
     notifyListeners();
   }
 
+  /// Re-entry guard: dialogs trigger app resumes which trigger retries —
+  /// without this, a retry could start a second setup mid-flight.
+  bool _setupInProgress = false;
+
   /// First time setup - requires GPS and network
   Future<void> _firstTimeSetup() async {
+    if (_setupInProgress) {
+      debugPrint('[PrayerTimesApiProvider] Setup already in progress');
+      return;
+    }
+    _setupInProgress = true;
+    try {
+      await _firstTimeSetupInner();
+    } catch (e) {
+      // A permission request that collides with another plugin's dialog can
+      // throw (or time out). Land in permissionDenied so the resume-retry
+      // and the error-state UI both offer a way forward — never stay stuck
+      // in loading.
+      debugPrint('[PrayerTimesApiProvider] Setup permission phase failed: $e');
+      _state = PrayerDataState.permissionDenied;
+      _errorMessage = 'Location permission request failed';
+      notifyListeners();
+    } finally {
+      _setupInProgress = false;
+    }
+  }
+
+  Future<void> _firstTimeSetupInner() async {
     debugPrint('[PrayerTimesApiProvider] First time setup...');
 
     // Check location services
@@ -414,7 +516,10 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
     debugPrint('[PrayerTimesApiProvider] Current permission: $permission');
     if (permission == LocationPermission.denied) {
       debugPrint('[PrayerTimesApiProvider] Requesting permission...');
-      permission = await Geolocator.requestPermission();
+      // Timeout: a request colliding with another permission dialog can
+      // hang forever; recover instead of freezing first-run
+      permission = await Geolocator.requestPermission()
+          .timeout(const Duration(seconds: 60));
       debugPrint(
         '[PrayerTimesApiProvider] Permission after request: $permission',
       );
@@ -544,6 +649,10 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
       QiblaProvider.instance?.initialize();
 
       _state = PrayerDataState.success;
+
+      // Build the 30-day offline cache before the notification service starts
+      // (starting it schedules the native alarms)
+      await _cacheMultiDayPrayerTimes(position.latitude, position.longitude);
 
       // CRITICAL: Mark setup as done so NotificationManager will start
       await _cacheService.markSetupDone();
@@ -690,6 +799,12 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
 
       _state = PrayerDataState.success;
       notifyListeners();
+
+      // Rebuild the 30-day offline cache for the new location, then reschedule
+      // the native alarms (previously alarms kept the old location's times
+      // until the next midnight refresh)
+      await _cacheMultiDayPrayerTimes(position.latitude, position.longitude);
+      AdhanAlarmService.scheduleAllAlarms();
 
       // Update Qibla provider
       if (qiblaResponse != null) {

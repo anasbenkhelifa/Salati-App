@@ -12,10 +12,14 @@ import '../../data/services/hijri_date_service.dart'; // for HijriDate class
 import '../../data/services/prayer_times_api_service.dart';
 import '../../data/services/alert_mode_service.dart';
 import '../../data/services/islamic_event_service.dart';
+import '../../data/services/bilingual_location_service.dart';
 import '../widgets/prayer_alert_mode_button.dart';
+import '../widgets/pressable_scale.dart';
 import '../widgets/location_picker_sheet.dart';
 import '../widgets/adhan_selection_sheet.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/app_sheet.dart' show StaggerIn;
+import '../../core/theme/app_motion.dart';
 import '../../data/services/adhan_selection_service.dart';
 import 'package:provider/provider.dart';
 
@@ -374,16 +378,19 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
         _buildLocationHeader(context, isArabic, rootContext: context),
         const SizedBox(height: 24),
 
-        // Prayer cards
+        // Prayer cards: cascade in with a stagger on first build
         ...List.generate(5, (index) {
           final isNext = index == _provider.nextPrayerIndex;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _buildPrayerCard(
-              context: context,
-              index: index,
-              isNext: isNext,
-              hijriDate: hijriDate,
+          return StaggerIn(
+            index: index + 1,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _buildPrayerCard(
+                context: context,
+                index: index,
+                isNext: isNext,
+                hijriDate: hijriDate,
+              ),
             ),
           );
         }),
@@ -433,6 +440,12 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       bannerColor = Colors.teal;
     } else {
       return const SizedBox.shrink();
+    }
+
+    // Avoid "Ramadan Kareem / Ramadan Kareem": when the status line just
+    // repeats the greeting, show the Hijri date instead
+    if (subtitle == title) {
+      subtitle = _hijriProvider.getFormattedDate(isArabic);
     }
 
     return Container(
@@ -490,7 +503,8 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
 
     // Uses the Directionality from parent context - properly flips in RTL
     // Entire location box is clickable to open location picker
-    return GestureDetector(
+    return PressableScale(
+      pressedScale: 0.985,
       onTap: () => _openLocationPicker(rootContext, isArabic),
       child: GlassContainer(
         key: TourKeyRegistry.instance.locationHeaderKey,
@@ -663,31 +677,60 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     final result = await LocationPickerSheet.show(context);
 
     if (result != null && mounted) {
-      // User confirmed a location
+      // Same glass toast as the GPS flow (replaces the old SnackBar strip)
+      final statusNotifier =
+          ValueNotifier<_GpsToastStatus>(_GpsToastStatus.loading);
+      final cityNotifier = ValueNotifier<String>('');
+
+      late OverlayEntry entry;
+      entry = OverlayEntry(
+        builder: (_) => _GpsToast(
+          status: statusNotifier,
+          city: cityNotifier,
+          isArabic: isArabic,
+        ),
+      );
+      Overlay.of(context).insert(entry);
+
+      // The Nominatim search result is in the current UI language only.
+      // Resolve the picked coordinates in BOTH languages so the header
+      // keeps following the app language afterwards.
+      final bilingual = await BilingualLocationService().getLocationNames(
+        result.lat,
+        result.lng,
+      );
+
       final success = await _provider.setManualLocation(
         lat: result.lat,
         lng: result.lng,
-        cityAr: result.cityName,
-        cityEn: result.cityName,
-        countryAr: result.countryName,
-        countryEn: result.countryName,
-        isoCountryCode: result.isoCountryCode,
+        cityAr: (bilingual != null && bilingual.cityAr.isNotEmpty)
+            ? bilingual.cityAr
+            : result.cityName,
+        cityEn: (bilingual != null && bilingual.cityEn.isNotEmpty)
+            ? bilingual.cityEn
+            : result.cityName,
+        countryAr: (bilingual != null && bilingual.countryAr.isNotEmpty)
+            ? bilingual.countryAr
+            : result.countryName,
+        countryEn: (bilingual != null && bilingual.countryEn.isNotEmpty)
+            ? bilingual.countryEn
+            : result.countryName,
+        isoCountryCode: result.isoCountryCode.isNotEmpty
+            ? result.isoCountryCode
+            : (bilingual?.isoCountryCode ?? ''),
       );
 
       if (mounted) {
+        cityNotifier.value = _provider.getCityOnly(isArabic);
+        statusNotifier.value =
+            success ? _GpsToastStatus.success : _GpsToastStatus.error;
         setState(() {});
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              success
-                  ? (isArabic ? 'تم تحديث الموقع' : 'Location updated')
-                  : (isArabic ? 'فشل التحديث' : 'Update failed'),
-            ),
-            backgroundColor: success ? Colors.green : Colors.red,
-          ),
-        );
       }
+
+      await Future.delayed(const Duration(milliseconds: 2400));
+      entry.remove();
+      statusNotifier.dispose();
+      cityNotifier.dispose();
     }
   }
 
@@ -725,7 +768,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       countdownParts = formatCountdownParts(_countdown, sign: '-');
     }
 
-    return GestureDetector(
+    return PressableScale(
       key: index == 0 ? TourKeyRegistry.instance.prayerCardKey : null,
       onTap: () => _showAdhanSelection(context, index, name),
       child: Builder(
@@ -744,20 +787,31 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
             ),
           );
 
+          // The next prayer is a "live" card: accent-gradient fill, glowing
+          // border and an interval progress bar underneath the row.
           Widget contentWidget = Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
             decoration: BoxDecoration(
-              color:
-                  AppTheme.isLightMode
-                      ? (isNext
-                          ? AppTheme.currentActiveGlow.withValues(alpha: 0.08)
-                          : Colors.white)
-                      : Colors.white.withValues(alpha: isNext ? 0.15 : 0.08),
+              gradient: isNext
+                  ? LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: AppTheme.currentAccentGradient.colors
+                          .map((c) => c.withValues(
+                              alpha: AppTheme.isLightMode ? 0.10 : 0.16))
+                          .toList(),
+                    )
+                  : null,
+              color: isNext
+                  ? null
+                  : (AppTheme.isLightMode
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.08)),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color:
                     isNext
-                        ? AppTheme.currentActiveGlow.withValues(alpha: 0.3)
+                        ? AppTheme.currentActiveGlow.withValues(alpha: 0.55)
                         : AppTheme.isLightMode
                         ? AppTheme.lightDivider
                         : AppTheme.inactiveBorder,
@@ -765,24 +819,21 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
               ),
               boxShadow:
                   isNext
-                      ? [
-                        BoxShadow(
-                          color: AppTheme.currentActiveGlow.withValues(alpha: 0.15),
-                          blurRadius: 20,
-                          spreadRadius: 2,
-                        ),
-                      ]
+                      ? AppTheme.glowShadow(intensity: 0.7)
                       : AppTheme.isLightMode
                       ? [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 4,
-                          offset: const Offset(0, 1),
+                          color: const Color(0xFF8A7A55).withValues(alpha: 0.10),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
                         ),
                       ]
                       : null,
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
               children: [
                 // Alert mode toggle button
                 PrayerAlertModeButton(
@@ -866,10 +917,9 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                           const SizedBox(width: 4),
                           Text(
                             countdownParts.time,
-                            style: TextStyle(
-                              color: AppTheme.currentActiveGlow,
+                            style: AppTheme.displayDigits(
                               fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                              color: AppTheme.currentActiveGlow,
                             ),
                           ),
                         ],
@@ -885,6 +935,12 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
+                ],
+              ],
+                ),
+                if (isNext) ...[
+                  const SizedBox(height: 14),
+                  _buildIntervalProgressBar(),
                 ],
               ],
             ),
@@ -905,6 +961,70 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
           return Stack(
             fit: StackFit.loose,
             children: [blurWidget, contentWidget],
+          );
+        },
+      ),
+    );
+  }
+
+  /// Fraction (0..1) of the interval between the previous prayer and the
+  /// next one that has already elapsed, or null without data.
+  double? _nextPrayerIntervalProgress() {
+    final response = _provider.response;
+    if (response == null) return null;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final times = <DateTime>[];
+    for (int i = 0; i < 5; i++) {
+      final parts = _getTimeByIndex(response.timings, i).split(':');
+      if (parts.length < 2) return null;
+      final h = int.tryParse(parts[0]) ?? 0;
+      final m = int.tryParse(parts[1].split(' ')[0]) ?? 0;
+      times.add(DateTime(today.year, today.month, today.day, h, m));
+    }
+
+    DateTime? prev;
+    DateTime? next;
+    for (final t in times) {
+      if (now.isBefore(t)) {
+        next = t;
+        break;
+      }
+      prev = t;
+    }
+    prev ??= times[4].subtract(const Duration(days: 1));
+    next ??= times[0].add(const Duration(days: 1));
+
+    final total = next.difference(prev).inSeconds;
+    if (total <= 0) return null;
+    return (now.difference(prev).inSeconds / total).clamp(0.0, 1.0);
+  }
+
+  /// Thin gradient bar inside the live card filling toward the next prayer.
+  Widget _buildIntervalProgressBar() {
+    final progress = _nextPrayerIntervalProgress();
+    if (progress == null) return const SizedBox.shrink();
+
+    return Container(
+      height: 5,
+      decoration: BoxDecoration(
+        color: AppTheme.currentTextSecondary.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: AnimatedContainer(
+              duration: AppMotion.fast,
+              width: constraints.maxWidth * progress,
+              decoration: BoxDecoration(
+                gradient: AppTheme.currentAccentGradient,
+                borderRadius: BorderRadius.circular(3),
+                boxShadow: AppTheme.glowShadow(intensity: 0.5),
+              ),
+            ),
           );
         },
       ),
