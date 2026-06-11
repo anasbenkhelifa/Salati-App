@@ -48,6 +48,7 @@ const Map<String, Map<String, String>> _strings = {
     'later': 'لاحقاً',
     'hijriCalendar': 'التقويم الهجري',
     'today': 'اليوم',
+    'privacyPolicy': 'سياسة الخصوصية',
     'searchRequiresInternet': 'البحث يحتاج إنترنت',
     // Theme
     'nightMode': 'الوضع الداكن',
@@ -161,6 +162,7 @@ const Map<String, Map<String, String>> _strings = {
     'later': 'Later',
     'hijriCalendar': 'Hijri Calendar',
     'today': 'Today',
+    'privacyPolicy': 'Privacy Policy',
     'searchRequiresInternet': 'Search requires internet',
     // Theme
     'nightMode': 'Night Mode',
@@ -274,6 +276,7 @@ const Map<String, Map<String, String>> _strings = {
     'later': 'Plus tard',
     'hijriCalendar': 'Calendrier hégirien',
     'today': 'Aujourd\'hui',
+    'privacyPolicy': 'Politique de confidentialité',
     'searchRequiresInternet': 'La recherche nécessite Internet',
     // Theme
     'nightMode': 'Mode Nuit',

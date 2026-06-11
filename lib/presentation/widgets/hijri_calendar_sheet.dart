@@ -213,6 +213,18 @@ class _HijriCalendarSheetState extends State<HijriCalendarSheet> {
 
   Widget _monthNavigator(String lang) {
     final glow = AppTheme.currentActiveGlow;
+    // Material arrow icons don't auto-flip with Directionality, but the Row
+    // order does — so in RTL the "back" buttons sit on the right and must
+    // point right (outward), mirroring the LTR layout.
+    final isRtl = lang == 'ar';
+    final yearBackIcon = isRtl
+        ? Icons.keyboard_double_arrow_right
+        : Icons.keyboard_double_arrow_left;
+    final yearFwdIcon = isRtl
+        ? Icons.keyboard_double_arrow_left
+        : Icons.keyboard_double_arrow_right;
+    final monthBackIcon = isRtl ? Icons.chevron_right : Icons.chevron_left;
+    final monthFwdIcon = isRtl ? Icons.chevron_left : Icons.chevron_right;
     // Gregorian span of the displayed Hijri month, e.g. "Mar – Apr 2026"
     final first = _gregorianFor(_viewYear, _viewMonth, 1);
     final last = _gregorianFor(
@@ -242,9 +254,9 @@ class _HijriCalendarSheetState extends State<HijriCalendarSheet> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          navButton(Icons.keyboard_double_arrow_left, () => _shiftYear(-1)),
+          navButton(yearBackIcon, () => _shiftYear(-1)),
           const SizedBox(width: 6),
-          navButton(Icons.chevron_left, () => _shiftMonth(-1)),
+          navButton(monthBackIcon, () => _shiftMonth(-1)),
           Expanded(
             child: Column(
               children: [
@@ -266,9 +278,9 @@ class _HijriCalendarSheetState extends State<HijriCalendarSheet> {
               ],
             ),
           ),
-          navButton(Icons.chevron_right, () => _shiftMonth(1)),
+          navButton(monthFwdIcon, () => _shiftMonth(1)),
           const SizedBox(width: 6),
-          navButton(Icons.keyboard_double_arrow_right, () => _shiftYear(1)),
+          navButton(yearFwdIcon, () => _shiftYear(1)),
         ],
       ),
     );

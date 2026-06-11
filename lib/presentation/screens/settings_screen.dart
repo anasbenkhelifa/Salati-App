@@ -205,6 +205,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: t(context, 'aboutApp'),
                       onTap: () => _showAboutDialog(context),
                     ),
+                    const SizedBox(height: 12),
+                    // Privacy policy
+                    AppOptionTile.navigation(
+                      icon: Icons.privacy_tip_outlined,
+                      title: t(context, 'privacyPolicy'),
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        launchUrl(
+                          Uri.parse(
+                            'https://github.com/anasbenkhelifa/Salati-App/blob/main/PRIVACY_POLICY.md',
+                          ),
+                          mode: LaunchMode.externalApplication,
+                        );
+                      },
+                    ),
                     const SizedBox(height: 40),
                     // Footer
                     _buildFooter(),
