@@ -12,6 +12,8 @@ import '../../data/services/prayer_times_api_service.dart';
 import '../widgets/apple_glass_card.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/crescent_loader.dart';
+import '../widgets/location_picker_sheet.dart';
+import '../../data/services/bilingual_location_service.dart';
 import 'package:provider/provider.dart';
 
 /// Home screen with LIVE clock, Hijri date, and Prayer Status
@@ -221,6 +223,8 @@ class _HomeScreenState extends State<HomeScreen> {
             : 'Location services are disabled',
         buttonLabel: isArabic ? 'تفعيل GPS' : 'Enable GPS',
         onPressed: () => _prayerProvider.openLocationSettings(),
+        secondaryLabel: t(context, 'chooseCityManually'),
+        onSecondary: () => _pickCityManually(context),
       );
     }
 
@@ -233,6 +237,8 @@ class _HomeScreenState extends State<HomeScreen> {
             : 'Location permission required',
         buttonLabel: isArabic ? 'فتح الإعدادات' : 'Open Settings',
         onPressed: () => _prayerProvider.openAppSettings(),
+        secondaryLabel: t(context, 'chooseCityManually'),
+        onSecondary: () => _pickCityManually(context),
       );
     }
 
@@ -243,6 +249,8 @@ class _HomeScreenState extends State<HomeScreen> {
         message: isArabic ? 'حدث خطأ' : 'Something went wrong',
         buttonLabel: isArabic ? 'إعادة المحاولة' : 'Retry',
         onPressed: () => _prayerProvider.requestPermission(),
+        secondaryLabel: t(context, 'chooseCityManually'),
+        onSecondary: () => _pickCityManually(context),
       );
     }
 
@@ -659,6 +667,40 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// GPS-less onboarding: pick a city from the search sheet instead of
+  /// granting location permission. Completes first-run setup fully.
+  Future<void> _pickCityManually(BuildContext context) async {
+    final result = await LocationPickerSheet.show(context);
+    if (result == null || !mounted) return;
+
+    // Resolve both-language names so the location follows the app language
+    final bilingual = await BilingualLocationService().getLocationNames(
+      result.lat,
+      result.lng,
+    );
+
+    await _prayerProvider.setManualLocation(
+      lat: result.lat,
+      lng: result.lng,
+      cityAr: (bilingual != null && bilingual.cityAr.isNotEmpty)
+          ? bilingual.cityAr
+          : result.cityName,
+      cityEn: (bilingual != null && bilingual.cityEn.isNotEmpty)
+          ? bilingual.cityEn
+          : result.cityName,
+      countryAr: (bilingual != null && bilingual.countryAr.isNotEmpty)
+          ? bilingual.countryAr
+          : result.countryName,
+      countryEn: (bilingual != null && bilingual.countryEn.isNotEmpty)
+          ? bilingual.countryEn
+          : result.countryName,
+      isoCountryCode: result.isoCountryCode.isNotEmpty
+          ? result.isoCountryCode
+          : (bilingual?.isoCountryCode ?? ''),
+    );
+    if (mounted) setState(() {});
+  }
+
   /// Build a clear, actionable error state for the prayer dashboard
   Widget _buildErrorState(
     BuildContext context, {
@@ -666,6 +708,8 @@ class _HomeScreenState extends State<HomeScreen> {
     required String message,
     required String buttonLabel,
     required VoidCallback onPressed,
+    String? secondaryLabel,
+    VoidCallback? onSecondary,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
@@ -703,6 +747,24 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             child: Text(buttonLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
           ),
+          if (secondaryLabel != null && onSecondary != null) ...[
+            const SizedBox(height: 4),
+            TextButton.icon(
+              onPressed: onSecondary,
+              icon: Icon(
+                Icons.search,
+                size: 18,
+                color: AppTheme.currentActiveGlow,
+              ),
+              label: Text(
+                secondaryLabel,
+                style: TextStyle(
+                  color: AppTheme.currentActiveGlow,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

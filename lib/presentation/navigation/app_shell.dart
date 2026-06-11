@@ -15,6 +15,8 @@ import '../../core/theme/app_motion.dart';
 import '../../data/services/analytics_service.dart';
 import '../../data/services/hijri_date_service.dart';
 import '../../data/services/islamic_event_service.dart';
+import '../../data/services/adhan_alarm_service.dart';
+import '../../core/localization/strings.dart';
 import '../../domain/providers/prayer_times_api_provider.dart';
 import '../../services/update_service.dart';
 import '../../widgets/update_dialog.dart';
@@ -134,7 +136,10 @@ class _AppShellState extends State<AppShell> {
       Future.delayed(const Duration(milliseconds: 1500), () {
         if (mounted) {
           AppTourService.showTourIfFirstTime(context, _pageController).then((_) async {
-            // After tour completes (or is skipped because already done), check rating prompt
+            // After the tour: one-time battery exemption prompt (reliable adhan)
+            await _checkBatteryExemptionPrompt();
+
+            // Then the rating prompt
             await _checkRatingPrompt();
 
             // After tour/rating - check for update
@@ -146,6 +151,87 @@ class _AppShellState extends State<AppShell> {
         }
       });
     }
+  }
+
+  /// One-time prompt asking for battery-optimization exemption so the adhan
+  /// fires reliably on aggressive OEMs (Samsung/Xiaomi background killing).
+  /// Shown once after the tour; always reachable later from Controls.
+  Future<void> _checkBatteryExemptionPrompt() async {
+    if (!mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('battery_prompt_shown') ?? false) return;
+
+    final alreadyExempt =
+        await AdhanAlarmService.isIgnoringBatteryOptimizations();
+    await prefs.setBool('battery_prompt_shown', true);
+    if (alreadyExempt || !mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.currentSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                gradient: AppTheme.currentAccentGradient,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: AppTheme.glowShadow(intensity: 0.5),
+              ),
+              child: const Icon(Icons.notifications_active,
+                  color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                t(context, 'batteryPromptTitle'),
+                style: TextStyle(
+                  color: AppTheme.currentTextPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 19,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          t(context, 'batteryPromptBody'),
+          style: TextStyle(color: AppTheme.currentTextSecondary, height: 1.45),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              t(context, 'later'),
+              style: TextStyle(color: AppTheme.currentTextSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              AdhanAlarmService.openBatterySettings();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.currentActiveGlow,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            ),
+            child: Text(
+              t(context, 'allow'),
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Show a rating prompt on the 3rd app open, and every 7 opens after that

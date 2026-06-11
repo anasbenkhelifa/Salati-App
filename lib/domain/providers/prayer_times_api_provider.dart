@@ -939,6 +939,12 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
       await _refreshPrayerTimesOnly(lat, lng, today);
 
+      // GPS-less onboarding: a manual city completes first-run setup just
+      // like the GPS path does, so alarms + live notification start without
+      // location permission ever being granted
+      await _cacheService.markSetupDone();
+      await NotificationManager.instance?.refreshFromCache();
+
       // Fetch qibla by coordinates and notify QiblaProvider
       try {
         final qiblaResponse = await _qiblaApiService.fetchQiblaDirection(

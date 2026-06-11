@@ -38,6 +38,14 @@ const Map<String, Map<String, String>> _strings = {
     'noResults': 'لا توجد نتائج',
     'confirm': 'تأكيد',
     'cancel': 'إلغاء',
+    'sunrise': 'الشروق',
+    'showSunrise': 'إظهار وقت الشروق',
+    'chooseCityManually': 'اختر مدينة يدوياً',
+    'batteryPromptTitle': 'أذان موثوق',
+    'batteryPromptBody':
+        'لضمان تشغيل الأذان في وقته حتى عندما يكون التطبيق مغلقاً، اسمح لصلاتي بالعمل في الخلفية دون قيود البطارية.',
+    'allow': 'السماح',
+    'later': 'لاحقاً',
     'searchRequiresInternet': 'البحث يحتاج إنترنت',
     // Theme
     'nightMode': 'الوضع الداكن',
@@ -141,6 +149,14 @@ const Map<String, Map<String, String>> _strings = {
     'noResults': 'No results found',
     'confirm': 'Confirm',
     'cancel': 'Cancel',
+    'sunrise': 'Sunrise',
+    'showSunrise': 'Show sunrise time',
+    'chooseCityManually': 'Choose city manually',
+    'batteryPromptTitle': 'Reliable Adhan',
+    'batteryPromptBody':
+        'To make sure the adhan always plays on time — even when the app is closed — allow Salati to run in the background without battery restrictions.',
+    'allow': 'Allow',
+    'later': 'Later',
     'searchRequiresInternet': 'Search requires internet',
     // Theme
     'nightMode': 'Night Mode',
@@ -244,6 +260,14 @@ const Map<String, Map<String, String>> _strings = {
     'noResults': 'Aucun résultat',
     'confirm': 'Confirmer',
     'cancel': 'Annuler',
+    'sunrise': 'Lever du soleil',
+    'showSunrise': 'Afficher le lever du soleil',
+    'chooseCityManually': 'Choisir une ville manuellement',
+    'batteryPromptTitle': 'Adhan fiable',
+    'batteryPromptBody':
+        'Pour que l\'adhan sonne toujours à l\'heure, même application fermée, autorisez Salati à fonctionner en arrière-plan sans restriction de batterie.',
+    'allow': 'Autoriser',
+    'later': 'Plus tard',
     'searchRequiresInternet': 'La recherche nécessite Internet',
     // Theme
     'nightMode': 'Mode Nuit',

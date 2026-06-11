@@ -20,6 +20,9 @@
     
     <!-- Vibration permission for prayer alerts -->
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Direct per-app battery exemption dialog (reliable adhan on aggressive OEMs) -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     
     <application
         android:label="Salati"

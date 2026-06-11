@@ -22,6 +22,7 @@ import '../widgets/app_sheet.dart' show StaggerIn;
 import '../../core/theme/app_motion.dart';
 import '../../data/services/adhan_selection_service.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Prayer times screen with AlAdhan API + GPS integration
 class PrayerTimesScreen extends StatefulWidget {
@@ -37,6 +38,8 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   final AlertModeService _alertModeService = AlertModeService();
   Timer? _countdownTimer;
   Duration _countdown = Duration.zero;
+  SharedPreferences? _prefs;
+  bool _showSunrise = true;
 
   // Per-prayer alert modes
   Map<String, AlertMode> _alertModes = {};
@@ -49,6 +52,14 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     super.initState();
     _provider = context.read<PrayerTimesApiProvider>();
     _initializePrayerTimes();
+    SharedPreferences.getInstance().then((p) {
+      if (mounted) {
+        setState(() {
+          _prefs = p;
+          _showSunrise = p.getBool('show_sunrise') ?? true;
+        });
+      }
+    });
   }
 
   Future<void> _initializePrayerTimes() async {
@@ -78,6 +89,8 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       if (mounted) {
         setState(() {
           _countdown = _provider.getCountdown();
+          // Cheap sync read — picks up the Controls toggle within a second
+          _showSunrise = _prefs?.getBool('show_sunrise') ?? _showSunrise;
         });
       }
     });
@@ -378,20 +391,24 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
         _buildLocationHeader(context, isArabic, rootContext: context),
         const SizedBox(height: 24),
 
-        // Prayer cards: cascade in with a stagger on first build
+        // Prayer cards: cascade in with a stagger on first build.
+        // A slim sunrise (Shuruq) row sits between Fajr and Dhuhr.
         ...List.generate(5, (index) {
           final isNext = index == _provider.nextPrayerIndex;
+          final card = Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildPrayerCard(
+              context: context,
+              index: index,
+              isNext: isNext,
+              hijriDate: hijriDate,
+            ),
+          );
           return StaggerIn(
             index: index + 1,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _buildPrayerCard(
-                context: context,
-                index: index,
-                isNext: isNext,
-                hijriDate: hijriDate,
-              ),
-            ),
+            child: (index == 1 && _showSunrise)
+                ? Column(children: [_buildSunriseRow(context), card])
+                : card,
           );
         }),
       ],
@@ -732,6 +749,50 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       statusNotifier.dispose();
       cityNotifier.dispose();
     }
+  }
+
+  /// Slim, non-interactive sunrise (Shuruq) row between Fajr and Dhuhr —
+  /// marks the end of Fajr time. Deliberately quieter than prayer cards.
+  Widget _buildSunriseRow(BuildContext context) {
+    final response = _provider.response;
+    if (response == null) return const SizedBox.shrink();
+    final timeStr = westernDigits(response.timings.sunrise);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppTheme.currentTextSecondary.withValues(alpha: 0.15),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.wb_twilight, color: Color(0xFFFFB74D), size: 20),
+            const SizedBox(width: 14),
+            Text(
+              t(context, 'sunrise'),
+              style: TextStyle(
+                color: AppTheme.currentTextSecondary,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              timeStr,
+              style: TextStyle(
+                color: AppTheme.currentTextSecondary,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildPrayerCard({

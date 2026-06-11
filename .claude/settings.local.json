@@ -24,7 +24,10 @@
       "PowerShell(flutter build *)",
       "PowerShell(Set-Location E:\\\\Salati-App; $out = flutter analyze 2>$null | Out-String; $out -split \"`n\" | Where-Object { $_ -match ' error ' }; \"analyze done\")",
       "Bash(git add *)",
-      "Bash(git commit -m 'v3.0.0 — full UI redesign, offline-exact alarms, first-run fixes *)"
+      "Bash(git commit -m 'v3.0.0 — full UI redesign, offline-exact alarms, first-run fixes *)",
+      "Bash(git rm *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   }
 }

@@ -85,4 +85,16 @@ class AdhanAlarmService {
       debugPrint('[AdhanAlarmService] Error opening battery settings: $e');
     }
   }
+
+  /// Whether the app is already exempt from battery optimizations.
+  static Future<bool> isIgnoringBatteryOptimizations() async {
+    try {
+      final result =
+          await _channel.invokeMethod<bool>('isIgnoringBatteryOptimizations');
+      return result ?? false;
+    } catch (e) {
+      debugPrint('[AdhanAlarmService] Error checking battery exemption: $e');
+      return false;
+    }
+  }
 }

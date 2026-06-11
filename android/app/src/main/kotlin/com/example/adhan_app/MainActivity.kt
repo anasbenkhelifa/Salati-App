@@ -137,6 +137,11 @@ class MainActivity : FlutterActivity() {
                     startActivity(intent)
                     result.success(true)
                 }
+                "isIgnoringBatteryOptimizations" -> {
+                    result.success(
+                        AdhanAlarmScheduler.isIgnoringBatteryOptimizations(this)
+                    )
+                }
                 "scheduleTestAdhan" -> {
                     // Schedule a test adhan alarm to fire in 5 seconds
                     val prayerIndex = call.argument<Int>("prayerIndex") ?: 0
