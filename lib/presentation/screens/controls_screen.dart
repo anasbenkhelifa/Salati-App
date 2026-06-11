@@ -31,7 +31,6 @@ class _ControlsScreenState extends State<ControlsScreen> {
   bool _compassHapticsEnabled = true;
   bool _maxVolumeOverrideEnabled = false;
   bool _preAdhanEnabled = false;
-  bool _showSunriseEnabled = true;
   bool _isDisposed = false;
 
   // Live Notification Mode
@@ -71,7 +70,6 @@ class _ControlsScreenState extends State<ControlsScreen> {
         _maxVolumeOverrideEnabled =
             prefs.getBool('max_volume_override') ?? false;
         _preAdhanEnabled = prefs.getBool('pre_adhan_enabled') ?? true;
-        _showSunriseEnabled = prefs.getBool('show_sunrise') ?? true;
         _liveNotifMode = prefs.getInt('live_notification_mode') ?? 1;
       });
     }
@@ -179,18 +177,6 @@ class _ControlsScreenState extends State<ControlsScreen> {
                             // Reschedule all alarms to add/remove pre-adhan reminders
                             await AdhanAlarmService.rescheduleAllAlarms();
                             AnalyticsService.instance.logPreAdhanToggled(val);
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        // Sunrise (Shuruq) row on the Prayer Times screen
-                        AppOptionTile.toggle(
-                          icon: Icons.wb_twilight,
-                          title: t(context, 'showSunrise'),
-                          value: _showSunriseEnabled,
-                          onChanged: (val) async {
-                            setState(() => _showSunriseEnabled = val);
-                            final prefs = await SharedPreferences.getInstance();
-                            await prefs.setBool('show_sunrise', val);
                           },
                         ),
                         const SizedBox(height: 12),

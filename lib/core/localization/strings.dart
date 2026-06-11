@@ -108,7 +108,7 @@ const Map<String, Map<String, String>> _strings = {
     'feature3': '• بوصلة القبلة للاتجاه الصحيح في أي مكان.',
     'feature4': '• أذانات مخصصة وتنبيهات مسبقة الصلاة.',
     'openSourceNotice': 'هذا المشروع مفتوح المصدر ومبني باستخدام Flutter لتقديم تجربة صلاة خالية من الإعلانات تركز على الخصوصية.',
-    'developedByHeart': 'تطوير بواسطة قلب',
+    'developedByHeart': 'طُوِّر بـ ❤️ بواسطة',
     'gotIt': 'حسناً',
     'aboutFeature1': 'مظاهر زجاجية قابلة للتخصيص',
     'aboutFeature2': 'حسابات دقيقة تلقائية للمواقيت',

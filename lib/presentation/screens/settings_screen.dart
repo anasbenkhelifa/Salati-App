@@ -205,21 +205,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: t(context, 'aboutApp'),
                       onTap: () => _showAboutDialog(context),
                     ),
-                    const SizedBox(height: 12),
-                    // Privacy policy
-                    AppOptionTile.navigation(
-                      icon: Icons.privacy_tip_outlined,
-                      title: t(context, 'privacyPolicy'),
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        launchUrl(
-                          Uri.parse(
-                            'https://github.com/anasbenkhelifa/Salati-App/blob/main/PRIVACY_POLICY.md',
-                          ),
-                          mode: LaunchMode.externalApplication,
-                        );
-                      },
-                    ),
                     const SizedBox(height: 40),
                     // Footer
                     _buildFooter(),
@@ -778,7 +763,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+
+                  // Privacy policy link (highlighted, tappable)
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      launchUrl(
+                        Uri.parse(
+                          'https://github.com/anasbenkhelifa/Salati-App/blob/main/PRIVACY_POLICY.md',
+                        ),
+                        mode: LaunchMode.externalApplication,
+                      );
+                    },
+                    child: Text(
+                      t(context, 'privacyPolicy'),
+                      style: TextStyle(
+                        color: AppTheme.currentActiveGlow,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
+                        decorationColor:
+                            AppTheme.currentActiveGlow.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
                   // Divider
                   Container(

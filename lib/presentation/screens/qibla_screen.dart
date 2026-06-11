@@ -271,7 +271,7 @@ class _QiblaScreenState extends State<QiblaScreen>
                     Text(
                       isArabic
                           ? 'حرّك الهاتف بشكل ∞ للمعايرة'
-                          : 'Move phone in figure-8 to calibrate',
+                          : 'Move phone in ∞ motion to calibrate',
                       style: TextStyle(
                         color: AppTheme.currentTextSecondary.withValues(alpha: 0.5),
                         fontSize: 12,
