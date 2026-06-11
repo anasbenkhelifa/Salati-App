@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:lat_lng_to_timezone/lat_lng_to_timezone.dart' as tzmap;
 
 /// Service to manage the persistent live prayer notification
 class NotificationService {
@@ -256,5 +259,84 @@ class NotificationService {
   Future<void> cancelNotification() async {
     await _notifications.cancel(notificationId);
     debugPrint('[NotificationService] Notification cancelled');
+  }
+
+  // ───────────────────── Surah Al-Kahf Friday reminder ─────────────────────
+
+  static const int kahfNotificationId = 3001;
+  static const String _kahfChannelId = 'jumuah_reminders';
+
+  /// (Re)schedule or cancel the weekly Friday-morning Surah Al-Kahf
+  /// reminder based on the 'kahf_reminder_enabled' pref (default on).
+  /// Fully offline: local timezone resolved from cached coordinates.
+  Future<void> syncKahfReminder() async {
+    try {
+      if (!_isInitialized) await initializePluginOnly();
+      final prefs = await SharedPreferences.getInstance();
+      final enabled = prefs.getBool('kahf_reminder_enabled') ?? true;
+
+      if (!enabled) {
+        await _notifications.cancel(kahfNotificationId);
+        debugPrint('[NotificationService] Kahf reminder cancelled');
+        return;
+      }
+
+      // Resolve local timezone from cached location (offline)
+      tz.Location location = tz.UTC;
+      final lat = prefs.getDouble('cached_lat');
+      final lng = prefs.getDouble('cached_lng');
+      if (lat != null && lng != null) {
+        try {
+          location = tz.getLocation(tzmap.latLngToTimezoneString(lat, lng));
+        } catch (_) {}
+      }
+
+      // Next Friday 09:00 local; repeats weekly via dayOfWeekAndTime
+      final now = tz.TZDateTime.now(location);
+      var next = tz.TZDateTime(location, now.year, now.month, now.day, 9);
+      while (next.weekday != DateTime.friday || !next.isAfter(now)) {
+        next = next.add(const Duration(days: 1));
+      }
+
+      final lang = prefs.getString('app_language') ?? 'ar';
+      final String title;
+      final String body;
+      switch (lang) {
+        case 'ar':
+          title = 'جمعة مباركة 🌿';
+          body = 'لا تنسَ قراءة سورة الكهف اليوم';
+          break;
+        case 'fr':
+          title = 'Joumou\'a moubaraka 🌿';
+          body = 'N\'oubliez pas de lire la sourate Al-Kahf aujourd\'hui';
+          break;
+        default:
+          title = 'Blessed Friday 🌿';
+          body = 'Don\'t forget to read Surah Al-Kahf today';
+      }
+
+      const androidDetails = AndroidNotificationDetails(
+        _kahfChannelId,
+        'Jumu\'ah Reminders',
+        channelDescription: 'Friday Surah Al-Kahf reminder',
+        importance: Importance.high,
+        priority: Priority.high,
+      );
+
+      await _notifications.zonedSchedule(
+        kahfNotificationId,
+        title,
+        body,
+        next,
+        const NotificationDetails(android: androidDetails),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+      );
+      debugPrint('[NotificationService] Kahf reminder scheduled for $next');
+    } catch (e) {
+      debugPrint('[NotificationService] Kahf reminder sync failed: $e');
+    }
   }
 }

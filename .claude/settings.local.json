@@ -29,7 +29,9 @@
       "Bash(git commit *)",
       "Bash(git push *)",
       "PowerShell(Get-ChildItem *)",
-      "PowerShell(Set-Location E:\\\\Salati-App; $out = flutter analyze 2>$null | Out-String; $out -split \"`n\" | Where-Object { $_ -match ' error ' }; \"clean\")"
+      "PowerShell(Set-Location E:\\\\Salati-App; $out = flutter analyze 2>$null | Out-String; $out -split \"`n\" | Where-Object { $_ -match ' error ' }; \"clean\")",
+      "PowerShell(Set-Content *)",
+      "PowerShell(dart format *)"
     ]
   }
 }

@@ -97,6 +97,9 @@ class _NotificationManagerState extends State<NotificationManager>
     // Load from CACHE ONLY - no GPS, no network
     await _startFromCache();
 
+    // Keep the weekly Surah Al-Kahf reminder in sync (non-blocking)
+    _notificationService.syncKahfReminder();
+
     // Refresh Hijri cache in background (non-blocking, after UI is visible)
     _refreshHijriCacheInBackground();
   }

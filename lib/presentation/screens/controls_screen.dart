@@ -11,6 +11,8 @@ import '../../core/tour/app_tour_service.dart';
 import '../../domain/providers/qibla_provider.dart';
 import '../../domain/providers/live_notification_provider.dart';
 import '../../data/services/adhan_alarm_service.dart';
+import '../../data/services/notification_service.dart';
+import '../../data/services/settings_backup_service.dart';
 import '../widgets/app_option_tile.dart';
 import '../../data/services/prayer_times_api_service.dart';
 import '../../domain/providers/prayer_times_api_provider.dart';
@@ -31,6 +33,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
   bool _compassHapticsEnabled = true;
   bool _maxVolumeOverrideEnabled = false;
   bool _preAdhanEnabled = false;
+  bool _kahfReminderEnabled = true;
   bool _isDisposed = false;
 
   // Live Notification Mode
@@ -70,6 +73,7 @@ class _ControlsScreenState extends State<ControlsScreen> {
         _maxVolumeOverrideEnabled =
             prefs.getBool('max_volume_override') ?? false;
         _preAdhanEnabled = prefs.getBool('pre_adhan_enabled') ?? true;
+        _kahfReminderEnabled = prefs.getBool('kahf_reminder_enabled') ?? true;
         _liveNotifMode = prefs.getInt('live_notification_mode') ?? 1;
       });
     }
@@ -180,6 +184,20 @@ class _ControlsScreenState extends State<ControlsScreen> {
                           },
                         ),
                         const SizedBox(height: 12),
+                        // Surah Al-Kahf Friday reminder
+                        AppOptionTile.toggle(
+                          icon: Icons.menu_book_rounded,
+                          title: t(context, 'kahfReminder'),
+                          subtitle: t(context, 'kahfReminderDesc'),
+                          value: _kahfReminderEnabled,
+                          onChanged: (val) async {
+                            setState(() => _kahfReminderEnabled = val);
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setBool('kahf_reminder_enabled', val);
+                            await NotificationService().syncKahfReminder();
+                          },
+                        ),
+                        const SizedBox(height: 12),
                         // Live Notification Mode
                         AppOptionTile.navigation(
                           icon: Icons.notifications_active_outlined,
@@ -208,6 +226,42 @@ class _ControlsScreenState extends State<ControlsScreen> {
                           onTap: () async {
                             HapticFeedback.lightImpact();
                             await AdhanAlarmService.openBatterySettings();
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        // Backup settings
+                        AppOptionTile.navigation(
+                          icon: Icons.upload_file_outlined,
+                          title: t(context, 'backupSettings'),
+                          subtitle: t(context, 'backupSettingsDesc'),
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            SettingsBackupService.exportSettings();
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        // Restore settings
+                        AppOptionTile.navigation(
+                          icon: Icons.settings_backup_restore,
+                          title: t(context, 'restoreSettings'),
+                          subtitle: t(context, 'restoreSettingsDesc'),
+                          onTap: () async {
+                            HapticFeedback.lightImpact();
+                            final ok =
+                                await SettingsBackupService.importSettings();
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  ok
+                                      ? t(context, 'restoreDone')
+                                      : t(context, 'restoreFailed'),
+                                ),
+                                backgroundColor: ok
+                                    ? AppTheme.currentActiveGlow
+                                    : Colors.red,
+                              ),
+                            );
                           },
                         ),
                         const SizedBox(height: 12),

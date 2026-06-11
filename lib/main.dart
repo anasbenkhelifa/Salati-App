@@ -11,7 +11,9 @@ import 'notification_manager.dart';
 import 'data/services/adhan_selection_service.dart';
 import 'domain/providers/prayer_times_api_provider.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
+import 'dart:ui' show PlatformDispatcher;
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'firebase_options.dart';
 import 'data/services/analytics_service.dart';
 import 'data/services/push_notification_service.dart';
@@ -22,6 +24,13 @@ void main() async {
 
   // Initialize Firebase First
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Crashlytics: report all uncaught Flutter and platform errors
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
 
   // Log app open and set user properties for analytics segmentation
   AnalyticsService.instance.logAppOpened();
