@@ -225,12 +225,20 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
 
-          const Spacer(),
-
-          // Row 2: Premium Analog Clock Centerpiece with prayer progress ring
-          _buildClockCenterpiece(),
-
-          const Spacer(),
+          // Row 2: Premium Analog Clock Centerpiece with prayer progress
+          // ring. FittedBox scales the fixed 268dp design DOWN on short or
+          // narrow screens (and never up), so no layout overflows anywhere.
+          Expanded(
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: _buildClockCenterpiece(),
+                ),
+              ),
+            ),
+          ),
 
           // Row 3: Prayer Status
           _buildPrayerDashboardSection(context, isArabic),
@@ -335,29 +343,35 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
 
-          // Right side: Countdown
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                prayerStatus.countdownSign,
-                style: TextStyle(
-                  color: prayerStatus.color.withValues(alpha: 0.7),
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+          // Right side: Countdown (FittedBox: shrinks instead of overflowing
+          // on narrow screens / large system fonts)
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    prayerStatus.countdownSign,
+                    style: TextStyle(
+                      color: prayerStatus.color.withValues(alpha: 0.7),
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    prayerStatus.countdownTime,
+                    style: AppTheme.displayDigits(
+                      fontSize: 32,
+                      color: prayerStatus.color,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 4),
-              Text(
-                prayerStatus.countdownTime,
-                style: AppTheme.displayDigits(
-                  fontSize: 32,
-                  color: prayerStatus.color,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),

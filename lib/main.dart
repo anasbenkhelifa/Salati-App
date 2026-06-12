@@ -111,11 +111,21 @@ class _AdhanAppState extends State<AdhanApp> {
               GlobalCupertinoLocalizations.delegate,
             ],
 
-            // Safe builder: just wrap child with Directionality, don't break inheritance
+            // Safe builder: wrap with Directionality + clamp the system font
+            // scale so accessibility XXL fonts can't break fixed rows
             builder: (context, child) {
-              return Directionality(
-                textDirection: _localeController.textDirection,
-                child: child ?? const SizedBox.shrink(),
+              final media = MediaQuery.of(context);
+              return MediaQuery(
+                data: media.copyWith(
+                  textScaler: media.textScaler.clamp(
+                    minScaleFactor: 0.85,
+                    maxScaleFactor: 1.3,
+                  ),
+                ),
+                child: Directionality(
+                  textDirection: _localeController.textDirection,
+                  child: child ?? const SizedBox.shrink(),
+                ),
               );
             },
 

@@ -353,8 +353,27 @@ class _QiblaScreenState extends State<QiblaScreen>
     final isAligned = _provider.isAligned;
     final headingDeg = _provider.headingDegrees;
 
+    // Scale the fixed 280dp dial down on small screens (never up)
+    final shortest = MediaQuery.of(context).size.shortestSide;
+    final dialSize = math.min(280.0, shortest - 96);
+
     return SizedBox(
       key: TourKeyRegistry.instance.compassDialKey,
+      width: dialSize,
+      height: dialSize,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: _buildCompassStack(qiblaBearing, isAligned, headingDeg),
+      ),
+    );
+  }
+
+  Widget _buildCompassStack(
+    double qiblaBearing,
+    bool isAligned,
+    int headingDeg,
+  ) {
+    return SizedBox(
       width: 280,
       height: 280,
       child: Stack(
