@@ -174,21 +174,17 @@ class PrayerWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.prayer_name, displayName)
                 views.setTextViewText(R.id.prayer_time, nextPrayerTime)
 
-                // Calculate countdown
+                // Live countdown: Chronometer ticks by itself in the
+                // launcher — base = uptime when the prayer arrives
                 if (nextPrayerCal != null) {
                     val diffMs = nextPrayerCal.timeInMillis - now.timeInMillis
-                    if (diffMs > 0) {
-                        val hours = diffMs / (1000 * 60 * 60)
-                        val mins = (diffMs / (1000 * 60)) % 60
-
-                        val countdownText = if (isArabic) {
-                            if (hours > 0) "بعد ${hours}س ${mins}د" else "بعد ${mins} دقيقة"
-                        } else {
-                            if (hours > 0) "in ${hours}h ${mins}m" else "in ${mins}m"
-                        }
-                        views.setTextViewText(R.id.countdown, countdownText)
+                    if (diffMs > 0 && android.os.Build.VERSION.SDK_INT >= 24) {
+                        val base = android.os.SystemClock.elapsedRealtime() + diffMs
+                        views.setChronometerCountDown(R.id.countdown_chrono, true)
+                        views.setChronometer(R.id.countdown_chrono, base, null, true)
+                        views.setViewVisibility(R.id.countdown_chrono, android.view.View.VISIBLE)
                     } else {
-                        views.setTextViewText(R.id.countdown, "")
+                        views.setViewVisibility(R.id.countdown_chrono, android.view.View.GONE)
                     }
                 }
 
@@ -201,7 +197,7 @@ class PrayerWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.next_prayer_label, if (isArabic) "الصلاة القادمة" else "Next Prayer")
             views.setTextViewText(R.id.prayer_name, if (isArabic) "افتح التطبيق" else "Open app")
             views.setTextViewText(R.id.prayer_time, "--:--")
-            views.setTextViewText(R.id.countdown, "")
+            views.setViewVisibility(R.id.countdown_chrono, android.view.View.GONE)
             Log.d(TAG, "No cached prayer times found")
         }
         
@@ -223,7 +219,7 @@ class PrayerWidgetProvider : AppWidgetProvider() {
         views.setTextViewText(R.id.next_prayer_label, if (isArabic) "الصلاة القادمة" else "Next Prayer")
         views.setTextViewText(R.id.prayer_name, if (isArabic) "لا توجد بيانات" else "No data")
         views.setTextViewText(R.id.prayer_time, "--:--")
-        views.setTextViewText(R.id.countdown, "")
+        views.setViewVisibility(R.id.countdown_chrono, android.view.View.GONE)
     }
     
     private fun parseTime(timeStr: String, today: Calendar): Calendar? {

@@ -85,20 +85,23 @@
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-medium" />
 
-                <TextView
-                    android:id="@+id/countdown"
+                <!-- Live ticking countdown: Chronometer self-updates in the
+                     launcher process, no app wakeups needed -->
+                <Chronometer
+                    android:id="@+id/countdown_chrono"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/widget_pill"
+                    android:countDown="true"
                     android:paddingStart="10dp"
                     android:paddingEnd="10dp"
                     android:paddingTop="2dp"
                     android:paddingBottom="2dp"
                     android:layout_marginTop="4dp"
-                    android:text="in 2h 15m"
                     android:textColor="#F0C97E"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium" />
             </LinearLayout>
         </LinearLayout>
 

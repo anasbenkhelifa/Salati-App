@@ -73,6 +73,17 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             // (silent/vibrate used to return early and skip rescheduling)
             AdhanAlarmScheduler.scheduleNextAlarm(context)
 
+            // Rebase the home-screen widget's live countdown to the next prayer
+            try {
+                val mgr = android.appwidget.AppWidgetManager.getInstance(context)
+                val ids = mgr.getAppWidgetIds(
+                    android.content.ComponentName(context, PrayerWidgetProvider::class.java)
+                )
+                if (ids.isNotEmpty()) PrayerWidgetProvider().onUpdate(context, mgr, ids)
+            } catch (e: Exception) {
+                Log.w(TAG, "Widget refresh failed: ${e.message}")
+            }
+
             // Get language preference from SharedPreferences
             val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
             val isArabic = prefs.getString("flutter.app_language", "ar") == "ar"
