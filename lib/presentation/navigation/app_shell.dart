@@ -7,6 +7,7 @@ import '../screens/settings_screen.dart';
 import '../widgets/floating_nav_bar.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/living_background.dart';
+import '../widgets/salati_logo.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_theme_provider.dart';
 import '../../domain/providers/qibla_provider.dart';
@@ -494,18 +495,7 @@ class _AppShellState extends State<AppShell> {
                             child: Center(
                               child: Transform.scale(
                                 scale: 1 + 0.6 * v,
-                                child: Icon(
-                                  Icons.mosque,
-                                  size: 72,
-                                  color: AppTheme.currentActiveGlow,
-                                  shadows: [
-                                    Shadow(
-                                      color: AppTheme.currentActiveGlow
-                                          .withValues(alpha: 0.8),
-                                      blurRadius: 32,
-                                    ),
-                                  ],
-                                ),
+                                child: const SalatiLogo(size: 96, glow: true),
                               ),
                             ),
                           ),

@@ -107,6 +107,7 @@ class SheetHandle extends StatelessWidget {
 /// with an optional trailing widget (e.g. close button).
 class SheetHeader extends StatelessWidget {
   final IconData icon;
+  final Widget? iconWidget;
   final String title;
   final String? subtitle;
   final Widget? trailing;
@@ -114,6 +115,7 @@ class SheetHeader extends StatelessWidget {
   const SheetHeader({
     super.key,
     required this.icon,
+    this.iconWidget,
     required this.title,
     this.subtitle,
     this.trailing,
@@ -142,7 +144,8 @@ class SheetHeader extends StatelessWidget {
               ),
               boxShadow: AppTheme.glowShadow(intensity: 0.4),
             ),
-            child: Icon(icon, color: AppTheme.currentActiveGlow, size: 24),
+            child: iconWidget ??
+                Icon(icon, color: AppTheme.currentActiveGlow, size: 24),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -212,6 +215,7 @@ class StaggerIn extends StatelessWidget {
 /// accent gradient and a soft glow.
 class SheetTile extends StatelessWidget {
   final IconData icon;
+  final Widget? leadingWidget;
   final String title;
   final String? subtitle;
   final bool selected;
@@ -222,6 +226,7 @@ class SheetTile extends StatelessWidget {
   const SheetTile({
     super.key,
     required this.icon,
+    this.leadingWidget,
     required this.title,
     this.subtitle,
     required this.selected,
@@ -283,13 +288,14 @@ class SheetTile extends StatelessWidget {
                 boxShadow:
                     selected ? AppTheme.glowShadow(intensity: 0.5) : null,
               ),
-              child: Icon(
-                icon,
-                color: selected
-                    ? _onGradientColor()
-                    : AppTheme.currentTextSecondary,
-                size: 21,
-              ),
+              child: leadingWidget ??
+                  Icon(
+                    icon,
+                    color: selected
+                        ? _onGradientColor()
+                        : AppTheme.currentTextSecondary,
+                    size: 21,
+                  ),
             ),
             const SizedBox(width: 14),
             Expanded(

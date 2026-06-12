@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+
+
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108">
+
+  
+  <svg x="18" y="18" width="72" height="72" viewBox="0 0 96 96">
+
+    <defs>
+      <clipPath id="dome-fg">
+        <path d="M12,76 A24,24 0 0 1 60,76 Z"></path>
+      </clipPath>
+      <mask id="crescent-fg">
+        <circle cx="36" cy="37" r="3.8" fill="white"></circle>
+        <circle cx="37.7" cy="36.1" r="3.2" fill="black"></circle>
+      </mask>
+    </defs>
+
+    
+    <rect x="8" y="76" width="80" height="2.5" rx="1.25" fill="#E8C476"></rect>
+
+    
+    <g clip-path="url(#dome-fg)" stroke="#E8C476" stroke-width="1" fill="none">
+      <path d="M12,28 L60,76 M12,40 L60,88 M12,52 L60,100 M12,64 L60,112 M12,76 L60,124"></path>
+      <path d="M60,28 L12,76 M60,40 L12,88 M60,52 L12,100 M60,64 L12,112 M60,76 L12,124"></path>
+    </g>
+
+    
+    <path d="M12,76 A24,24 0 0 1 60,76" fill="none" stroke="#E8C476" stroke-width="2.5"></path>
+    
+    <path d="M21,76 A15,24 0 0 1 51,76" fill="none" stroke="#E8C476" stroke-width="1.6"></path>
+    <path d="M29.5,76 A6.5,24 0 0 1 42.5,76" fill="none" stroke="#E8C476" stroke-width="1.6"></path>
+
+    
+    <path d="M31,52.5 Q36,45 41,52.5 Z" fill="#E8C476"></path>
+
+    
+    <line x1="36" y1="48" x2="36" y2="44" stroke="#E8C476" stroke-width="1.3" stroke-linecap="round"></line>
+    <circle cx="36" cy="42.5" r="1.5" fill="#E8C476"></circle>
+
+    
+    <circle cx="36" cy="37" r="3.8" fill="#E8C476" mask="url(#crescent-fg)"></circle>
+
+    
+    <rect x="66" y="33" width="12" height="43" fill="none" stroke="#E8C476" stroke-width="2.5"></rect>
+    <line x1="70.5" y1="38" x2="70.5" y2="71" stroke="#E8C476" stroke-width="1.3" stroke-linecap="round"></line>
+    <line x1="73.5" y1="38" x2="73.5" y2="71" stroke="#E8C476" stroke-width="1.3" stroke-linecap="round"></line>
+
+    
+    <rect x="66" y="16" width="12" height="13" fill="none" stroke="#E8C476" stroke-width="2.5"></rect>
+    <line x1="66" y1="20" x2="78" y2="20" stroke="#E8C476" stroke-width="1.3"></line>
+    <line x1="70.5" y1="16" x2="70.5" y2="29" stroke="#E8C476" stroke-width="1.3"></line>
+    <line x1="73.5" y1="16" x2="73.5" y2="29" stroke="#E8C476" stroke-width="1.3"></line>
+
+  </svg>
+
+</svg>

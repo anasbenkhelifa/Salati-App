@@ -17,6 +17,7 @@ import '../widgets/glass_container.dart';
 import '../navigation/app_shell.dart';
 import 'controls_screen.dart';
 import '../widgets/rate_app_sheet.dart';
+import '../widgets/salati_logo.dart';
 
 /// Settings screen with glass setting cards and language switcher
 class SettingsScreen extends StatefulWidget {
@@ -254,19 +255,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // Header row
             Row(
               children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppTheme.currentActiveGlow.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.mosque_rounded,
-                    color: AppTheme.currentActiveGlow,
-                    size: 20,
-                  ),
-                ),
+                const SalatiLogo(size: 36),
                 const SizedBox(width: 12),
                 Text(
                   isArabic ? 'اختبار الأذان' : 'Adhan Debug',
@@ -665,33 +654,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // App icon placeholder
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppTheme.currentActiveGlow,
-                          AppTheme.currentActiveGlow.withValues(alpha: 0.7),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.currentActiveGlow.withValues(alpha: 0.4),
-                          blurRadius: 15,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.mosque_rounded,
-                      size: 48,
-                      color: Colors.white,
-                    ),
-                  ),
+                  const SalatiLogo(size: 84, glow: true),
                   const SizedBox(height: 20),
 
                   // App name

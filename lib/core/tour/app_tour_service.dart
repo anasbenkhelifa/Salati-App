@@ -11,6 +11,7 @@ import '../../domain/providers/prayer_times_api_provider.dart';
 import '../../presentation/screens/controls_screen.dart';
 import '../../presentation/widgets/hijri_calendar_sheet.dart';
 import '../../presentation/widgets/prayer_log_sheet.dart';
+import '../../presentation/widgets/salati_logo.dart';
 import 'tour_key_registry.dart';
 
 /// Guided app tour service.
@@ -470,6 +471,7 @@ class AppTourService {
         return _OverlayCard(
           lang: lang,
           icon: Icons.mosque,
+          iconWidget: const Center(child: SalatiLogo(size: 46)),
           title: _l(
             lang,
             ar: 'مرحباً بك في صلاتي',
@@ -808,6 +810,7 @@ class AppTourService {
 class _OverlayCard extends StatelessWidget {
   final String lang;
   final IconData icon;
+  final Widget? iconWidget;
   final String title;
   final String message;
   final String? primaryLabel;
@@ -818,6 +821,7 @@ class _OverlayCard extends StatelessWidget {
   const _OverlayCard({
     required this.lang,
     required this.icon,
+    this.iconWidget,
     required this.title,
     required this.message,
     this.primaryLabel,
@@ -873,7 +877,8 @@ class _OverlayCard extends StatelessWidget {
                         ),
                         boxShadow: AppTheme.glowShadow(intensity: 0.9),
                       ),
-                      child: Icon(icon, color: glow, size: 40),
+                      child: iconWidget ??
+                          Icon(icon, color: glow, size: 40),
                     ),
                     const SizedBox(height: 20),
                     Text(

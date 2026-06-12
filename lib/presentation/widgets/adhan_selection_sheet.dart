@@ -8,6 +8,7 @@ import '../../core/localization/app_locale_provider.dart';
 import '../../data/services/adhan_selection_service.dart';
 import '../../data/models/adhan_option.dart';
 import 'app_sheet.dart';
+import 'salati_logo.dart';
 
 /// Bottom sheet for selecting adhan for a prayer
 class AdhanSelectionSheet extends StatefulWidget {
@@ -74,6 +75,7 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
         children: [
           SheetHeader(
             icon: Icons.mosque,
+            iconWidget: const Center(child: SalatiLogo(size: 28)),
             title: t(context, 'selectAdhan'),
             subtitle: widget.prayerName,
           ),
@@ -171,6 +173,9 @@ class _AdhanSelectionSheetState extends State<AdhanSelectionSheet> {
   Widget _buildAdhanTile(AdhanOption adhan, bool isSelected, bool isArabic) {
     return SheetTile(
       icon: adhan.isCustom ? Icons.library_music : Icons.mosque,
+      leadingWidget: adhan.isCustom
+          ? null
+          : const Center(child: SalatiLogo(size: 26)),
       title: isArabic ? adhan.nameAr : adhan.name,
       subtitle: adhan.duration != null ? _formatDuration(adhan.duration!) : null,
       selected: isSelected,

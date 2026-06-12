@@ -9,6 +9,7 @@ import '../../core/localization/app_locale_provider.dart';
 import '../../domain/providers/qibla_provider.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/crescent_loader.dart';
+import '../widgets/salati_logo.dart';
 
 /// Qibla compass screen with smooth animated rotation and on-target glow
 class QiblaScreen extends StatefulWidget {
@@ -556,17 +557,14 @@ class _QiblaScreenState extends State<QiblaScreen>
               ),
             ),
           ),
-          // Kaaba icon at Qibla position
+          // Salati mark at Qibla position
           Transform.rotate(
             angle: qiblaBearing * math.pi / 180,
             child: Align(
               alignment: Alignment.topCenter,
               child: Container(
                 margin: const EdgeInsets.only(top: 55),
-                width: 28,
-                height: 28,
                 decoration: BoxDecoration(
-                  color: AppTheme.currentActiveGlow,
                   borderRadius: BorderRadius.circular(6),
                   boxShadow: [
                     BoxShadow(
@@ -576,7 +574,7 @@ class _QiblaScreenState extends State<QiblaScreen>
                     ),
                   ],
                 ),
-                child: Icon(Icons.mosque, color: Colors.white, size: 18),
+                child: const SalatiLogo(size: 28),
               ),
             ),
           ),
