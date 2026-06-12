@@ -427,6 +427,9 @@ class _AppShellState extends State<AppShell> {
                         constraints: const BoxConstraints(maxWidth: 600),
                         child: PageView.builder(
                           controller: _pageController,
+                          // Pre-build adjacent pages so the FIRST swipe after
+                          // launch doesn't stutter building a screen mid-drag
+                          allowImplicitScrolling: true,
                           physics: AppTourService.isRunning
                               ? const NeverScrollableScrollPhysics() // Disable swipe during tour
                               : const ClampingScrollPhysics(),       // Prevents overscroll glow issues

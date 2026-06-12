@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/localization/strings.dart';
 import '../../core/tour/tour_key_registry.dart';
@@ -18,6 +19,8 @@ import '../widgets/pressable_scale.dart';
 import '../widgets/location_picker_sheet.dart';
 import '../widgets/adhan_selection_sheet.dart';
 import '../widgets/fasting_tracker_sheet.dart';
+import '../widgets/prayer_log_sheet.dart';
+import '../../data/services/prayer_log_service.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/app_sheet.dart' show StaggerIn;
 import '../../core/theme/app_motion.dart';
@@ -41,6 +44,10 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   Duration _countdown = Duration.zero;
   SharedPreferences? _prefs;
   bool _showSunrise = true;
+
+  // Prayer journal: today's marks + the day they belong to
+  Map<String, bool> _prayerLog = {};
+  String _logDateKey = '';
 
   // Per-prayer alert modes
   Map<String, AlertMode> _alertModes = {};
@@ -67,8 +74,44 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     // _provider is initialized globally in main.dart
     await _hijriProvider.initialize();
     await _loadAlertModes();
+    await _loadPrayerLog();
     _startCountdownTimer();
     if (mounted) setState(() {});
+  }
+
+  Future<void> _loadPrayerLog() async {
+    final now = DateTime.now();
+    _logDateKey = '${now.year}-${now.month}-${now.day}';
+    _prayerLog = await PrayerLogService.instance.loadDay(now);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _togglePrayed(String prayerKey) async {
+    final newValue = !(_prayerLog[prayerKey] ?? false);
+    HapticFeedback.lightImpact();
+    setState(() => _prayerLog[prayerKey] = newValue);
+    await PrayerLogService.instance.setPrayed(
+      DateTime.now(),
+      prayerKey,
+      newValue,
+    );
+  }
+
+  /// Whether this prayer's time has already passed today.
+  bool _isPrayerPassed(int index) {
+    final response = _provider.response;
+    if (response == null) return false;
+    final parts = _getTimeByIndex(response.timings, index).split(':');
+    if (parts.length < 2) return false;
+    final now = DateTime.now();
+    final time = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      int.tryParse(parts[0]) ?? 0,
+      int.tryParse(parts[1].split(' ')[0]) ?? 0,
+    );
+    return now.isAfter(time);
   }
 
   Future<void> _loadAlertModes() async {
@@ -93,6 +136,11 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
           // Cheap sync read — picks up the Controls toggle within a second
           _showSunrise = _prefs?.getBool('show_sunrise') ?? _showSunrise;
         });
+        // New day → fresh journal page
+        final now = DateTime.now();
+        if (_logDateKey != '${now.year}-${now.month}-${now.day}') {
+          _loadPrayerLog();
+        }
       }
     });
   }
@@ -120,16 +168,45 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 20),
-                  // Title
-                  Center(
-                    child: Text(
-                      t(context, 'prayerTimes'),
-                      style: TextStyle(
-                        color: AppTheme.currentTextPrimary,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
+                  // Title + prayer journal entry
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Center(
+                        child: Text(
+                          t(context, 'prayerTimes'),
+                          style: TextStyle(
+                            color: AppTheme.currentTextPrimary,
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
+                      PositionedDirectional(
+                        end: 0,
+                        child: PressableScale(
+                          onTap: () => PrayerLogSheet.show(context),
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppTheme.currentActiveGlow
+                                  .withValues(alpha: 0.10),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppTheme.currentActiveGlow
+                                    .withValues(alpha: 0.35),
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.spa_outlined,
+                              size: 20,
+                              color: AppTheme.currentActiveGlow,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   // Content based on state
@@ -846,6 +923,46 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     );
   }
 
+  /// Soft journal check: quiet outline → tap → gradient bloom + haptic.
+  /// Unmarked stays neutral — never red, never nagging.
+  Widget _buildPrayedCheck(String prayerKey) {
+    final prayed = _prayerLog[prayerKey] ?? false;
+    final onGradient = AppTheme.currentAccentGradient.colors.first
+                .computeLuminance() >
+            0.5
+        ? Colors.black87
+        : Colors.white;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _togglePrayed(prayerKey),
+      child: AnimatedContainer(
+        duration: AppMotion.fast,
+        curve: AppMotion.pop,
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          gradient: prayed ? AppTheme.currentAccentGradient : null,
+          shape: BoxShape.circle,
+          border: prayed
+              ? null
+              : Border.all(
+                  color:
+                      AppTheme.currentTextSecondary.withValues(alpha: 0.35),
+                  width: 1.5,
+                ),
+          boxShadow: prayed ? AppTheme.glowShadow(intensity: 0.4) : null,
+        ),
+        child: AnimatedScale(
+          duration: AppMotion.fast,
+          curve: AppMotion.pop,
+          scale: prayed ? 1 : 0,
+          child: Icon(Icons.check, size: 16, color: onGradient),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPrayerCard({
     required BuildContext context,
     required int index,
@@ -1035,6 +1152,11 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                         ],
                       ),
                     ),
+                    // Journal check — appears once the prayer time passes
+                    if (_isPrayerPassed(index)) ...[
+                      _buildPrayedCheck(_prayerKeys[index]),
+                      const SizedBox(width: 12),
+                    ],
                     // Time or countdown
                     if (isNext && countdownParts != null) ...[
                       Column(
