@@ -35,6 +35,46 @@ class PrayerWidgetProvider : AppWidgetProvider() {
             "Maghrib" to "المغرب",
             "Isha" to "العشاء"
         )
+
+        // Bottom-row view ids, in prayer order
+        private val colIds = intArrayOf(
+            R.id.col_fajr, R.id.col_dhuhr, R.id.col_asr,
+            R.id.col_maghrib, R.id.col_isha
+        )
+        private val nameIds = intArrayOf(
+            R.id.name_fajr, R.id.name_dhuhr, R.id.name_asr,
+            R.id.name_maghrib, R.id.name_isha
+        )
+        private val timeIds = intArrayOf(
+            R.id.time_fajr, R.id.time_dhuhr, R.id.time_asr,
+            R.id.time_maghrib, R.id.time_isha
+        )
+
+        private const val GOLD = 0xFFF0C97E.toInt()
+        private const val SOFT_WHITE = 0x99FFFFFF.toInt()
+        private const val WHITE = 0xFFFFFFFF.toInt()
+    }
+
+    /** Today's Hijri date from Flutter's per-date cache, or "". */
+    private fun hijriDateString(
+        prefs: SharedPreferences,
+        isArabic: Boolean
+    ): String {
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val json = prefs.getString(
+            "flutter.hijri_date_${sdf.format(Date())}", null
+        ) ?: return ""
+        return try {
+            val o = JSONObject(json)
+            val day = o.optInt("day", 0)
+            val year = o.optInt("year", 0)
+            val month =
+                if (isArabic) o.optString("monthNameAr", "")
+                else o.optString("monthNameEn", "")
+            if (day > 0 && month.isNotEmpty()) "$day $month $year" else ""
+        } catch (e: Exception) {
+            ""
+        }
     }
     
     override fun onUpdate(
@@ -63,6 +103,9 @@ class PrayerWidgetProvider : AppWidgetProvider() {
 
         val views = RemoteViews(context.packageName, R.layout.prayer_widget)
 
+        // Hijri date (top-right)
+        views.setTextViewText(R.id.hijri_date, hijriDateString(prefs, isArabic))
+
         if (timings != null) {
             try {
                 val now = Calendar.getInstance()
@@ -84,6 +127,24 @@ class PrayerWidgetProvider : AppWidgetProvider() {
                             break
                         }
                     }
+                }
+
+                // Bottom row: all five prayers, next one highlighted gold
+                val nextIndex = prayerOrder.indexOf(nextPrayer ?: "Fajr")
+                for (i in prayerOrder.indices) {
+                    val prayer = prayerOrder[i]
+                    val isNext = i == nextIndex
+                    views.setTextViewText(
+                        nameIds[i],
+                        if (isArabic) prayerNamesAr[prayer] ?: prayer else prayer
+                    )
+                    views.setTextViewText(timeIds[i], timings[prayer] ?: "--:--")
+                    views.setTextColor(nameIds[i], if (isNext) GOLD else SOFT_WHITE)
+                    views.setTextColor(timeIds[i], if (isNext) GOLD else WHITE)
+                    views.setInt(
+                        colIds[i], "setBackgroundResource",
+                        if (isNext) R.drawable.widget_next_col else 0
+                    )
                 }
 
                 // If no prayer found today, use tomorrow's Fajr (exact entry
