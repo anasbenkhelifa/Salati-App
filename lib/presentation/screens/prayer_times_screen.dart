@@ -21,6 +21,7 @@ import '../widgets/adhan_selection_sheet.dart';
 import '../widgets/fasting_tracker_sheet.dart';
 import '../widgets/prayer_log_sheet.dart';
 import '../../data/services/prayer_log_service.dart';
+import '../../data/services/notification_service.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/app_sheet.dart' show StaggerIn;
 import '../../core/theme/app_motion.dart';
@@ -48,6 +49,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   // Prayer journal: today's marks + the day they belong to
   Map<String, bool> _prayerLog = {};
   String _logDateKey = '';
+  bool _journalEnabled = true;
 
   // Per-prayer alert modes
   Map<String, AlertMode> _alertModes = {};
@@ -80,6 +82,8 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   }
 
   Future<void> _loadPrayerLog() async {
+    // Settle "missed" states first (next adhan already passed)
+    await PrayerLogService.instance.reconcile();
     final now = DateTime.now();
     _logDateKey = '${now.year}-${now.month}-${now.day}';
     _prayerLog = await PrayerLogService.instance.loadDay(now);
@@ -95,6 +99,12 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       prayerKey,
       newValue,
     );
+    if (newValue) {
+      // Marked prayed → its "did you pray?" nudge is no longer needed
+      NotificationService().cancelPrayedReminder(
+        _prayerKeys.indexOf(prayerKey),
+      );
+    }
   }
 
   /// Whether this prayer's time has already passed today.
@@ -133,8 +143,10 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       if (mounted) {
         setState(() {
           _countdown = _provider.getCountdown();
-          // Cheap sync read — picks up the Controls toggle within a second
+          // Cheap sync reads — pick up Controls toggles within a second
           _showSunrise = _prefs?.getBool('show_sunrise') ?? _showSunrise;
+          _journalEnabled =
+              _prefs?.getBool('prayer_journal_enabled') ?? _journalEnabled;
         });
         // New day → fresh journal page
         final now = DateTime.now();
@@ -182,10 +194,11 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                           ),
                         ),
                       ),
-                      PositionedDirectional(
-                        end: 0,
-                        child: PressableScale(
-                          onTap: () => PrayerLogSheet.show(context),
+                      if (_journalEnabled)
+                        PositionedDirectional(
+                          end: 0,
+                          child: PressableScale(
+                            onTap: () => PrayerLogSheet.show(context),
                           child: Container(
                             width: 40,
                             height: 40,
@@ -1153,7 +1166,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                       ),
                     ),
                     // Journal check — appears once the prayer time passes
-                    if (_isPrayerPassed(index)) ...[
+                    if (_journalEnabled && _isPrayerPassed(index)) ...[
                       _buildPrayedCheck(_prayerKeys[index]),
                       const SizedBox(width: 12),
                     ],

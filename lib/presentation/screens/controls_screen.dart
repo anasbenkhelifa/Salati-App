@@ -11,6 +11,7 @@ import '../../core/tour/app_tour_service.dart';
 import '../../domain/providers/qibla_provider.dart';
 import '../../domain/providers/live_notification_provider.dart';
 import '../../data/services/adhan_alarm_service.dart';
+import '../../data/services/notification_service.dart';
 import '../widgets/app_option_tile.dart';
 import '../../data/services/prayer_times_api_service.dart';
 import '../../domain/providers/prayer_times_api_provider.dart';
@@ -28,9 +29,9 @@ class ControlsScreen extends StatefulWidget {
 }
 
 class _ControlsScreenState extends State<ControlsScreen> {
-  bool _compassHapticsEnabled = true;
   bool _maxVolumeOverrideEnabled = false;
   bool _preAdhanEnabled = false;
+  bool _journalEnabled = true;
   bool _isDisposed = false;
 
   // Live Notification Mode
@@ -56,13 +57,6 @@ class _ControlsScreenState extends State<ControlsScreen> {
   }
 
   void _loadSettings() async {
-    // Load compass haptics from provider (or default to true)
-    final provider = QiblaProvider.instance;
-    if (provider != null) {
-      _compassHapticsEnabled = provider.compassHapticsEnabled;
-    }
-
-    // Load max volume override setting
     final prefs = await SharedPreferences.getInstance();
     if (_isDisposed) return;
     if (mounted) {
@@ -70,41 +64,18 @@ class _ControlsScreenState extends State<ControlsScreen> {
         _maxVolumeOverrideEnabled =
             prefs.getBool('max_volume_override') ?? false;
         _preAdhanEnabled = prefs.getBool('pre_adhan_enabled') ?? true;
+        _journalEnabled = prefs.getBool('prayer_journal_enabled') ?? true;
         _liveNotifMode = prefs.getInt('live_notification_mode') ?? 1;
       });
     }
   }
 
   void _onProviderChange() {
-    // Update local state when provider changes
-    if (mounted) {
-      final provider = QiblaProvider.instance;
-      if (provider != null &&
-          _compassHapticsEnabled != provider.compassHapticsEnabled) {
-        setState(() {
-          _compassHapticsEnabled = provider.compassHapticsEnabled;
-        });
-      }
-    }
+    if (mounted) setState(() {});
   }
 
   void _onThemeChange() {
     if (mounted) setState(() {});
-  }
-
-  void _setCompassHaptics(bool enabled) {
-    // Update local state immediately for responsive UI
-    setState(() {
-      _compassHapticsEnabled = enabled;
-    });
-    // Update provider (which will persist)
-    final provider = QiblaProvider.instance;
-    if (provider != null) {
-      provider.setCompassHaptics(enabled);
-    } else {
-      debugPrint('[ControlsScreen] Warning: QiblaProvider.instance is null');
-    }
-    AnalyticsService.instance.logCompassHapticsToggled(enabled);
   }
 
   void _showThemeSelector() {
@@ -142,12 +113,18 @@ class _ControlsScreenState extends State<ControlsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: ListView(
                       children: [
-                        // Compass haptics toggle
+                        // Prayer journal toggle (check circles + reminders + stats)
                         AppOptionTile.toggle(
-                          icon: Icons.vibration,
-                          title: t(context, 'compassHaptics'),
-                          value: _compassHapticsEnabled,
-                          onChanged: _setCompassHaptics,
+                          icon: Icons.spa_outlined,
+                          title: t(context, 'prayerJournal'),
+                          subtitle: t(context, 'journalToggleDesc'),
+                          value: _journalEnabled,
+                          onChanged: (val) async {
+                            setState(() => _journalEnabled = val);
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setBool('prayer_journal_enabled', val);
+                            await NotificationService().syncPrayedReminders();
+                          },
                         ),
                         const SizedBox(height: 12),
                         // Max volume override toggle

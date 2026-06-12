@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -337,6 +338,202 @@ class NotificationService {
       debugPrint('[NotificationService] Kahf reminder scheduled for $next');
     } catch (e) {
       debugPrint('[NotificationService] Kahf reminder sync failed: $e');
+    }
+  }
+
+  // ───────────────────── Prayer journal reminders & summaries ──────────────
+
+  static const int _prayedReminderBaseId = 4100; // +0..4 today, +10..14 tmrw
+  static const int _weeklySummaryId = 4201;
+  static const int _monthlySummaryId = 4202;
+  static const int _yearlySummaryId = 4203;
+  static const String _journalChannelId = 'journal_reminders';
+
+  static const _apiNames = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+  static const _namesAr = ['الفجر', 'الظهر', 'العصر', 'المغرب', 'العشاء'];
+  static const _namesEn = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+
+  AndroidNotificationDetails get _journalDetails =>
+      const AndroidNotificationDetails(
+        _journalChannelId,
+        'Prayer Journal',
+        channelDescription: 'Gentle prayer journal reminders',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+      );
+
+  tz.Location _localLocation(SharedPreferences prefs) {
+    final lat = prefs.getDouble('cached_lat');
+    final lng = prefs.getDouble('cached_lng');
+    if (lat != null && lng != null) {
+      try {
+        return tz.getLocation(tzmap.latLngToTimezoneString(lat, lng));
+      } catch (_) {}
+    }
+    return tz.UTC;
+  }
+
+  /// Cancel the "did you pray X?" reminder for today's prayer [index].
+  Future<void> cancelPrayedReminder(int index) async {
+    await _notifications.cancel(_prayedReminderBaseId + index);
+  }
+
+  /// (Re)schedule the journal notifications:
+  ///  - "Did you pray X?" 25 minutes after each adhan (today + tomorrow,
+  ///    already-marked prayers skipped)
+  ///  - weekly / monthly / yearly summary prompts
+  /// All cancelled when the journal is disabled in Controls.
+  Future<void> syncPrayedReminders() async {
+    try {
+      if (!_isInitialized) await initializePluginOnly();
+      final prefs = await SharedPreferences.getInstance();
+      final enabled = prefs.getBool('prayer_journal_enabled') ?? true;
+
+      // Clear all journal notifications first
+      for (int d = 0; d < 2; d++) {
+        for (int i = 0; i < 5; i++) {
+          await _notifications.cancel(_prayedReminderBaseId + d * 10 + i);
+        }
+      }
+      if (!enabled) {
+        await _notifications.cancel(_weeklySummaryId);
+        await _notifications.cancel(_monthlySummaryId);
+        await _notifications.cancel(_yearlySummaryId);
+        debugPrint('[NotificationService] Journal reminders disabled');
+        return;
+      }
+
+      final location = _localLocation(prefs);
+      final lang = prefs.getString('app_language') ?? 'ar';
+      final now = tz.TZDateTime.now(location);
+
+      final raw = prefs.getString('cached_prayer_times_by_date');
+      if (raw != null) {
+        final byDate = jsonDecode(raw) as Map<String, dynamic>;
+        for (int dayOffset = 0; dayOffset < 2; dayOffset++) {
+          final day = now.add(Duration(days: dayOffset));
+          final dateKey =
+              '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+          final timings = byDate[dateKey];
+          if (timings is! Map) continue;
+
+          // Skip prayers already marked today
+          Map<String, dynamic> log = {};
+          if (dayOffset == 0) {
+            final logRaw = prefs.getString('prayer_log_$dateKey');
+            if (logRaw != null) {
+              try {
+                log = jsonDecode(logRaw) as Map<String, dynamic>;
+              } catch (_) {}
+            }
+          }
+
+          for (int i = 0; i < _apiNames.length; i++) {
+            final prayerKey = _apiNames[i].toLowerCase();
+            if (log.containsKey(prayerKey)) continue;
+            final timeStr = timings[_apiNames[i]];
+            if (timeStr is! String) continue;
+            final parts = timeStr.split(':');
+            if (parts.length < 2) continue;
+            final h = int.tryParse(parts[0]);
+            final m = int.tryParse(parts[1].split(' ')[0]);
+            if (h == null || m == null) continue;
+
+            final fireAt = tz.TZDateTime(
+              location, day.year, day.month, day.day, h, m,
+            ).add(const Duration(minutes: 25));
+            if (!fireAt.isAfter(now)) continue;
+
+            final name = lang == 'ar' ? _namesAr[i] : _namesEn[i];
+            final String title;
+            final String body;
+            switch (lang) {
+              case 'ar':
+                title = 'هل صليت $name؟ 🌱';
+                body = 'اضغط لتسجيلها في سجل الصلاة';
+                break;
+              case 'fr':
+                title = 'Avez-vous prié $name ? 🌱';
+                body = 'Touchez pour la noter dans votre journal';
+                break;
+              default:
+                title = 'Did you pray $name? 🌱';
+                body = 'Tap to check it off in your journal';
+            }
+
+            await _notifications.zonedSchedule(
+              _prayedReminderBaseId + dayOffset * 10 + i,
+              title,
+              body,
+              fireAt,
+              NotificationDetails(android: _journalDetails),
+              androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+              uiLocalNotificationDateInterpretation:
+                  UILocalNotificationDateInterpretation.absoluteTime,
+            );
+          }
+        }
+      }
+
+      // Periodic summaries: generic prompt, real numbers live in the sheet
+      final String sumTitle;
+      final String sumBody;
+      switch (lang) {
+        case 'ar':
+          sumTitle = 'ملخص صلاتك 🌱';
+          sumBody = 'افتح سجل الصلاة لترى إحصاءاتك';
+          break;
+        case 'fr':
+          sumTitle = 'Votre bilan de prière 🌱';
+          sumBody = 'Ouvrez le journal pour voir vos statistiques';
+          break;
+        default:
+          sumTitle = 'Your prayer summary 🌱';
+          sumBody = 'Open your journal to see your stats';
+      }
+
+      tz.TZDateTime nextAt(bool Function(tz.TZDateTime) match, int hour) {
+        var d = tz.TZDateTime(location, now.year, now.month, now.day, hour);
+        while (!match(d) || !d.isAfter(now)) {
+          d = d.add(const Duration(days: 1));
+        }
+        return d;
+      }
+
+      // Weekly: Sunday evening
+      await _notifications.zonedSchedule(
+        _weeklySummaryId, sumTitle, sumBody,
+        nextAt((d) => d.weekday == DateTime.sunday, 20),
+        NotificationDetails(android: _journalDetails),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+      );
+      // Monthly: 1st at 09:00
+      await _notifications.zonedSchedule(
+        _monthlySummaryId, sumTitle, sumBody,
+        nextAt((d) => d.day == 1, 9),
+        NotificationDetails(android: _journalDetails),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dayOfMonthAndTime,
+      );
+      // Yearly: Jan 1 at 09:30
+      await _notifications.zonedSchedule(
+        _yearlySummaryId, sumTitle, sumBody,
+        nextAt((d) => d.day == 1 && d.month == 1, 9),
+        NotificationDetails(android: _journalDetails),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dateAndTime,
+      );
+
+      debugPrint('[NotificationService] Journal reminders synced');
+    } catch (e) {
+      debugPrint('[NotificationService] Journal reminder sync failed: $e');
     }
   }
 }

@@ -100,6 +100,9 @@ class _NotificationManagerState extends State<NotificationManager>
     // Keep the weekly Surah Al-Kahf reminder in sync (non-blocking)
     _notificationService.syncKahfReminder();
 
+    // Journal: "did you pray?" nudges + weekly/monthly/yearly summaries
+    _notificationService.syncPrayedReminders();
+
     // Refresh Hijri cache in background (non-blocking, after UI is visible)
     _refreshHijriCacheInBackground();
   }

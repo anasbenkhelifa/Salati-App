@@ -57,7 +57,9 @@ const Map<String, Map<String, String>> _strings = {
     'prayerJournal': 'سجل الصلاة',
     'thisWeek': 'هذا الأسبوع',
     'dayStreak': 'أيام متواصلة',
-    'everyPrayerCounts': 'كل صلاة نور 🌱',
+    'thisMonth': 'هذا الشهر',
+    'thisYear': 'هذه السنة',
+    'journalToggleDesc': 'تتبّع صلواتك مع تذكير لطيف وإحصاءات',
     'searchRequiresInternet': 'البحث يحتاج إنترنت',
     // Theme
     'nightMode': 'الوضع الداكن',
@@ -180,7 +182,9 @@ const Map<String, Map<String, String>> _strings = {
     'prayerJournal': 'Prayer Journal',
     'thisWeek': 'This week',
     'dayStreak': 'days in a row',
-    'everyPrayerCounts': 'Every prayer counts 🌱',
+    'thisMonth': 'This month',
+    'thisYear': 'This year',
+    'journalToggleDesc': 'Track prayers with gentle reminders and stats',
     'searchRequiresInternet': 'Search requires internet',
     // Theme
     'nightMode': 'Night Mode',
@@ -303,7 +307,9 @@ const Map<String, Map<String, String>> _strings = {
     'prayerJournal': 'Journal de prière',
     'thisWeek': 'Cette semaine',
     'dayStreak': 'jours de suite',
-    'everyPrayerCounts': 'Chaque prière compte 🌱',
+    'thisMonth': 'Ce mois',
+    'thisYear': 'Cette année',
+    'journalToggleDesc': 'Suivi des prières avec rappels doux et statistiques',
     'searchRequiresInternet': 'La recherche nécessite Internet',
     // Theme
     'nightMode': 'Mode Nuit',
