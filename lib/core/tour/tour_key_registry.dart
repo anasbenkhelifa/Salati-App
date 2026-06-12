@@ -16,6 +16,7 @@ class TourKeyRegistry {
 
   // Prayer Times page
   final GlobalKey locationHeaderKey = GlobalKey(debugLabel: 'tour_location');
+  final GlobalKey journalIconKey = GlobalKey(debugLabel: 'tour_journal');
   final GlobalKey prayerAlertModeKey = GlobalKey(debugLabel: 'tour_alert_mode');
   final GlobalKey prayerCardKey = GlobalKey(debugLabel: 'tour_prayer_card');
 

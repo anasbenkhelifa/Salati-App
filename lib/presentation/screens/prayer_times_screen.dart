@@ -198,6 +198,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                         PositionedDirectional(
                           end: 0,
                           child: PressableScale(
+                            key: TourKeyRegistry.instance.journalIconKey,
                             onTap: () => PrayerLogSheet.show(context),
                           child: Container(
                             width: 40,

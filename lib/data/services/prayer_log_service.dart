@@ -124,6 +124,41 @@ class PrayerLogService {
     }
   }
 
+  /// Prayer keys whose adhan has NOT yet sounded today — these can't be
+  /// marked as prayed ahead of time.
+  Future<Set<String>> futurePrayersToday() async {
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    final dateKey =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final raw = prefs.getString('cached_prayer_times_by_date');
+    if (raw == null) return {};
+    Map<String, dynamic> byDate;
+    try {
+      byDate = jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return {};
+    }
+    final today = byDate[dateKey];
+    if (today is! Map) return {};
+
+    const apiNames = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+    final future = <String>{};
+    for (int i = 0; i < prayerKeys.length; i++) {
+      final s = today[apiNames[i]];
+      if (s is! String) continue;
+      final parts = s.split(':');
+      if (parts.length < 2) continue;
+      final h = int.tryParse(parts[0]);
+      final m = int.tryParse(parts[1].split(' ')[0]);
+      if (h == null || m == null) continue;
+      if (now.isBefore(DateTime(now.year, now.month, now.day, h, m))) {
+        future.add(prayerKeys[i]);
+      }
+    }
+    return future;
+  }
+
   /// Number of prayers marked prayed between [from] and today inclusive.
   Future<int> countPrayedSince(DateTime from) async {
     final now = DateTime.now();

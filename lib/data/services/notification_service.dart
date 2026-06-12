@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -262,7 +262,7 @@ class NotificationService {
     debugPrint('[NotificationService] Notification cancelled');
   }
 
-  // ───────────────────── Surah Al-Kahf Friday reminder ─────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Surah Al-Kahf Friday reminder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   static const int kahfNotificationId = 3001;
   static const String _kahfChannelId = 'jumuah_reminders';
@@ -304,15 +304,15 @@ class NotificationService {
       final String body;
       switch (lang) {
         case 'ar':
-          title = 'جمعة مباركة 🌿';
-          body = 'لا تنسَ قراءة سورة الكهف اليوم';
+          title = 'Ø¬Ù…Ø¹Ø© Ù…Ø¨Ø§Ø±ÙƒØ© ðŸŒ¿';
+          body = 'Ù„Ø§ ØªÙ†Ø³ÙŽ Ù‚Ø±Ø§Ø¡Ø© Ø³ÙˆØ±Ø© Ø§Ù„ÙƒÙ‡Ù Ø§Ù„ÙŠÙˆÙ…';
           break;
         case 'fr':
-          title = 'Joumou\'a moubaraka 🌿';
+          title = 'Joumou\'a moubaraka ðŸŒ¿';
           body = 'N\'oubliez pas de lire la sourate Al-Kahf aujourd\'hui';
           break;
         default:
-          title = 'Blessed Friday 🌿';
+          title = 'Blessed Friday ðŸŒ¿';
           body = 'Don\'t forget to read Surah Al-Kahf today';
       }
 
@@ -330,7 +330,7 @@ class NotificationService {
         body,
         next,
         const NotificationDetails(android: androidDetails),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
@@ -341,7 +341,7 @@ class NotificationService {
     }
   }
 
-  // ───────────────────── Prayer journal reminders & summaries ──────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Prayer journal reminders & summaries â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   static const int _prayedReminderBaseId = 4100; // +0..4 today, +10..14 tmrw
   static const int _weeklySummaryId = 4201;
@@ -350,7 +350,7 @@ class NotificationService {
   static const String _journalChannelId = 'journal_reminders';
 
   static const _apiNames = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
-  static const _namesAr = ['الفجر', 'الظهر', 'العصر', 'المغرب', 'العشاء'];
+  static const _namesAr = ['Ø§Ù„ÙØ¬Ø±', 'Ø§Ù„Ø¸Ù‡Ø±', 'Ø§Ù„Ø¹ØµØ±', 'Ø§Ù„Ù…ØºØ±Ø¨', 'Ø§Ù„Ø¹Ø´Ø§Ø¡'];
   static const _namesEn = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
   AndroidNotificationDetails get _journalDetails =>
@@ -449,15 +449,15 @@ class NotificationService {
             final String body;
             switch (lang) {
               case 'ar':
-                title = 'هل صليت $name؟ 🌱';
-                body = 'اضغط لتسجيلها في سجل الصلاة';
+                title = 'Ù‡Ù„ ØµÙ„ÙŠØª $nameØŸ ðŸŒ±';
+                body = 'Ø§Ø¶ØºØ· Ù„ØªØ³Ø¬ÙŠÙ„Ù‡Ø§ ÙÙŠ Ø³Ø¬Ù„ Ø§Ù„ØµÙ„Ø§Ø©';
                 break;
               case 'fr':
-                title = 'Avez-vous prié $name ? 🌱';
+                title = 'Avez-vous priÃ© $name ? ðŸŒ±';
                 body = 'Touchez pour la noter dans votre journal';
                 break;
               default:
-                title = 'Did you pray $name? 🌱';
+                title = 'Did you pray $name? ðŸŒ±';
                 body = 'Tap to check it off in your journal';
             }
 
@@ -467,7 +467,7 @@ class NotificationService {
               body,
               fireAt,
               NotificationDetails(android: _journalDetails),
-              androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+              androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
               uiLocalNotificationDateInterpretation:
                   UILocalNotificationDateInterpretation.absoluteTime,
             );
@@ -480,15 +480,15 @@ class NotificationService {
       final String sumBody;
       switch (lang) {
         case 'ar':
-          sumTitle = 'ملخص صلاتك 🌱';
-          sumBody = 'افتح سجل الصلاة لترى إحصاءاتك';
+          sumTitle = 'Ù…Ù„Ø®Øµ ØµÙ„Ø§ØªÙƒ ðŸŒ±';
+          sumBody = 'Ø§ÙØªØ­ Ø³Ø¬Ù„ Ø§Ù„ØµÙ„Ø§Ø© Ù„ØªØ±Ù‰ Ø¥Ø­ØµØ§Ø¡Ø§ØªÙƒ';
           break;
         case 'fr':
-          sumTitle = 'Votre bilan de prière 🌱';
+          sumTitle = 'Votre bilan de priÃ¨re ðŸŒ±';
           sumBody = 'Ouvrez le journal pour voir vos statistiques';
           break;
         default:
-          sumTitle = 'Your prayer summary 🌱';
+          sumTitle = 'Your prayer summary ðŸŒ±';
           sumBody = 'Open your journal to see your stats';
       }
 
@@ -505,7 +505,7 @@ class NotificationService {
         _weeklySummaryId, sumTitle, sumBody,
         nextAt((d) => d.weekday == DateTime.sunday, 20),
         NotificationDetails(android: _journalDetails),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
@@ -515,7 +515,7 @@ class NotificationService {
         _monthlySummaryId, sumTitle, sumBody,
         nextAt((d) => d.day == 1, 9),
         NotificationDetails(android: _journalDetails),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.dayOfMonthAndTime,
@@ -525,7 +525,7 @@ class NotificationService {
         _yearlySummaryId, sumTitle, sumBody,
         nextAt((d) => d.day == 1 && d.month == 1, 9),
         NotificationDetails(android: _journalDetails),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.dateAndTime,
@@ -537,3 +537,4 @@ class NotificationService {
     }
   }
 }
+

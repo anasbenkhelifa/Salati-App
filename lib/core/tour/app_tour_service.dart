@@ -9,6 +9,8 @@ import '../../core/theme/app_motion.dart';
 import '../../core/localization/app_locale_provider.dart';
 import '../../domain/providers/prayer_times_api_provider.dart';
 import '../../presentation/screens/controls_screen.dart';
+import '../../presentation/widgets/hijri_calendar_sheet.dart';
+import '../../presentation/widgets/prayer_log_sheet.dart';
 import 'tour_key_registry.dart';
 
 /// Guided app tour service.
@@ -22,7 +24,21 @@ class AppTourService {
   static bool _isRunning = false;
 
   /// Total spotlight steps (for the progress dots).
-  static const int _totalSteps = 9;
+  static const int _totalSteps = 10;
+
+  /// Open a sheet during the tour, let the user look at it, then close it.
+  static Future<void> _demoSheet(
+    BuildContext context,
+    Future<void> Function(BuildContext) open,
+  ) async {
+    if (!context.mounted || !_isRunning) return;
+    open(context); // not awaited — we close it ourselves
+    await Future.delayed(const Duration(milliseconds: 2800));
+    if (context.mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+    await Future.delayed(const Duration(milliseconds: 350));
+  }
 
   /// Whether the tour is currently active (used by AppShell for PopScope).
   static bool get isRunning => _isRunning;
@@ -221,6 +237,9 @@ class AppTourService {
       lang: lang,
     );
 
+    // Show the calendar itself for a moment
+    await _demoSheet(context, (c) => HijriCalendarSheet.show(c));
+
     // ── Step 4: Location Header ──
     await _navigateToPage(pageController, 2);
     if (!context.mounted || !_isRunning) {
@@ -300,7 +319,40 @@ class AppTourService {
       lang: lang,
     );
 
-    // ── Step 6: Controls Tile ──
+    // ── Step 7: Prayer Journal ──
+    if (!context.mounted || !_isRunning) {
+      _isRunning = false;
+      return;
+    }
+
+    await _showSingleStep(
+      context,
+      key: keys.journalIconKey,
+      stepIndex: 6,
+      icon: Icons.spa,
+      title: _l(
+        lang,
+        ar: 'سجل الصلاة',
+        fr: 'Journal de prière',
+        en: 'Prayer Journal',
+      ),
+      description: _l(
+        lang,
+        ar:
+            'علّم الصلوات التي أديتها، وتابع إحصاءاتك الأسبوعية وأيامك المتواصلة.',
+        fr:
+            'Cochez vos prières accomplies et suivez vos statistiques et votre série de jours.',
+        en:
+            'Mark the prayers you\'ve prayed and follow your weekly stats and streak.',
+      ),
+      contentAlign: ContentAlign.bottom,
+      lang: lang,
+    );
+
+    // Show the journal itself for a moment
+    await _demoSheet(context, (c) => PrayerLogSheet.show(c));
+
+    // ── Step 8: Controls Tile ──
     await _navigateToPage(pageController, 3);
     if (!context.mounted || !_isRunning) {
       _isRunning = false;
@@ -310,7 +362,7 @@ class AppTourService {
     await _showSingleStep(
       context,
       key: keys.controlsTileKey,
-      stepIndex: 6,
+      stepIndex: 7,
       icon: Icons.tune,
       title: _l(lang, ar: 'لوحة التحكم', fr: 'Contrôles', en: 'Controls'),
       description: _l(
@@ -343,7 +395,7 @@ class AppTourService {
     await _showSingleStep(
       context,
       key: keys.themeTileKey,
-      stepIndex: 7,
+      stepIndex: 8,
       icon: Icons.palette,
       title: _l(lang, ar: 'المظهر', fr: 'Thème', en: 'App Theme'),
       description: _l(
@@ -373,7 +425,7 @@ class AppTourService {
     await _showSingleStep(
       context,
       key: keys.languageTileKey,
-      stepIndex: 8,
+      stepIndex: 9,
       icon: Icons.translate,
       title: _l(lang, ar: 'اللغة', fr: 'Langue', en: 'Language'),
       description: _l(

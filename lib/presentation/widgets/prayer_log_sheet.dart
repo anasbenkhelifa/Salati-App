@@ -34,6 +34,7 @@ class _PrayerLogSheetState extends State<PrayerLogSheet> {
   int _streak = 0;
   int _monthCount = 0;
   int _yearCount = 0;
+  Set<String> _futureToday = {};
 
   @override
   void initState() {
@@ -51,12 +52,14 @@ class _PrayerLogSheetState extends State<PrayerLogSheet> {
         .countPrayedSince(DateTime(now.year, now.month, 1));
     final yearCount = await PrayerLogService.instance
         .countPrayedSince(DateTime(now.year, 1, 1));
+    final futureToday = await PrayerLogService.instance.futurePrayersToday();
     if (mounted) {
       setState(() {
         _week = week;
         _streak = streak;
         _monthCount = monthCount;
         _yearCount = yearCount;
+        _futureToday = futureToday;
       });
     }
   }
@@ -64,6 +67,8 @@ class _PrayerLogSheetState extends State<PrayerLogSheet> {
   Future<void> _toggleDot(int dayIndex, String prayerKey) async {
     final week = _week;
     if (week == null) return;
+    // A prayer that hasn't arrived yet can't be marked
+    if (dayIndex == 6 && _futureToday.contains(prayerKey)) return;
     final date = DateTime.now().subtract(Duration(days: 6 - dayIndex));
     final newValue = !(week[dayIndex][prayerKey] ?? false);
     HapticFeedback.selectionClick();
@@ -306,11 +311,14 @@ class _PrayerLogSheetState extends State<PrayerLogSheet> {
                       gradient: day[key] == true
                           ? AppTheme.currentAccentGradient
                           : null,
-                      // missed (false) = quiet filled grey; unmarked = faint
+                      // missed (false) = quiet filled grey; unmarked = faint;
+                      // not-yet-arrived today = barely there
                       color: day[key] == true
                           ? null
                           : AppTheme.currentTextSecondary.withValues(
-                              alpha: day[key] == false ? 0.28 : 0.12),
+                              alpha: (index == 6 && _futureToday.contains(key))
+                                  ? 0.06
+                                  : (day[key] == false ? 0.28 : 0.12)),
                     ),
                   ),
                 ),
