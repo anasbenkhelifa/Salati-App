@@ -143,10 +143,14 @@ class _AppShellState extends State<AppShell> {
             // Then the rating prompt
             await _checkRatingPrompt();
 
-            // After tour/rating - check for update
-            final shouldUpdate = await UpdateService.isUpdateAvailable();
-            if (mounted && shouldUpdate) {
-              await showUpdateDialog(context);
+            // After tour/rating - check for update (forced gate + changelog)
+            final update = await UpdateService.checkForUpdate();
+            if (mounted && update.available) {
+              await showUpdateDialog(
+                context,
+                forced: update.forced,
+                changelog: update.changelog,
+              );
             }
           });
         }

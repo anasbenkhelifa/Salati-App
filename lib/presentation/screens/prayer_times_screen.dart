@@ -26,6 +26,7 @@ import '../widgets/glass_container.dart';
 import '../widgets/app_sheet.dart' show StaggerIn;
 import '../../core/theme/app_motion.dart';
 import '../../data/services/adhan_selection_service.dart';
+import '../../services/update_service.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -145,8 +146,10 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
           _countdown = _provider.getCountdown();
           // Cheap sync reads — pick up Controls toggles within a second
           _showSunrise = _prefs?.getBool('show_sunrise') ?? _showSunrise;
+          // Local toggle AND remote kill-switch (feature_journal, default on)
           _journalEnabled =
-              _prefs?.getBool('prayer_journal_enabled') ?? _journalEnabled;
+              (_prefs?.getBool('prayer_journal_enabled') ?? _journalEnabled) &&
+                  UpdateService.isFeatureEnabled('journal');
         });
         // New day → fresh journal page
         final now = DateTime.now();

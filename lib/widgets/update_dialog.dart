@@ -8,16 +8,23 @@ import '../services/update_service.dart';
 /// Update dialog with full in-app flow: downloads the APK with a progress
 /// bar and hands it straight to the system installer — no browser needed.
 /// Falls back to the website when no direct APK URL is configured.
-Future<void> showUpdateDialog(BuildContext context) async {
+Future<void> showUpdateDialog(
+  BuildContext context, {
+  bool forced = false,
+  String changelog = '',
+}) async {
   await showDialog<void>(
     context: context,
-    barrierDismissible: false,
-    builder: (_) => const _UpdateDialog(),
+    barrierDismissible: !forced,
+    builder: (_) => _UpdateDialog(forced: forced, changelog: changelog),
   );
 }
 
 class _UpdateDialog extends StatefulWidget {
-  const _UpdateDialog();
+  final bool forced;
+  final String changelog;
+
+  const _UpdateDialog({this.forced = false, this.changelog = ''});
 
   @override
   State<_UpdateDialog> createState() => _UpdateDialogState();
@@ -195,43 +202,65 @@ class _UpdateDialogState extends State<_UpdateDialog>
         actionTap = _startUpdate;
     }
 
-    return AlertDialog(
-      backgroundColor: colorScheme.surface,
-      title: Text(title),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(body),
-          if (_phase == _Phase.downloading) ...[
-            const SizedBox(height: 16),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: _progress > 0 ? _progress : null,
-                minHeight: 8,
+    // Forced update: block dismissal (no Later, swallow back button)
+    final showLater = !widget.forced && _phase != _Phase.downloading;
+
+    return PopScope(
+      canPop: !widget.forced,
+      child: AlertDialog(
+        backgroundColor: colorScheme.surface,
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(body),
+            // "What's new" from Remote Config (idle phase only)
+            if (_phase == _Phase.idle && widget.changelog.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  widget.changelog,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '${(_progress * 100).toStringAsFixed(0)}%',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            ],
+            if (_phase == _Phase.downloading) ...[
+              const SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: _progress > 0 ? _progress : null,
+                  minHeight: 8,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${(_progress * 100).toStringAsFixed(0)}%',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
           ],
+        ),
+        actions: [
+          if (showLater)
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(laterButton),
+            ),
+          if (_phase != _Phase.downloading)
+            FilledButton(
+              onPressed: actionTap,
+              child: Text(actionLabel),
+            ),
         ],
       ),
-      actions: [
-        if (_phase != _Phase.downloading)
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(laterButton),
-          ),
-        if (_phase != _Phase.downloading)
-          FilledButton(
-            onPressed: actionTap,
-            child: Text(actionLabel),
-          ),
-      ],
     );
   }
 }
