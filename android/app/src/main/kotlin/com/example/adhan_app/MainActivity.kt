@@ -12,6 +12,7 @@ class MainActivity : FlutterActivity() {
         const val CHANNEL = "com.example.adhan_app/foreground_service"
         const val ADHAN_CHANNEL = "com.example.adhan_app/adhan"
         const val ALARM_CHANNEL = "com.example.adhan_app/alarm"
+        const val UPDATER_CHANNEL = "com.example.adhan_app/updater"
         const val PREFS_NAME = "adhan_live_prefs"
         const val KEY_ENABLED = "live_notification_enabled"
     }
@@ -67,6 +68,52 @@ class MainActivity : FlutterActivity() {
             }
         }
         
+        // In-app self-update channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UPDATER_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "canRequestPackageInstalls" -> {
+                    result.success(
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                            packageManager.canRequestPackageInstalls()
+                        else true
+                    )
+                }
+                "openInstallPermissionSettings" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startActivity(
+                            Intent(
+                                android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                android.net.Uri.parse("package:$packageName")
+                            )
+                        )
+                    }
+                    result.success(true)
+                }
+                "installApk" -> {
+                    val path = call.argument<String>("path")
+                    if (path == null) {
+                        result.success(false)
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        val uri = androidx.core.content.FileProvider.getUriForFile(
+                            this, "$packageName.fileprovider", java.io.File(path)
+                        )
+                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(uri, "application/vnd.android.package-archive")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+
         // Adhan playback channel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ADHAN_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {

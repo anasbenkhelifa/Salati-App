@@ -23,6 +23,9 @@
 
     <!-- Direct per-app battery exemption dialog (reliable adhan on aggressive OEMs) -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- In-app self-update: hand the downloaded APK to the system installer -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     
     <application
         android:label="Salati"
@@ -111,6 +114,17 @@
             </intent-filter>
         </receiver>
         
+        <!-- FileProvider exposing the downloaded update APK to the installer -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- Firebase Cloud Messaging: channel + small icon used by the system
              tray when a notification message arrives while backgrounded. -->
         <meta-data

@@ -4,6 +4,17 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 class UpdateService {
   static const String _latestVersionKey = 'latest_version';
+  static const String _apkUrlKey = 'apk_download_url';
+
+  /// Direct APK download URL from Remote Config ('' when not configured —
+  /// the update dialog then falls back to opening the website).
+  static String getApkUrl() {
+    try {
+      return FirebaseRemoteConfig.instance.getString(_apkUrlKey).trim();
+    } catch (_) {
+      return '';
+    }
+  }
 
   static Future<bool> isUpdateAvailable() async {
     try {
@@ -18,6 +29,7 @@ class UpdateService {
 
       await remoteConfig.setDefaults(const <String, dynamic>{
         _latestVersionKey: '1.0.0',
+        _apkUrlKey: '',
       });
 
       await remoteConfig.fetchAndActivate();
