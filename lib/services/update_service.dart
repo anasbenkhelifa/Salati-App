@@ -6,13 +6,15 @@ class UpdateService {
   static const String _latestVersionKey = 'latest_version';
   static const String _apkUrlKey = 'apk_download_url';
 
-  /// Direct APK download URL from Remote Config ('' when not configured —
-  /// the update dialog then falls back to opening the website).
+  /// Direct APK download URL from Remote Config (falls back to Cloudflare R2 URL
+  /// if not configured).
   static String getApkUrl() {
+    const defaultUrl = 'https://pub-01160e77f7394a43946f810025efb70d.r2.dev/Salati.apk';
     try {
-      return FirebaseRemoteConfig.instance.getString(_apkUrlKey).trim();
+      final url = FirebaseRemoteConfig.instance.getString(_apkUrlKey).trim();
+      return url.isNotEmpty ? url : defaultUrl;
     } catch (_) {
-      return '';
+      return defaultUrl;
     }
   }
 
@@ -29,7 +31,7 @@ class UpdateService {
 
       await remoteConfig.setDefaults(const <String, dynamic>{
         _latestVersionKey: '1.0.0',
-        _apkUrlKey: '',
+        _apkUrlKey: 'https://pub-01160e77f7394a43946f810025efb70d.r2.dev/Salati.apk',
       });
 
       await remoteConfig.fetchAndActivate();

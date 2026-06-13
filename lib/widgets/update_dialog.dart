@@ -23,11 +23,41 @@ class _UpdateDialog extends StatefulWidget {
   State<_UpdateDialog> createState() => _UpdateDialogState();
 }
 
-enum _Phase { idle, needsPermission, downloading, error }
+enum _Phase { idle, needsPermission, downloading, readyToInstall, error }
 
-class _UpdateDialogState extends State<_UpdateDialog> {
+class _UpdateDialogState extends State<_UpdateDialog>
+    with WidgetsBindingObserver {
   _Phase _phase = _Phase.idle;
   double _progress = 0;
+
+  // Foreground tracking: launching the system installer (startActivity) is
+  // blocked while the app is backgrounded (Android 10+ background-activity
+  // restriction). If the download finishes while away, hold the APK and
+  // install on resume instead of silently failing.
+  bool _foreground = true;
+  String? _pendingPath;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    if (_foreground && _pendingPath != null) {
+      final path = _pendingPath!;
+      _pendingPath = null;
+      _install(path);
+    }
+  }
 
   String _l(String lang,
       {required String ar, required String fr, required String en}) {
@@ -73,12 +103,25 @@ class _UpdateDialogState extends State<_UpdateDialog> {
       return;
     }
 
+    // Only launch the installer in the foreground; otherwise defer to resume
+    if (_foreground) {
+      _install(path);
+    } else {
+      _pendingPath = path;
+      if (mounted) setState(() => _phase = _Phase.readyToInstall);
+    }
+  }
+
+  Future<void> _install(String path) async {
     final ok = await ApkUpdateService.installApk(path);
     if (!mounted) return;
     if (ok) {
       Navigator.of(context).pop(); // system installer takes over
     } else {
-      setState(() => _phase = _Phase.error);
+      // Background launch may still be blocked — keep the dialog with a
+      // manual "Install" button rather than failing silently
+      _pendingPath = path;
+      setState(() => _phase = _Phase.readyToInstall);
     }
   }
 
@@ -106,6 +149,12 @@ class _UpdateDialogState extends State<_UpdateDialog> {
             fr: 'Téléchargement de la mise à jour...',
             en: 'Downloading the update...');
         break;
+      case _Phase.readyToInstall:
+        body = _l(lang,
+            ar: 'اكتمل التنزيل. اضغط "تثبيت" لإكمال التحديث.',
+            fr: 'Téléchargement terminé. Appuyez sur « Installer » pour terminer.',
+            en: 'Download complete. Tap "Install" to finish the update.');
+        break;
       case _Phase.error:
         body = _l(lang,
             ar: 'تعذر التنزيل. تحقق من الاتصال وحاول مجدداً.',
@@ -123,7 +172,28 @@ class _UpdateDialogState extends State<_UpdateDialog> {
         ar: 'تحديث الآن', fr: 'Mettre à jour', en: 'Update Now');
     final retryButton =
         _l(lang, ar: 'إعادة المحاولة', fr: 'Réessayer', en: 'Retry');
+    final installButton =
+        _l(lang, ar: 'تثبيت', fr: 'Installer', en: 'Install');
     final laterButton = _l(lang, ar: 'لاحقاً', fr: 'Plus tard', en: 'Later');
+
+    final String actionLabel;
+    final VoidCallback actionTap;
+    switch (_phase) {
+      case _Phase.readyToInstall:
+        actionLabel = installButton;
+        actionTap = () {
+          final path = _pendingPath;
+          if (path != null) _install(path);
+        };
+        break;
+      case _Phase.error:
+        actionLabel = retryButton;
+        actionTap = _startUpdate;
+        break;
+      default:
+        actionLabel = updateButton;
+        actionTap = _startUpdate;
+    }
 
     return AlertDialog(
       backgroundColor: colorScheme.surface,
@@ -158,8 +228,8 @@ class _UpdateDialogState extends State<_UpdateDialog> {
           ),
         if (_phase != _Phase.downloading)
           FilledButton(
-            onPressed: _startUpdate,
-            child: Text(_phase == _Phase.error ? retryButton : updateButton),
+            onPressed: actionTap,
+            child: Text(actionLabel),
           ),
       ],
     );
