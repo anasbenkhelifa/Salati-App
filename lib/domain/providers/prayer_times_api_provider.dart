@@ -656,7 +656,7 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
       // Save qibla direction
       if (qiblaResponse != null) {
         _cacheService.saveQiblaDirection(
-          (qiblaResponse as dynamic).direction ?? 0.0,
+          (qiblaResponse as QiblaResponse).direction,
         );
       }
 
@@ -828,13 +828,12 @@ class PrayerTimesApiProvider extends ChangeNotifier with WidgetsBindingObserver 
 
       // Update Qibla provider
       if (qiblaResponse != null) {
-        _cacheService.saveQiblaDirection(
-          (qiblaResponse as dynamic).direction ?? 0.0,
-        );
+        final dir = (qiblaResponse as QiblaResponse).direction;
+        _cacheService.saveQiblaDirection(dir);
         QiblaProvider.instance?.refreshFromNewLocation(
           position.latitude,
           position.longitude,
-          (qiblaResponse as dynamic).direction ?? 0.0,
+          dir,
         );
       }
 

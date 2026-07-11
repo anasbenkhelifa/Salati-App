@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:913072373984:android:8d1714394809b04587d085",
+        "android_client_info": {
+          "package_name": "app.salati.prayer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbWvgCVtnWwb4Ir8w2DioPUfu3vKvx0AE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:913072373984:android:5e5bc0bf2707ee1d87d085",
         "android_client_info": {
           "package_name": "com.example.adhan_app"

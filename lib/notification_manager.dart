@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../domain/providers/live_notification_provider.dart';
-import '../data/services/notification_service.dart';
-import '../data/services/prayer_times_cache_service.dart';
-import '../data/services/hijri_date_service.dart';
-import 'core/localization/app_locale_provider.dart';
-import 'domain/providers/prayer_times_api_provider.dart';
+import 'package:adhan_app/domain/providers/live_notification_provider.dart';
+import 'package:adhan_app/data/services/notification_service.dart';
+import 'package:adhan_app/data/services/prayer_times_cache_service.dart';
+import 'package:adhan_app/data/services/hijri_date_service.dart';
+import 'package:adhan_app/core/localization/app_locale_provider.dart';
+import 'package:adhan_app/domain/providers/prayer_times_api_provider.dart';
 
 /// Widget that manages the live notification lifecycle
 /// Uses CACHE-ONLY for notification - NO GPS or network calls

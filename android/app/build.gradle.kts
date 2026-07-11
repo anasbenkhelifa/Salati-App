@@ -34,8 +34,11 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.adhan_app"
+        // PERMANENT app identity on every device + Play Store. Never change this
+        // — a change forces all users to uninstall before they can update.
+        // (namespace stays com.example.adhan_app; it is build-internal only and
+        // unrelated to the on-device package identity.)
+        applicationId = "app.salati.prayer"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ backup + device-transfer rules. Same intent as backup_rules:
+     keep user settings + prayer journal, drop the throwaway update APK. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="updates/" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="updates/" />
+    </device-transfer>
+</data-extraction-rules>

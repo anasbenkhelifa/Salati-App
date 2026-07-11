@@ -91,11 +91,35 @@ class PrayerTimesCacheService {
   static const _keyLocationNameEn = 'location_name_en';
   static const _keyLocationNameAr = 'location_name_ar';
 
+  // Schema versioning — bump when a cached key's format changes, then add a
+  // migration block in migrateIfNeeded() so a returning user's stale cache is
+  // remapped/cleared instead of silently breaking.
+  static const _keySchemaVersion = 'cache_schema_version';
+  static const int _currentSchemaVersion = 1;
+
   SharedPreferences? _prefs;
 
   Future<SharedPreferences> get _preferences async {
     _prefs ??= await SharedPreferences.getInstance();
     return _prefs!;
+  }
+
+  // ========== SCHEMA MIGRATION ==========
+
+  /// Run once at startup. Detects an older cache schema and migrates or clears
+  /// stale data so a future format change never silently corrupts a returning
+  /// user's cache. No-op on a fresh install or when already current.
+  Future<void> migrateIfNeeded() async {
+    final prefs = await _preferences;
+    final stored = prefs.getInt(_keySchemaVersion) ?? 0;
+    if (stored == _currentSchemaVersion) return;
+
+    // stored == 0 → fresh install or a pre-versioning build; nothing to migrate
+    // yet. Future format changes add `if (stored < N) { ...remap/clear... }`
+    // blocks here, in order, before stamping the current version.
+    debugPrint('[PrayerTimesCacheService] cache schema $stored -> '
+        '$_currentSchemaVersion');
+    await prefs.setInt(_keySchemaVersion, _currentSchemaVersion);
   }
 
   // ========== SETUP FLAG ==========

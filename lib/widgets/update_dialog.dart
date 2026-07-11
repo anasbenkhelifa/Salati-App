@@ -43,6 +43,7 @@ class _UpdateDialogState extends State<_UpdateDialog>
   // install on resume instead of silently failing.
   bool _foreground = true;
   String? _pendingPath;
+  bool _integrityFailed = false;
 
   @override
   void initState() {
@@ -98,6 +99,7 @@ class _UpdateDialogState extends State<_UpdateDialog>
     setState(() {
       _phase = _Phase.downloading;
       _progress = 0;
+      _integrityFailed = false;
     });
 
     final path = await ApkUpdateService.downloadApk(apkUrl, (p) {
@@ -106,6 +108,18 @@ class _UpdateDialogState extends State<_UpdateDialog>
 
     if (!mounted) return;
     if (path == null) {
+      setState(() => _phase = _Phase.error);
+      return;
+    }
+
+    // Integrity check: reject a corrupted/tampered download before installing
+    final ok = await ApkUpdateService.verifySha256(
+      path,
+      UpdateService.getApkSha256(),
+    );
+    if (!mounted) return;
+    if (!ok) {
+      _integrityFailed = true;
       setState(() => _phase = _Phase.error);
       return;
     }
@@ -163,10 +177,15 @@ class _UpdateDialogState extends State<_UpdateDialog>
             en: 'Download complete. Tap "Install" to finish the update.');
         break;
       case _Phase.error:
-        body = _l(lang,
-            ar: 'تعذر التنزيل. تحقق من الاتصال وحاول مجدداً.',
-            fr: 'Échec du téléchargement. Vérifiez la connexion et réessayez.',
-            en: 'Download failed. Check your connection and try again.');
+        body = _integrityFailed
+            ? _l(lang,
+                ar: 'فشل التحقق من سلامة الملف. لم يتم التثبيت. حاول مجدداً.',
+                fr: 'Échec de la vérification d\'intégrité. Installation annulée. Réessayez.',
+                en: 'Integrity check failed. The update was not installed. Please try again.')
+            : _l(lang,
+                ar: 'تعذر التنزيل. تحقق من الاتصال وحاول مجدداً.',
+                fr: 'Échec du téléchargement. Vérifiez la connexion et réessayez.',
+                en: 'Download failed. Check your connection and try again.');
         break;
       case _Phase.idle:
         body = _l(lang,

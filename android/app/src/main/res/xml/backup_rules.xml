@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android <12 auto-backup (allowBackup=true).
+     Backs up user data (theme, language, prayer journal/streaks) so it
+     survives a device migration. Excludes the downloaded update APK — it's
+     throwaway and large, and a stale copy must never be restored/installed. -->
+<full-backup-content>
+    <exclude domain="file" path="updates/" />
+</full-backup-content>

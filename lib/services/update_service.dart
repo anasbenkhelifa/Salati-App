@@ -33,6 +33,7 @@ class UpdateService {
   static const String _minVersionKey = 'min_supported_version';
   static const String _apkUrlKey = 'apk_download_url';
   static const String _changelogKey = 'update_changelog';
+  static const String _apkSha256Key = 'apk_sha256';
 
   static const String _defaultApkUrl =
       'https://pub-01160e77f7394a43946f810025efb70d.r2.dev/Salati.apk';
@@ -55,6 +56,7 @@ class UpdateService {
         _minVersionKey: '0.0.0',
         _apkUrlKey: _defaultApkUrl,
         _changelogKey: '',
+        _apkSha256Key: '',
       });
       await rc.fetchAndActivate();
       _ready = true;
@@ -70,6 +72,16 @@ class UpdateService {
       return url.isNotEmpty ? url : _defaultApkUrl;
     } catch (_) {
       return _defaultApkUrl;
+    }
+  }
+
+  /// Expected SHA-256 of the update APK (hex, from Remote Config). Empty when
+  /// not configured — callers then skip the integrity check.
+  static String getApkSha256() {
+    try {
+      return FirebaseRemoteConfig.instance.getString(_apkSha256Key).trim();
+    } catch (_) {
+      return '';
     }
   }
 

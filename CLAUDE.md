@@ -8,8 +8,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Run on a connected device or emulator
 flutter run
 
-# Build release APK
-flutter build apk --release
+# Build release APK — arm64 split (~29MB). A plain `flutter build apk` ships
+# all 3 CPU ABIs in one ~74MB universal APK; each device needs only one.
+flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/debug-symbols
+# Play Store upload (Google delivers a ~25MB per-device slice):
+flutter build appbundle --release --obfuscate --split-debug-info=build/debug-symbols
 
 # Lint / static analysis
 flutter analyze

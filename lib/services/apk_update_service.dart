@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -75,6 +76,29 @@ class ApkUpdateService {
       return null;
     } finally {
       client.close();
+    }
+  }
+
+  /// Verifies the downloaded file's SHA-256 against [expectedHex] (from Remote
+  /// Config). Returns true when [expectedHex] is empty (check not configured)
+  /// or matches. A mismatch means a corrupted or tampered download — never
+  /// install it. Android's installer also rejects an APK not signed with the
+  /// app's key, so this is fail-fast defense-in-depth.
+  static Future<bool> verifySha256(String path, String expectedHex) async {
+    final expected = expectedHex.trim().toLowerCase();
+    if (expected.isEmpty) return true;
+    try {
+      final bytes = await File(path).readAsBytes();
+      final actual = sha256.convert(bytes).toString();
+      final ok = actual == expected;
+      if (!ok) {
+        debugPrint('[ApkUpdateService] SHA-256 mismatch: '
+            'expected $expected got $actual');
+      }
+      return ok;
+    } catch (e) {
+      debugPrint('[ApkUpdateService] SHA-256 check failed: $e');
+      return false;
     }
   }
 

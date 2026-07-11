@@ -50,6 +50,9 @@ dependencies:
   # HTTP client for API calls
   http: ^1.2.0
 
+  # SHA-256 integrity check on the downloaded update APK
+  crypto: ^3.0.3
+
 
   # Compass sensor
   flutter_compass: ^0.8.0

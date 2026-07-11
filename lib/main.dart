@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'notification_manager.dart';
 import 'data/services/adhan_selection_service.dart';
 import 'domain/providers/prayer_times_api_provider.dart';
+import 'data/services/prayer_times_cache_service.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'dart:ui' show PlatformDispatcher;
 import 'package:firebase_core/firebase_core.dart';
@@ -47,6 +48,9 @@ void main() async {
     AppThemeProvider.instance.initialize(),
     AdhanSelectionService.instance.initialize(),
   ]);
+
+  // Migrate any older cache schema before the provider reads it
+  await PrayerTimesCacheService().migrateIfNeeded();
 
   // Initialize PrayerTimes centrally
   await PrayerTimesApiProvider.instance.initialize();

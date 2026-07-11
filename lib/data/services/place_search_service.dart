@@ -31,15 +31,30 @@ class PlaceSearchService {
 
       debugPrint('[PlaceSearchService] Searching: $query (lang=$langCode)');
 
-      final response = await http
-          .get(
-            uri,
-            headers: {'User-Agent': _userAgent, 'Accept-Language': langCode},
-          )
-          .timeout(const Duration(seconds: 10));
+      // One retry: search is the only user-facing network call, and a single
+      // retry recovers most transient drops on spotty mobile connections.
+      http.Response? response;
+      for (var attempt = 0; attempt < 2; attempt++) {
+        try {
+          response = await http
+              .get(
+                uri,
+                headers: {
+                  'User-Agent': _userAgent,
+                  'Accept-Language': langCode,
+                },
+              )
+              .timeout(const Duration(seconds: 10));
+          if (response.statusCode == 200) break;
+          debugPrint('[PlaceSearchService] HTTP ${response.statusCode} '
+              '(attempt ${attempt + 1})');
+        } catch (e) {
+          debugPrint('[PlaceSearchService] attempt ${attempt + 1} failed: $e');
+          if (attempt == 0) await Future.delayed(const Duration(seconds: 2));
+        }
+      }
 
-      if (response.statusCode != 200) {
-        debugPrint('[PlaceSearchService] HTTP error: ${response.statusCode}');
+      if (response == null || response.statusCode != 200) {
         return [];
       }
 

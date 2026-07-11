@@ -61,10 +61,10 @@ class AdhanSelectionService extends ChangeNotifier {
 
   /// Get selected adhan for a prayer
   AdhanOption getSelectedAdhan(String prayerKey) {
-    final adhanId = _selections[prayerKey] ?? 'default';
+    final adhanId = _selections[prayerKey] ?? 'medina';
     return allAdhans.firstWhere(
       (a) => a.id == adhanId,
-      orElse: () => AdhanOption.defaultAdhan,
+      orElse: () => AdhanOption.medinaAdhan,
     );
   }
 
