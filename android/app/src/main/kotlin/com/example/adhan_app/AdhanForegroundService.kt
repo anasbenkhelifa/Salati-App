@@ -23,6 +23,7 @@ import android.os.VibratorManager
 import android.provider.Settings
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
+import android.widget.RemoteViews
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media.VolumeProviderCompat
@@ -59,8 +60,10 @@ class AdhanForegroundService : Service() {
         
         // Grace window: 30 minutes after prayer
         const val GRACE_WINDOW_MINUTES = 30
-        // Warning: last 20 minutes before prayer
-        const val WARNING_MINUTES = 20
+        // Warning: last 45 minutes before prayer — countdown turns red
+        const val WARNING_MINUTES = 45
+        // Countdown colour while inside the warning window
+        const val WARNING_COLOR = 0xFFE53935.toInt()
         
         @Volatile
         private var instance: AdhanForegroundService? = null
@@ -425,9 +428,7 @@ class AdhanForegroundService : Service() {
             if (isLiveNotificationEnabled()) {
                 try {
                     // Revert to normal countdown notification using startForeground
-                    val content = computeNotificationContent()
-                    val (title, body) = content
-                    val notification = buildNotification(title, body)
+                    val notification = buildNotification(computeNotificationContent())
                     startForeground(NOTIFICATION_ID, notification)
                     Log.d(TAG, "Reverted to countdown notification")
                 } catch (e: Exception) {
@@ -824,15 +825,13 @@ class AdhanForegroundService : Service() {
     }
     
     private fun startForegroundWithCachedData() {
-        val (title, body) = computeNotificationContent()
-        val notification = buildNotification(title, body)
-        startForeground(NOTIFICATION_ID, notification)
-        Log.d(TAG, "Started foreground: $title | $body")
+        val content = computeNotificationContent()
+        startForeground(NOTIFICATION_ID, buildNotification(content))
+        Log.d(TAG, "Started foreground: ${content.title} | ${content.body}")
     }
-    
+
     private fun updateNotificationFromCache() {
-        val (title, body) = computeNotificationContent()
-        val notification = buildNotification(title, body)
+        val notification = buildNotification(computeNotificationContent())
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIFICATION_ID, notification)
     }
@@ -859,7 +858,7 @@ class AdhanForegroundService : Service() {
      * Compute notification content from SharedPreferences cache
      * Returns Pair(title, body)
      */
-    private fun computeNotificationContent(): Pair<String, String> {
+    private fun computeNotificationContent(): NotifContent {
         val isArabic = prefs.getString("flutter.app_language", "ar") == "ar"
         val cityAr = prefs.getString("flutter.cached_city_ar", "") ?: ""
         val cityEn = prefs.getString("flutter.cached_city_en", "") ?: ""
@@ -869,11 +868,11 @@ class AdhanForegroundService : Service() {
         val timings = AdhanAlarmScheduler.getTimingsForDate(this, Calendar.getInstance())
 
         if (timings == null) {
-            // No cache - show setup message
+            // No cache - show setup message (plain template, no countdown row)
             return if (isArabic) {
-                Pair("افتح التطبيق لإكمال الإعداد", "لم يتم تحديد الموقع وأوقات الصلاة")
+                NotifContent("افتح التطبيق لإكمال الإعداد", "لم يتم تحديد الموقع وأوقات الصلاة", null)
             } else {
-                Pair("Open the app to finish setup", "Location & prayer times not cached yet")
+                NotifContent("Open the app to finish setup", "Location & prayer times not cached yet", null)
             }
         }
 
@@ -888,12 +887,12 @@ class AdhanForegroundService : Service() {
         val now = Calendar.getInstance()
         val prayerStatus = computePrayerStatus(timings, now, isArabic, tomorrowTimings)
         
-        Log.d(TAG, "TICK: nextPrayer=${prayerStatus.prayerName}, remaining=${prayerStatus.countdown}, grace=${prayerStatus.isGrace}")
-        
+        Log.d(TAG, "TICK: nextPrayer=${prayerStatus.prayerName}, remaining=${prayerStatus.countdown}, grace=${prayerStatus.isGrace}, warning=${prayerStatus.isWarning}")
+
         // Build body: prayer name + time + countdown
         val body = "${prayerStatus.prayerName} ${prayerStatus.prayerTime} | ${prayerStatus.countdown}"
-        
-        return Pair(title, body)
+
+        return NotifContent(title, body, prayerStatus)
     }
     
     /**
@@ -1107,7 +1106,9 @@ class AdhanForegroundService : Service() {
         return String.format("%d:%02d %s", hour12, minute, period)
     }
     
-    private fun buildNotification(title: String, body: String): Notification {
+    private fun buildNotification(content: NotifContent): Notification {
+        val title = content.title
+        val body = content.body
         val openAppIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -1128,7 +1129,7 @@ class AdhanForegroundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(body)
             .setSmallIcon(R.drawable.ic_stat_adhan)
@@ -1141,9 +1142,41 @@ class AdhanForegroundService : Service() {
             .setContentIntent(openAppPendingIntent)
             .setDeleteIntent(dismissPendingIntent)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .build()
+
+        // Countdown rows get a custom layout so the bold weight on the prayer
+        // time / counter and the red warning colour actually survive SystemUI.
+        // setContentText above stays as the plain fallback (lockscreen minimal
+        // views, launchers that ignore custom views).
+        val status = content.status
+        if (status != null) {
+            val views = RemoteViews(packageName, R.layout.notification_prayer_status).apply {
+                setTextViewText(R.id.notif_title, title)
+                setTextViewText(R.id.notif_prayer, status.prayerName)
+                setTextViewText(R.id.notif_time, status.prayerTime)
+                setTextViewText(R.id.notif_countdown, status.countdown)
+                // RemoteViews are rebuilt every tick, so the XML default colour
+                // comes back on its own once the warning window is over.
+                if (status.isWarning) {
+                    setTextColor(R.id.notif_countdown, WARNING_COLOR)
+                }
+            }
+            builder.setCustomContentView(views)
+                .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+        }
+
+        return builder.build()
     }
     
+    /**
+     * Resolved notification content. [status] is null when prayer times aren't
+     * cached yet — that case falls back to the plain setup message template.
+     */
+    private data class NotifContent(
+        val title: String,
+        val body: String,
+        val status: PrayerStatus?
+    )
+
     /**
      * Data class for prayer status
      */

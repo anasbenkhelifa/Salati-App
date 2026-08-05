@@ -42,15 +42,40 @@ class _LivingBackgroundState extends State<LivingBackground>
   bool _baking = false;
   Size? _lastLayoutSize;
 
+  /// Night theme opts out of the ambient layer entirely — no rosettes, no
+  /// auroras, just the Scaffold's flat navy gradient showing through. The
+  /// drift controller is stopped and the baked lattice freed while it's on.
+  bool _bare = AppTheme.isNightMode;
+
+  /// True while a pushed route (Controls, sheets on their own route…) fully
+  /// covers the shell. Flutter keeps tickers running under an opaque route, so
+  /// without this the drift would go on repainting a background nobody can see
+  /// — straight overhead on top of the incoming route's own animation.
+  bool _covered = false;
+
+  /// The route hosting this background; watched to learn when it gets covered.
+  ModalRoute<dynamic>? _route;
+
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: AppMotion.ambient)
-      ..repeat();
+    _controller = AnimationController(vsync: this, duration: AppMotion.ambient);
     // 30fps is indistinguishable for an 8px/s drift; on 120Hz displays this
     // skips 3 of every 4 ambient repaints.
     _ambient = _ThrottledListenable(_controller, targetFps: 30);
     AppThemeProvider.instance.addListener(_onThemeChanged);
+    _syncTicker();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != _route) {
+      _route?.secondaryAnimation?.removeStatusListener(_onCoverChanged);
+      _route = route;
+      _route?.secondaryAnimation?.addStatusListener(_onCoverChanged);
+    }
   }
 
   @override
@@ -61,11 +86,45 @@ class _LivingBackgroundState extends State<LivingBackground>
     }
   }
 
-  void _onThemeChanged() => _maybeBake();
+  /// Only [AnimationStatus.completed] means fully hidden — the drift keeps
+  /// running through the push/pop transition itself, while it's still visible.
+  void _onCoverChanged(AnimationStatus status) {
+    final covered = status == AnimationStatus.completed;
+    if (covered == _covered) return;
+    _covered = covered;
+    _syncTicker();
+  }
+
+  /// The drift runs only when it has something to show and someone to show it.
+  void _syncTicker() {
+    final shouldRun = !_bare && !_covered;
+    if (shouldRun && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!shouldRun && _controller.isAnimating) {
+      _controller.stop();
+    }
+  }
+
+  void _onThemeChanged() {
+    final bare = AppTheme.isNightMode;
+    if (bare != _bare) {
+      _bare = bare;
+      if (bare) {
+        _latticeImage?.dispose();
+        _latticeImage = null;
+        _bakedSize = null;
+        _bakedLineColor = null;
+      }
+      _syncTicker();
+      if (mounted) setState(() {});
+    }
+    _maybeBake();
+  }
 
   @override
   void dispose() {
     AppThemeProvider.instance.removeListener(_onThemeChanged);
+    _route?.secondaryAnimation?.removeStatusListener(_onCoverChanged);
     _ambient.dispose();
     _controller.dispose();
     _latticeImage?.dispose();
@@ -75,7 +134,7 @@ class _LivingBackgroundState extends State<LivingBackground>
   /// (Re)bake the lattice image if the size or line color changed.
   void _maybeBake() {
     final size = _lastLayoutSize;
-    if (!mounted || size == null || size.isEmpty) return;
+    if (!mounted || _bare || size == null || size.isEmpty) return;
     final lineColor = _LivingBackgroundPainter.latticeLineColor(
       widget.eventTint,
     );
@@ -133,6 +192,10 @@ class _LivingBackgroundState extends State<LivingBackground>
 
   @override
   Widget build(BuildContext context) {
+    // Night: paint nothing at all — the Scaffold gradient below is the whole
+    // background. No painter, so no repaints and no parallax either.
+    if (_bare) return const SizedBox.expand();
+
     final repaint =
         widget.pageController == null
             ? _ambient as Listenable

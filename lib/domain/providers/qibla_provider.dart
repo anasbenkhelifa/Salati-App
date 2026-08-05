@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/services/analytics_service.dart';
 import '../../data/services/prayer_times_cache_service.dart';
 import '../../data/services/qibla_api_service.dart';
 
@@ -123,6 +124,7 @@ class QiblaProvider extends ChangeNotifier {
     if (_compassHapticsEnabled == enabled) return;
     _compassHapticsEnabled = enabled;
     notifyListeners();
+    AnalyticsService.instance.logCompassHapticsToggled(enabled);
 
     try {
       final prefs = await SharedPreferences.getInstance();

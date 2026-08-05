@@ -58,9 +58,16 @@ class AnalyticsService {
 
   // ── Page Views ─────────────────────────────────────────────────
 
+  /// Logs a screen change. Uses Firebase's reserved `screen_view` event so the
+  /// data lands in the GA4 *Screens* report — a custom `page_view` event would
+  /// only show up as an unattached custom event (and collides with the name
+  /// GA4 auto-collects on web).
   Future<void> logPageView(String pageName) async {
-    await _analytics.logEvent(name: 'page_view', parameters: {'page_name': pageName});
-    debugPrint('[Analytics] page_view: $pageName');
+    await _analytics.logScreenView(
+      screenName: pageName,
+      screenClass: 'AppShell',
+    );
+    debugPrint('[Analytics] screen_view: $pageName');
   }
 
   // ── Settings Toggles ──────────────────────────────────────────

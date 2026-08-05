@@ -70,6 +70,9 @@ class _AppShellState extends State<AppShell> {
     // Listen to prayer data state for tour & rating prompt
     PrayerTimesApiProvider.instance.addListener(_onPrayerDataChanged);
     _warmUpShaders();
+    // Log the launch page. `_onPageChanged` only fires on swipe, so without
+    // this the default page (Home) never registered a screen_view.
+    AnalyticsService.instance.logPageView(_pageNames[_currentIndex]);
     // Try to trigger tour immediately if data is already loaded
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _tryTriggerTourAndRatingPrompt();
@@ -465,7 +468,12 @@ class _AppShellState extends State<AppShell> {
                                   ),
                                 );
                               },
-                              child: _pages[index],
+                              // RepaintBoundary is what makes the scale/fade
+                              // above cheap: the page rasterises once into its
+                              // own layer and the swipe just re-composites it.
+                              // Without it, every frame of the swipe repaints
+                              // the whole page subtree.
+                              child: RepaintBoundary(child: _pages[index]),
                             );
                           },
                         ),
