@@ -83,6 +83,25 @@ Notifications: flutter_local_notifications (with deeply integrated Kotlin Foregr
 
 ---
 
+## 🚀 Getting Started
+
+```bash
+flutter pub get
+flutter run
+```
+
+**Firebase**: the repo ships `google-services.json` / `firebase_options.dart` for the
+maintainer's own Firebase project (push notifications + a Firestore rating counter).
+Fork it to your own Firebase project — run `flutterfire configure` — before shipping
+your own build.
+
+**Release signing**: `android/key.properties` and `android/upload-keystore.jks` are
+gitignored and not included. Generate your own upload key
+([Android docs](https://developer.android.com/studio/publish/app-signing)) to build a
+release APK/AAB.
+
+---
+
 ## 🌙 Credits
 
 Built with ❤️ for Muslims worldwide.
@@ -95,4 +114,4 @@ Built with ❤️ for Muslims worldwide.
 
 ## 📄 License
 
-Private project. All rights reserved.
+MIT License — see [LICENSE](LICENSE).
